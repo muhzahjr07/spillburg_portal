@@ -18,7 +18,7 @@ We take the security and confidentiality of Spillburg Holdings corporate data an
 If you discover a security vulnerability, please **DO NOT** open a public issue. Instead, follow these steps:
 
 1. **Email Contact**: Send a private report directly to the repository maintainer:
-   - Muhammad Zaharan ([muhzahjr07@gmail.com](mailto:muhzahjr07@gmail.com))
+   - Muhammad Zaharan ([frm,zaharan.jr@gmail.com](mailto:[frm,zaharan.jr@gmail.com]))
 2. **Include Key Details**:
    - Description of the vulnerability and its potential impact.
    - Exact steps or proof-of-concept script to reproduce the issue.
