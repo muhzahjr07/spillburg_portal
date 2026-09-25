@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Office File Register - Customer Database Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    [x-cloak] { display: none !important; }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background: white !important; }
+      .shadow-sm, .shadow-md, .shadow-lg { box-shadow: none !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+  <!-- TOP HEADER -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Brand & Title -->
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-100">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-lg font-bold text-slate-900 leading-tight">Office File Register</h1>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
+                Connected: Access DB
+              </span>
+            </div>
+            <p class="text-xs text-slate-500">Customer Original & Customer File Manager</p>
+          </div>
+        </div>
+
+        <!-- Global Action Buttons -->
+        <div class="flex items-center space-x-2 sm:space-x-3">
+          
+          <!-- Dual Add Button -->
+          <button onclick="openDualAddModal()" class="inline-flex items-center px-3 py-2 border border-indigo-200 text-xs sm:text-sm font-semibold rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 hover:border-indigo-300 transition shadow-xs">
+            <svg class="w-4 h-4 mr-1.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path>
+            </svg>
+            <span>+ Onboard Company (Both Files)</span>
+          </button>
+
+          <!-- Single Add Button -->
+          <button onclick="openAddModal()" class="inline-flex items-center px-3.5 py-2 border border-transparent text-xs sm:text-sm font-semibold rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-xs">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            <span>Add Single File</span>
+          </button>
+
+          <!-- Backup & More Options -->
+          <div class="relative">
+            <button onclick="openBackupModal()" title="Database Backups & Safety" class="p-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-100 hover:text-slate-900 transition">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path>
+              </svg>
+            </button>
+          </div>
+
+          <!-- CSV Export Button -->
+          <a href="/api/export" download title="Export Register to CSV" class="p-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-100 hover:text-slate-900 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+          </a>
+
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+
+    <!-- METRICS CARDS -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 no-print">
+      
+      <!-- Total Files -->
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 transition">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Active Files</p>
+            <h3 id="stat-total" class="text-2xl font-extrabold text-slate-900 mt-1">--</h3>
+          </div>
+          <div class="w-11 h-11 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center text-xs text-slate-500">
+          <span class="text-slate-600 font-medium" id="stat-companies-sub">--</span>
+          <span class="mx-1.5">•</span>
+          <span>Registered Entities</span>
+        </div>
+      </div>
+
+      <!-- Customer Original Files -->
+      <div onclick="filterByType('Original')" class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-emerald-300 cursor-pointer transition group">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-emerald-700">Original Files</p>
+            <h3 id="stat-original" class="text-2xl font-extrabold text-emerald-600 mt-1">--</h3>
+          </div>
+          <div class="w-11 h-11 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center text-xs text-slate-500">
+          <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span>
+          <span>Cupboards 1 & 3 (Original Deeds & Docs)</span>
+        </div>
+      </div>
+
+      <!-- Customer Copy Files -->
+      <div onclick="filterByType('Copy')" class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs hover:border-blue-300 cursor-pointer transition group">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider group-hover:text-blue-700">Customer Files (Copies)</p>
+            <h3 id="stat-copy" class="text-2xl font-extrabold text-blue-600 mt-1">--</h3>
+          </div>
+          <div class="w-11 h-11 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center text-xs text-slate-500">
+          <span class="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1.5"></span>
+          <span>Cupboard 2 (Office Reference Copies)</span>
+        </div>
+      </div>
+
+      <!-- Storage Locations -->
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Physical Storage</p>
+            <h3 id="stat-cupboards-count" class="text-2xl font-extrabold text-slate-900 mt-1">--</h3>
+          </div>
+          <div class="w-11 h-11 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="mt-3 flex items-center text-xs text-slate-500">
+          <span id="stat-boxes-count" class="text-slate-700 font-medium">--</span>
+          <span class="mx-1.5">•</span>
+          <span>Organized Box Files</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- SEARCH & FILTER TOOLBAR -->
+    <section class="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-4 no-print">
+      
+      <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        
+        <!-- Search Input -->
+        <div class="relative flex-1">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+          <input 
+            type="text" 
+            id="search-input" 
+            placeholder="Search by Company Name, Reg No (e.g. PV...), Box No, Cupboard..." 
+            class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition"
+            oninput="handleSearch(this.value)"
+          >
+          <button id="clear-search-btn" onclick="clearSearch()" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+
+        <!-- View Switcher (Table vs Physical Box View) -->
+        <div class="inline-flex rounded-lg border border-slate-200 p-1 bg-slate-100 self-start md:self-auto">
+          <button id="btn-view-table" onclick="setViewMode('table')" class="px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-slate-800 shadow-xs flex items-center space-x-1.5 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+            </svg>
+            <span>Table View</span>
+          </button>
+          <button id="btn-view-boxes" onclick="setViewMode('boxes')" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center space-x-1.5 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+            </svg>
+            <span>Physical Box View</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- FILTER PILLS & DROPDOWNS -->
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 text-xs">
+        
+        <!-- Category & Type Pills -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button id="pill-all" onclick="filterByType('All')" class="px-3 py-1.5 rounded-lg font-semibold bg-slate-800 text-white shadow-xs transition">
+            All Records (<span id="pill-all-count">0</span>)
+          </button>
+          <button id="pill-original" onclick="filterByType('Original')" class="px-3 py-1.5 rounded-lg font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+            Original Files (<span id="pill-orig-count">0</span>)
+          </button>
+          <button id="pill-copy" onclick="filterByType('Copy')" class="px-3 py-1.5 rounded-lg font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
+            Customer Files (<span id="pill-copy-count">0</span>)
+          </button>
+        </div>
+
+        <!-- Filter Selects -->
+        <div class="flex flex-wrap items-center gap-2">
+          
+          <!-- Cupboard Select -->
+          <div class="flex items-center space-x-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+            <span class="text-slate-400 font-medium">Cupboard:</span>
+            <select id="filter-cupboard" onchange="handleFilterChange()" class="bg-transparent text-slate-700 font-semibold focus:outline-none cursor-pointer">
+              <option value="All">All Cupboards</option>
+            </select>
+          </div>
+
+          <!-- Box Select -->
+          <div class="flex items-center space-x-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+            <span class="text-slate-400 font-medium">Box:</span>
+            <select id="filter-box" onchange="handleFilterChange()" class="bg-transparent text-slate-700 font-semibold focus:outline-none cursor-pointer">
+              <option value="All">All Box Files</option>
+            </select>
+          </div>
+
+          <!-- Sort Select -->
+          <div class="flex items-center space-x-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+            <span class="text-slate-400 font-medium">Sort:</span>
+            <select id="filter-sort" onchange="handleFilterChange()" class="bg-transparent text-slate-700 font-semibold focus:outline-none cursor-pointer">
+              <option value="no_asc">No (Ascending)</option>
+              <option value="no_desc">No (Descending)</option>
+            </select>
+          </div>
+
+          <!-- Reset Filter Button -->
+          <button onclick="resetAllFilters()" title="Reset all filters" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+          </button>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- CONTENT AREA -->
+    
+    <!-- 1. TABLE VIEW -->
+    <div id="view-table-container" class="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+      
+      <!-- Table Header Bar -->
+      <div class="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <h2 class="text-sm font-bold text-slate-800">Customer File Register</h2>
+          <span id="filtered-count-badge" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-200 text-slate-700">0 records</span>
+        </div>
+        <div class="flex items-center space-x-2 text-xs text-slate-500">
+          <span>Click any row to view full company profile & file pairings</span>
+        </div>
+      </div>
+
+      <!-- Responsive Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-50/75 text-slate-500 uppercase font-semibold text-xs tracking-wider border-b border-slate-200">
+            <tr>
+              <th scope="col" class="px-4 py-3 w-16 text-center">No</th>
+              <th scope="col" class="px-4 py-3 w-36">Reg. No</th>
+              <th scope="col" class="px-4 py-3">Company Name</th>
+              <th scope="col" class="px-4 py-3 w-36">Type</th>
+              <th scope="col" class="px-4 py-3 w-40">Cupboard</th>
+              <th scope="col" class="px-4 py-3 w-36">Box File</th>
+              <th scope="col" class="px-4 py-3 w-32">Date of Inc.</th>
+              <th scope="col" class="px-4 py-3 w-28 text-right no-print">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="records-table-body" class="divide-y divide-slate-100 font-normal">
+            <!-- Dynamic Rows -->
+            <tr>
+              <td colspan="8" class="text-center py-12 text-slate-400">
+                <div class="flex flex-col items-center justify-center space-y-2">
+                  <div class="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                  <p class="text-sm">Loading records from Access Database...</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-state" class="hidden py-16 text-center px-4">
+        <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <h3 class="text-base font-bold text-slate-800">No records found</h3>
+        <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">No file records matched your active filters or search terms. Try clearing your search or switching tabs.</p>
+        <button onclick="resetAllFilters()" class="mt-4 px-4 py-2 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition">
+          Clear Filters
+        </button>
+      </div>
+
+      <!-- Pagination / Footer info -->
+      <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-500 no-print">
+        <span id="footer-summary">Displaying all matching records</span>
+        <button onclick="window.print()" class="text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center">
+          <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+          </svg>
+          Print Register
+        </button>
+      </div>
+
+    </div>
+
+    <!-- 2. PHYSICAL BOX INVENTORY VIEW -->
+    <div id="view-boxes-container" class="hidden space-y-6">
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-xs">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Physical Archive & Box File Layout</h2>
+            <p class="text-xs text-slate-500">Visual breakdown of records by Cupboard and Box File for locating physical paper folders</p>
+          </div>
+          <span class="text-xs px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg font-medium">
+            Physical Drawer Organizer
+          </span>
+        </div>
+        <div id="boxes-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          <!-- Dynamic Cupboards and Box Cards -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-400 no-print">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <p>Office File Register • Direct Access OLEDB Database System</p>
+      <p>Local Server running on <code class="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600">http://127.0.0.1:8080</code></p>
+    </div>
+  </footer>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- 1. ADD SINGLE RECORD MODAL -->
+  <div id="modal-add" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <div class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+          </div>
+          <h3 class="text-base font-bold text-slate-900">Add File Record</h3>
+        </div>
+        <button onclick="closeModal('modal-add')" class="text-slate-400 hover:text-slate-600 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <form id="form-add" onsubmit="submitAddRecord(event)" class="p-6 space-y-4 text-sm">
+        
+        <div class="grid grid-cols-3 gap-3">
+          <div class="col-span-1">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Record No</label>
+            <input type="text" id="add-no" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-xs font-mono" placeholder="Auto" title="Will auto-assign next ID">
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Registration No</label>
+            <input type="text" id="add-reg" placeholder="e.g. PV00205419" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Company Name <span class="text-rose-500">*</span></label>
+          <input type="text" id="add-company" required placeholder="e.g. Acme Lanka (Pvt) Ltd" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">File Type</label>
+            <select id="add-type" onchange="onTypeChange(this.value, 'add')" class="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <option value="Original">Original</option>
+              <option value="Copy">Copy</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Category</label>
+            <input type="text" id="add-category" value="Original Files" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-xs">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Cupboard</label>
+            <input type="text" id="add-cupboard" list="cupboard-options" placeholder="e.g. Cupboard 1" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Box File No</label>
+            <input type="text" id="add-box" list="box-options" placeholder="e.g. Box File 1" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Incorporation</label>
+          <input type="date" id="add-date" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+          <button type="button" onclick="closeModal('modal-add')" class="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 text-xs font-medium transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition">
+            Save File Record
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- 2. DUAL ADD MODAL (ONBOARD NEW COMPANY: BOTH ORIGINAL + COPY) -->
+  <div id="modal-dual" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+      <div class="px-6 py-4 bg-gradient-to-r from-indigo-50 to-violet-50 border-b border-indigo-100 flex items-center justify-between">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Onboard Company (Dual Record)</h3>
+            <p class="text-xs text-indigo-700">Creates both the Original File and the Customer Copy in one step</p>
+          </div>
+        </div>
+        <button onclick="closeModal('modal-dual')" class="text-slate-400 hover:text-slate-600 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <form id="form-dual" onsubmit="submitDualRecord(event)" class="p-6 space-y-4 text-sm">
+        
+        <!-- Company details -->
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Company Name <span class="text-rose-500">*</span></label>
+            <input type="text" id="dual-company" required placeholder="e.g. Spillburg Global Services (Pvt) Ltd" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Registration No</label>
+              <input type="text" id="dual-reg" placeholder="e.g. PV00299999" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Incorporation</label>
+              <input type="date" id="dual-date" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- Two Location Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          
+          <!-- Original File Card -->
+          <div class="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-2.5">
+            <div class="flex items-center space-x-1.5 text-emerald-800 font-bold text-xs">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>1. Original File (Category: Original)</span>
+            </div>
+            <div>
+              <label class="block text-2xs text-emerald-900 font-semibold mb-0.5">Cupboard</label>
+              <input type="text" id="dual-orig-cupboard" value="Cupboard 1" list="cupboard-options" class="w-full px-2.5 py-1.5 bg-white border border-emerald-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+            <div>
+              <label class="block text-2xs text-emerald-900 font-semibold mb-0.5">Box File</label>
+              <input type="text" id="dual-orig-box" placeholder="e.g. Box File 1" list="box-options" class="w-full px-2.5 py-1.5 bg-white border border-emerald-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+          </div>
+
+          <!-- Customer File (Copy) Card -->
+          <div class="p-3.5 bg-blue-50/60 border border-blue-200 rounded-xl space-y-2.5">
+            <div class="flex items-center space-x-1.5 text-blue-800 font-bold text-xs">
+              <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span>2. Customer File (Category: Copy)</span>
+            </div>
+            <div>
+              <label class="block text-2xs text-blue-900 font-semibold mb-0.5">Cupboard</label>
+              <input type="text" id="dual-copy-cupboard" value="Cupboard 2" list="cupboard-options" class="w-full px-2.5 py-1.5 bg-white border border-blue-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
+            </div>
+            <div>
+              <label class="block text-2xs text-blue-900 font-semibold mb-0.5">Box File</label>
+              <input type="text" id="dual-copy-box" placeholder="e.g. Box File 01" list="box-options" class="w-full px-2.5 py-1.5 bg-white border border-blue-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
+            </div>
+          </div>
+
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+          <button type="button" onclick="closeModal('modal-dual')" class="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 text-xs font-medium transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition">
+            Create Both Records
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- 3. EDIT RECORD MODAL -->
+  <div id="modal-edit" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+          </div>
+          <h3 class="text-base font-bold text-slate-900">Edit File Record <span id="edit-no-badge" class="text-xs text-slate-500 font-mono">#--</span></h3>
+        </div>
+        <button onclick="closeModal('modal-edit')" class="text-slate-400 hover:text-slate-600 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <form id="form-edit" onsubmit="submitEditRecord(event)" class="p-6 space-y-4 text-sm">
+        <input type="hidden" id="edit-no">
+
+        <div class="grid grid-cols-3 gap-3">
+          <div class="col-span-1">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Record No</label>
+            <input type="text" id="edit-no-display" disabled class="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-500 text-xs font-mono">
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Registration No</label>
+            <input type="text" id="edit-reg" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Company Name <span class="text-rose-500">*</span></label>
+          <input type="text" id="edit-company" required class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">File Type</label>
+            <select id="edit-type" onchange="onTypeChange(this.value, 'edit')" class="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <option value="Original">Original</option>
+              <option value="Copy">Copy</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Category</label>
+            <input type="text" id="edit-category" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 text-xs">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Cupboard</label>
+            <input type="text" id="edit-cupboard" list="cupboard-options" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Box File No</label>
+            <input type="text" id="edit-box" list="box-options" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Date of Incorporation</label>
+          <input type="date" id="edit-date" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+          <button type="button" onclick="closeModal('modal-edit')" class="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 text-xs font-medium transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition">
+            Update Record
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- 4. VIEW RECORD & RELATED DETAILS MODAL -->
+  <div id="modal-view" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+          <span>Company File Profile</span>
+          <span id="view-type-badge"></span>
+        </h3>
+        <button onclick="closeModal('modal-view')" class="text-slate-400 hover:text-slate-600 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4 text-sm">
+        
+        <!-- Main Card -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+          <div class="flex items-start justify-between">
+            <div>
+              <span class="text-xs text-slate-400 font-mono" id="view-no">Record #--</span>
+              <h2 id="view-company" class="text-base font-bold text-slate-900 mt-0.5">--</h2>
+            </div>
+            <span id="view-reg" class="px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-white border border-slate-200 text-slate-700 shadow-2xs">--</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200 text-xs">
+            <div>
+              <p class="text-slate-400">Cupboard Location</p>
+              <p id="view-cupboard" class="font-semibold text-slate-800 mt-0.5">--</p>
+            </div>
+            <div>
+              <p class="text-slate-400">Box File Reference</p>
+              <p id="view-box" class="font-semibold text-slate-800 mt-0.5">--</p>
+            </div>
+            <div>
+              <p class="text-slate-400">Date of Incorporation</p>
+              <p id="view-date" class="font-semibold text-slate-800 mt-0.5">--</p>
+            </div>
+            <div>
+              <p class="text-slate-400">Category</p>
+              <p id="view-category" class="font-semibold text-slate-800 mt-0.5">--</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Related Files Section -->
+        <div id="view-related-section" class="space-y-2">
+          <p class="text-xs font-bold text-slate-700 uppercase tracking-wider">Paired / Related Files for this Company</p>
+          <div id="view-related-list" class="space-y-2">
+            <!-- Dynamic Related Items -->
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+          <button id="view-btn-delete" class="px-3.5 py-2 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-semibold transition">
+            Delete File
+          </button>
+          <div class="flex items-center space-x-2">
+            <button onclick="closeModal('modal-view')" class="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 text-xs font-medium transition">
+              Close
+            </button>
+            <button id="view-btn-edit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-xs transition">
+              Edit File
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. DELETE CONFIRMATION MODAL -->
+  <div id="modal-delete" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+      <div class="p-6 text-center space-y-4">
+        <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 mx-auto flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+          </svg>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Remove File from Database?</h3>
+          <p class="text-xs text-slate-500 mt-1.5">
+            Are you sure you want to permanently delete record <span id="del-no" class="font-mono font-bold text-slate-800">#--</span> for:
+          </p>
+          <div class="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-left space-y-1">
+            <div class="font-bold text-slate-800" id="del-company">--</div>
+            <div class="text-slate-500 flex items-center gap-2">
+              <span id="del-reg" class="font-mono">--</span>
+              <span>•</span>
+              <span id="del-type">--</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-center space-x-3 pt-2">
+          <button onclick="closeModal('modal-delete')" class="px-4 py-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 text-xs font-medium transition">
+            Cancel
+          </button>
+          <button id="del-confirm-btn" onclick="executeDeleteRecord()" class="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-xs transition">
+            Yes, Remove Record
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. BACKUP & SYSTEM SAFETY MODAL -->
+  <div id="modal-backup" class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+      <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+          </div>
+          <h3 class="text-base font-bold text-slate-900">Database Safety & Backups</h3>
+        </div>
+        <button onclick="closeModal('modal-backup')" class="text-slate-400 hover:text-slate-600 p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4 text-sm">
+        <div class="flex items-center justify-between bg-emerald-50 border border-emerald-200 p-4 rounded-xl">
+          <div>
+            <h4 class="text-xs font-bold text-emerald-900">Instant Snapshot Backup</h4>
+            <p class="text-xs text-emerald-700 mt-0.5">Creates a timestamped snapshot in the <code class="bg-emerald-100/80 px-1 py-0.5 rounded">backups/</code> folder</p>
+          </div>
+          <button onclick="createSnapshotBackup()" id="btn-create-backup" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition">
+            Create Backup Now
+          </button>
+        </div>
+
+        <div>
+          <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Available Backups</h4>
+          <div id="backups-list" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+            <p class="text-xs text-slate-400 py-4 text-center">Loading backups list...</p>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex justify-end">
+          <button onclick="closeModal('modal-backup')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none no-print"></div>
+
+  <!-- DATALISTS FOR AUTOCOMPLETE -->
+  <datalist id="cupboard-options"></datalist>
+  <datalist id="box-options"></datalist>
+
+  <!-- ==================== FRONTEND JAVASCRIPT ==================== -->
+  <script>
+    // State
+    let allRecords = [];
+    let currentFilterType = 'All';
+    let currentSearchTerm = '';
+    let currentCupboard = 'All';
+    let currentBox = 'All';
+    let currentSort = 'no_asc';
+    let viewMode = 'table';
+    let pendingDeleteNo = null;
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchStats();
+      fetchRecords();
+    });
+
+    // Toast system
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const colors = {
+        success: 'bg-emerald-600 text-white',
+        error: 'bg-rose-600 text-white',
+        info: 'bg-slate-800 text-white'
+      };
+
+      toast.className = `${colors[type] || colors.info} px-4 py-3 rounded-xl shadow-lg text-xs font-semibold flex items-center space-x-2 transform transition-all duration-300 opacity-0 translate-y-2 pointer-events-auto`;
+      toast.innerHTML = `
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span>${escapeHtml(message)}</span>
+      `;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('opacity-0', 'translate-y-2');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    // Modal Helpers
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+    }
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    // Close on Escape key
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        ['modal-add', 'modal-dual', 'modal-edit', 'modal-view', 'modal-delete', 'modal-backup'].forEach(closeModal);
+      }
+    });
+
+    // View Switcher
+    function setViewMode(mode) {
+      viewMode = mode;
+      const tableContainer = document.getElementById('view-table-container');
+      const boxesContainer = document.getElementById('view-boxes-container');
+      const btnTable = document.getElementById('btn-view-table');
+      const btnBoxes = document.getElementById('btn-view-boxes');
+
+      if (mode === 'table') {
+        tableContainer.classList.remove('hidden');
+        boxesContainer.classList.add('hidden');
+        btnTable.className = 'px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-slate-800 shadow-xs flex items-center space-x-1.5 transition';
+        btnBoxes.className = 'px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center space-x-1.5 transition';
+      } else {
+        tableContainer.classList.add('hidden');
+        boxesContainer.classList.remove('hidden');
+        renderBoxesView();
+        btnBoxes.className = 'px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-slate-800 shadow-xs flex items-center space-x-1.5 transition';
+        btnTable.className = 'px-3 py-1.5 rounded-md text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center space-x-1.5 transition';
+      }
+    }
+
+    // Fetch Stats
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/stats');
+        if (!res.ok) throw new Error('Failed to fetch stats');
+        const stats = await res.json();
+        
+        document.getElementById('stat-total').innerText = stats.totalRecords || 0;
+        document.getElementById('stat-original').innerText = stats.originalCount || 0;
+        document.getElementById('stat-copy').innerText = stats.copyCount || 0;
+        document.getElementById('stat-companies-sub').innerText = `${stats.uniqueCompaniesCount || 0} Companies`;
+        
+        const cupboardsCount = Object.keys(stats.cupboardBreakdown || {}).length;
+        const boxesCount = Object.keys(stats.boxBreakdown || {}).length;
+        document.getElementById('stat-cupboards-count').innerText = `${cupboardsCount} Cupboards`;
+        document.getElementById('stat-boxes-count').innerText = `${boxesCount} Boxes`;
+
+        // Update pills
+        document.getElementById('pill-all-count').innerText = stats.totalRecords || 0;
+        document.getElementById('pill-orig-count').innerText = stats.originalCount || 0;
+        document.getElementById('pill-copy-count').innerText = stats.copyCount || 0;
+
+        // Populate dropdown options
+        populateDropdowns(stats.availableCupboards, stats.availableBoxes);
+      } catch (err) {
+        console.error('Stats fetch error:', err);
+      }
+    }
+
+    function populateDropdowns(cupboards, boxes) {
+      const cupboardSelect = document.getElementById('filter-cupboard');
+      const boxSelect = document.getElementById('filter-box');
+      const cupboardDatalist = document.getElementById('cupboard-options');
+      const boxDatalist = document.getElementById('box-options');
+
+      // Keep current selections
+      const selCup = cupboardSelect.value;
+      const selBox = boxSelect.value;
+
+      cupboardSelect.innerHTML = '<option value="All">All Cupboards</option>';
+      boxSelect.innerHTML = '<option value="All">All Box Files</option>';
+      cupboardDatalist.innerHTML = '';
+      boxDatalist.innerHTML = '';
+
+      if (cupboards) {
+        cupboards.forEach(c => {
+          if (!c) return;
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.innerText = c;
+          cupboardSelect.appendChild(opt);
+
+          const dlOpt = document.createElement('option');
+          dlOpt.value = c;
+          cupboardDatalist.appendChild(dlOpt);
+        });
+      }
+
+      if (boxes) {
+        boxes.forEach(b => {
+          if (!b) return;
+          const opt = document.createElement('option');
+          opt.value = b;
+          opt.innerText = b;
+          boxSelect.appendChild(opt);
+
+          const dlOpt = document.createElement('option');
+          dlOpt.value = b;
+          boxDatalist.appendChild(dlOpt);
+        });
+      }
+
+      cupboardSelect.value = selCup;
+      boxSelect.value = selBox;
+    }
+
+    // Fetch Records
+    async function fetchRecords() {
+      const tbody = document.getElementById('records-table-body');
+      try {
+        const params = new URLSearchParams();
+        if (currentSearchTerm) params.append('search', currentSearchTerm);
+        if (currentFilterType !== 'All') params.append('type', currentFilterType);
+        if (currentCupboard !== 'All') params.append('cupboard', currentCupboard);
+        if (currentBox !== 'All') params.append('box', currentBox);
+        params.append('sort', currentSort);
+
+        const res = await fetch(`/api/records?${params.toString()}`);
+        if (!res.ok) throw new Error('Failed to fetch records');
+        const data = await res.json();
+        allRecords = data.records || [];
+
+        renderTable(allRecords);
+        if (viewMode === 'boxes') {
+          renderBoxesView();
+        }
+      } catch (err) {
+        console.error('Records fetch error:', err);
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="text-center py-8 text-rose-500 font-medium">
+              Failed to connect to database. Please check if the local server is running.
+            </td>
+          </tr>
+        `;
+      }
+    }
+
+    // Render Table
+    function renderTable(records) {
+      const tbody = document.getElementById('records-table-body');
+      const emptyState = document.getElementById('empty-state');
+      const badge = document.getElementById('filtered-count-badge');
+      const footerSummary = document.getElementById('footer-summary');
+
+      badge.innerText = `${records.length} records`;
+      footerSummary.innerText = `Displaying ${records.length} registered file${records.length === 1 ? '' : 's'}`;
+
+      if (!records || records.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      let html = '';
+
+      records.forEach(r => {
+        const isOrig = r['Type'] === 'Original';
+        const typeBadge = isOrig 
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>Original
+             </span>`
+          : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>Customer Copy
+             </span>`;
+
+        const regNo = r['Registration No'] 
+          ? `<span class="font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">${escapeHtml(r['Registration No'])}</span>`
+          : `<span class="text-slate-400 italic">--</span>`;
+
+        const cupboard = r['Cupboard']
+          ? `<span class="text-slate-700 font-medium">${escapeHtml(r['Cupboard'])}</span>`
+          : `<span class="text-slate-400 italic">Unassigned</span>`;
+
+        const boxNo = r['Box No']
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-amber-50 text-amber-800 border border-amber-200 font-mono font-medium">${escapeHtml(r['Box No'])}</span>`
+          : `<span class="text-slate-400 italic">--</span>`;
+
+        const dateInc = r['Date of Incorporation'] || '--';
+
+        html += `
+          <tr class="hover:bg-slate-50/80 transition cursor-pointer group" onclick="viewRecordDetails('${escapeHtml(r['No'])}')">
+            <td class="px-4 py-3 text-center text-xs font-mono font-bold text-slate-400 group-hover:text-indigo-600">${escapeHtml(r['No'])}</td>
+            <td class="px-4 py-3 text-xs">${regNo}</td>
+            <td class="px-4 py-3 text-slate-900 font-bold group-hover:text-indigo-600 transition">${escapeHtml(r['Company Name'])}</td>
+            <td class="px-4 py-3 text-xs">${typeBadge}</td>
+            <td class="px-4 py-3 text-xs text-slate-600">${cupboard}</td>
+            <td class="px-4 py-3 text-xs">${boxNo}</td>
+            <td class="px-4 py-3 text-xs text-slate-500 font-mono">${escapeHtml(dateInc)}</td>
+            <td class="px-4 py-3 text-right text-xs no-print" onclick="event.stopPropagation()">
+              <div class="flex items-center justify-end space-x-1.5">
+                <button onclick="openEditModal('${escapeHtml(r['No'])}')" title="Edit Record" class="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                </button>
+                <button onclick="promptDeleteRecord('${escapeHtml(r['No'])}', '${escapeHtml(r['Company Name'])}', '${escapeHtml(r['Registration No'] || '')}', '${escapeHtml(r['Type'] || '')}')" title="Delete Record" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    // Render Physical Box View
+    function renderBoxesView() {
+      const grid = document.getElementById('boxes-grid');
+      
+      // Group records by Cupboard then Box No
+      const grouped = {};
+      allRecords.forEach(r => {
+        const c = r['Cupboard'] || 'Unassigned Cupboard';
+        const b = r['Box No'] || 'Unassigned Box';
+        if (!grouped[c]) grouped[c] = {};
+        if (!grouped[c][b]) grouped[c][b] = [];
+        grouped[c][b].push(r);
+      });
+
+      let html = '';
+      const sortedCupboards = Object.keys(grouped).sort();
+
+      sortedCupboards.forEach(cup => {
+        const boxes = grouped[cup];
+        const sortedBoxes = Object.keys(boxes).sort();
+
+        sortedBoxes.forEach(box => {
+          const files = boxes[box];
+          const isOrigGroup = files.some(f => f['Type'] === 'Original');
+
+          html += `
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 hover:border-slate-300 transition">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-200">
+                <div>
+                  <span class="text-2xs font-semibold uppercase tracking-wider text-slate-400">${escapeHtml(cup)}</span>
+                  <h3 class="text-sm font-bold text-slate-900">${escapeHtml(box)}</h3>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold ${isOrigGroup ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}">
+                  ${files.length} File${files.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                ${files.map(f => `
+                  <div onclick="viewRecordDetails('${escapeHtml(f['No'])}')" class="p-2 bg-white rounded-lg border border-slate-200 hover:border-indigo-400 cursor-pointer text-xs flex items-center justify-between transition group">
+                    <div class="truncate mr-2">
+                      <div class="font-bold text-slate-800 group-hover:text-indigo-600 truncate">${escapeHtml(f['Company Name'])}</div>
+                      <div class="text-3xs text-slate-400 font-mono">${escapeHtml(f['Registration No'] || 'No Reg')}</div>
+                    </div>
+                    <span class="text-3xs font-mono font-bold text-slate-400">#${escapeHtml(f['No'])}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        });
+      });
+
+      if (sortedCupboards.length === 0) {
+        html = '<div class="col-span-full py-12 text-center text-slate-400 text-sm">No box files matching current filter</div>';
+      }
+
+      grid.innerHTML = html;
+    }
+
+    // Filter Handlers
+    function filterByType(type) {
+      currentFilterType = type;
+      
+      const pills = {
+        'All': document.getElementById('pill-all'),
+        'Original': document.getElementById('pill-original'),
+        'Copy': document.getElementById('pill-copy')
+      };
+
+      Object.keys(pills).forEach(k => {
+        if (k === type) {
+          pills[k].className = 'px-3 py-1.5 rounded-lg font-semibold bg-slate-800 text-white shadow-xs transition';
+        } else {
+          pills[k].className = 'px-3 py-1.5 rounded-lg font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition';
+        }
+      });
+
+      fetchRecords();
+    }
+
+    let searchTimeout = null;
+    function handleSearch(val) {
+      currentSearchTerm = val;
+      const clearBtn = document.getElementById('clear-search-btn');
+      if (val.trim()) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(fetchRecords, 250);
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('search-input');
+      input.value = '';
+      currentSearchTerm = '';
+      document.getElementById('clear-search-btn').classList.add('hidden');
+      fetchRecords();
+    }
+
+    function handleFilterChange() {
+      currentCupboard = document.getElementById('filter-cupboard').value;
+      currentBox = document.getElementById('filter-box').value;
+      currentSort = document.getElementById('filter-sort').value;
+      fetchRecords();
+    }
+
+    function resetAllFilters() {
+      currentSearchTerm = '';
+      document.getElementById('search-input').value = '';
+      document.getElementById('clear-search-btn').classList.add('hidden');
+      document.getElementById('filter-cupboard').value = 'All';
+      document.getElementById('filter-box').value = 'All';
+      document.getElementById('filter-sort').value = 'no_asc';
+      currentCupboard = 'All';
+      currentBox = 'All';
+      currentSort = 'no_asc';
+      filterByType('All');
+    }
+
+    // Modal Dynamic Handlers
+    function onTypeChange(typeVal, formPrefix) {
+      const catInput = document.getElementById(`${formPrefix}-category`);
+      if (typeVal === 'Original') {
+        catInput.value = 'Original Files';
+      } else {
+        catInput.value = 'Customer Files';
+      }
+    }
+
+    function openAddModal() {
+      document.getElementById('form-add').reset();
+      document.getElementById('add-type').value = 'Original';
+      document.getElementById('add-category').value = 'Original Files';
+      openModal('modal-add');
+    }
+
+    function openDualAddModal() {
+      document.getElementById('form-dual').reset();
+      document.getElementById('dual-orig-cupboard').value = 'Cupboard 1';
+      document.getElementById('dual-copy-cupboard').value = 'Cupboard 2';
+      openModal('modal-dual');
+    }
+
+    // Submit Add
+    async function submitAddRecord(e) {
+      e.preventDefault();
+      const body = {
+        'No': document.getElementById('add-no').value.trim(),
+        'Registration No': document.getElementById('add-reg').value.trim(),
+        'Company Name': document.getElementById('add-company').value.trim(),
+        'Type': document.getElementById('add-type').value,
+        'Category': document.getElementById('add-category').value.trim(),
+        'Cupboard': document.getElementById('add-cupboard').value.trim(),
+        'Box No': document.getElementById('add-box').value.trim(),
+        'Date of Incorporation': document.getElementById('add-date').value
+      };
+
+      try {
+        const res = await fetch('/api/records', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to add record');
+        
+        closeModal('modal-add');
+        showToast(`Record #${result.record.No} added successfully!`, 'success');
+        fetchStats();
+        fetchRecords();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Submit Dual Add
+    async function submitDualRecord(e) {
+      e.preventDefault();
+      const body = {
+        companyName: document.getElementById('dual-company').value.trim(),
+        regNo: document.getElementById('dual-reg').value.trim(),
+        dateOfIncorporation: document.getElementById('dual-date').value,
+        originalCupboard: document.getElementById('dual-orig-cupboard').value.trim(),
+        originalBox: document.getElementById('dual-orig-box').value.trim(),
+        copyCupboard: document.getElementById('dual-copy-cupboard').value.trim(),
+        copyBox: document.getElementById('dual-copy-box').value.trim()
+      };
+
+      try {
+        const res = await fetch('/api/records/dual', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to create dual records');
+
+        closeModal('modal-dual');
+        showToast('Both Original & Customer File records created!', 'success');
+        fetchStats();
+        fetchRecords();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // View Record Details
+    async function viewRecordDetails(recordNo) {
+      try {
+        const res = await fetch(`/api/records/${recordNo}`);
+        if (!res.ok) throw new Error('Record not found');
+        const data = await res.json();
+        const r = data.record;
+        const related = data.related || [];
+
+        document.getElementById('view-no').innerText = `Record #${r['No']}`;
+        document.getElementById('view-company').innerText = r['Company Name'];
+        document.getElementById('view-reg').innerText = r['Registration No'] || 'No Reg No';
+        document.getElementById('view-cupboard').innerText = r['Cupboard'] || 'Not set';
+        document.getElementById('view-box').innerText = r['Box No'] || 'Not set';
+        document.getElementById('view-date').innerText = r['Date of Incorporation'] || 'None';
+        document.getElementById('view-category').innerText = r['Category'] || '--';
+
+        const isOrig = r['Type'] === 'Original';
+        document.getElementById('view-type-badge').innerHTML = isOrig
+          ? `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">Original File</span>`
+          : `<span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Customer Copy</span>`;
+
+        // Render Related Files
+        const relList = document.getElementById('view-related-list');
+        if (related.length > 0) {
+          relList.innerHTML = related.map(rel => `
+            <div onclick="closeModal('modal-view'); viewRecordDetails('${escapeHtml(rel['No'])}')" class="p-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-between cursor-pointer transition">
+              <div>
+                <span class="text-2xs uppercase font-bold text-slate-500">${escapeHtml(rel['Type'])} File (#${escapeHtml(rel['No'])})</span>
+                <p class="text-xs font-bold text-slate-800">${escapeHtml(rel['Cupboard'] || 'Unassigned')} • ${escapeHtml(rel['Box No'] || 'Unassigned')}</p>
+              </div>
+              <span class="text-xs text-indigo-600 font-semibold hover:underline">View Pairing &rarr;</span>
+            </div>
+          `).join('');
+        } else {
+          relList.innerHTML = `<p class="text-xs text-slate-400 italic">No other file registers found with Reg No "${escapeHtml(r['Registration No'] || '')}"</p>`;
+        }
+
+        // Hook up Action Buttons in View Modal
+        document.getElementById('view-btn-edit').onclick = () => {
+          closeModal('modal-view');
+          openEditModal(r['No']);
+        };
+        document.getElementById('view-btn-delete').onclick = () => {
+          closeModal('modal-view');
+          promptDeleteRecord(r['No'], r['Company Name'], r['Registration No'], r['Type']);
+        };
+
+        openModal('modal-view');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Open Edit Modal
+    async function openEditModal(recordNo) {
+      try {
+        const res = await fetch(`/api/records/${recordNo}`);
+        if (!res.ok) throw new Error('Record not found');
+        const data = await res.json();
+        const r = data.record;
+
+        document.getElementById('edit-no').value = r['No'];
+        document.getElementById('edit-no-display').value = `#${r['No']}`;
+        document.getElementById('edit-no-badge').innerText = `#${r['No']}`;
+        document.getElementById('edit-company').value = r['Company Name'] || '';
+        document.getElementById('edit-reg').value = r['Registration No'] || '';
+        document.getElementById('edit-type').value = r['Type'] || 'Original';
+        document.getElementById('edit-category').value = r['Category'] || '';
+        document.getElementById('edit-cupboard').value = r['Cupboard'] || '';
+        document.getElementById('edit-box').value = r['Box No'] || '';
+        document.getElementById('edit-date').value = r['Date of Incorporation'] || '';
+
+        openModal('modal-edit');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Submit Edit
+    async function submitEditRecord(e) {
+      e.preventDefault();
+      const recordNo = document.getElementById('edit-no').value;
+      const body = {
+        'Registration No': document.getElementById('edit-reg').value.trim(),
+        'Company Name': document.getElementById('edit-company').value.trim(),
+        'Type': document.getElementById('edit-type').value,
+        'Category': document.getElementById('edit-category').value.trim(),
+        'Cupboard': document.getElementById('edit-cupboard').value.trim(),
+        'Box No': document.getElementById('edit-box').value.trim(),
+        'Date of Incorporation': document.getElementById('edit-date').value
+      };
+
+      try {
+        const res = await fetch(`/api/records/${recordNo}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to update record');
+
+        closeModal('modal-edit');
+        showToast(`Record #${recordNo} updated successfully!`, 'success');
+        fetchStats();
+        fetchRecords();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Delete Prompt & Confirmation
+    function promptDeleteRecord(recordNo, companyName, regNo, type) {
+      pendingDeleteNo = recordNo;
+      document.getElementById('del-no').innerText = `#${recordNo}`;
+      document.getElementById('del-company').innerText = companyName || 'Unnamed Entity';
+      document.getElementById('del-reg').innerText = regNo || 'No Reg No';
+      document.getElementById('del-type').innerText = type || 'File';
+      openModal('modal-delete');
+    }
+
+    async function executeDeleteRecord() {
+      if (!pendingDeleteNo) return;
+      try {
+        const res = await fetch(`/api/records/${pendingDeleteNo}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Failed to delete record');
+
+        closeModal('modal-delete');
+        showToast(`Record #${pendingDeleteNo} was removed.`, 'info');
+        pendingDeleteNo = null;
+        fetchStats();
+        fetchRecords();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Database Backup Manager
+    async function openBackupModal() {
+      openModal('modal-backup');
+      loadBackupsList();
+    }
+
+    async function loadBackupsList() {
+      const container = document.getElementById('backups-list');
+      try {
+        const res = await fetch('/api/backups');
+        const data = await res.json();
+        const backups = data.backups || [];
+
+        if (backups.length === 0) {
+          container.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">No backups found yet in the backups/ folder.</p>`;
+          return;
+        }
+
+        container.innerHTML = backups.map(b => {
+          const kb = Math.round(b.sizeBytes / 1024);
+          return `
+            <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs">
+              <div class="truncate mr-2">
+                <p class="font-mono font-bold text-slate-800 truncate">${escapeHtml(b.filename)}</p>
+                <p class="text-2xs text-slate-400 mt-0.5">${escapeHtml(b.lastModified)} • ${kb} KB</p>
+              </div>
+              <span class="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-2xs font-semibold flex-shrink-0">Saved</span>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `<p class="text-xs text-rose-500 py-2 text-center">Failed to load backups list.</p>`;
+      }
+    }
+
+    async function createSnapshotBackup() {
+      const btn = document.getElementById('btn-create-backup');
+      btn.disabled = true;
+      btn.innerText = 'Backing up...';
+      try {
+        const res = await fetch('/api/backup', { method: 'POST' });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.error || 'Backup creation failed');
+        showToast(`Backup created: ${result.backup.filename}`, 'success');
+        loadBackupsList();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Create Backup Now';
+      }
+    }
+  </script>
+
+</body>
+</html>

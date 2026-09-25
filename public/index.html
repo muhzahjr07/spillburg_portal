@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spillburg Holdings - Enterprise Company Portal</title>
+
+  <!-- Google Fonts: Space Grotesk & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              emerald: '#059669',
+              emeraldHover: '#047857',
+              lime: '#10b981',
+              gold: '#d97706'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/public/styles.css">
+</head>
+
+<body
+  class="bg-[#f8fafc] text-[#0f172a] min-h-screen flex flex-col font-sans selection:bg-[#059669] selection:text-white">
+
+  <!-- ================= AUTHENTICATION SCREEN (LAUNCH TO LOGIN / REGISTER) ================= -->
+  <div id="authScreen"
+    class="fixed inset-0 z-50 bg-gradient-to-br from-slate-100 via-slate-50 to-emerald-50/40 flex items-center justify-center p-4 overflow-y-auto">
+    <div
+      class="w-full max-w-md bg-white rounded-2xl border border-slate-200/90 shadow-2xl shadow-slate-300/40 p-6 md:p-8 space-y-6 my-auto fade-in">
+
+      <!-- Brand Header with Official Logo -->
+      <div class="text-center space-y-3">
+        <div class="flex justify-center">
+          <img src="/public/logo.png" alt="Spillburg Holdings" class="h-16 md:h-20 object-contain drop-shadow-sm">
+        </div>
+        <div>
+          <h1 class="font-display font-bold text-xl text-slate-900 tracking-tight">SPILLBURG HOLDINGS</h1>
+          <p class="text-xs text-slate-500 font-medium">(Pvt) Ltd &middot; Enterprise Company Portal</p>
+        </div>
+      </div>
+
+      <!-- Auth Error Notification Area -->
+      <div id="authErrorBox"
+        class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600 font-medium flex items-center gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+        <span id="authErrorMsg"></span>
+      </div>
+
+      <!-- Sign In Header -->
+      <div class="border-b border-slate-100 pb-2 text-center">
+        <h2 class="text-sm font-semibold text-slate-800">Secure Employee Sign In</h2>
+        <p class="text-xs text-slate-400 mt-0.5">Enter your corporate credentials to access the workspace.</p>
+      </div>
+
+      <!-- LOGIN FORM -->
+      <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">Username</label>
+          <div class="relative">
+            <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+            <input type="text" id="loginUsername" required placeholder="e.g. director, admin, staff"
+              class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">Password</label>
+          <div class="relative">
+            <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+            <input type="password" id="loginPassword" required placeholder="Enter password"
+              class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition">
+          </div>
+        </div>
+
+        <button type="submit" id="loginSubmitBtn"
+          class="w-full py-2.5 bg-[#059669] hover:bg-[#047857] text-white font-semibold text-sm rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2">
+          <span>Sign In to Portal</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </form>
+
+      <!-- Admin Notice Footer -->
+      <div class="pt-3 border-t border-slate-100 text-center text-xs text-slate-400">
+        Need an account or permission change? Contact your System Administrator.
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= AUTHENTICATED PORTAL WORKSPACE ================= -->
+  <div id="portalWorkspace" class="hidden flex-1 flex flex-col min-h-screen">
+
+    <!-- TOP HEADER -->
+    <header
+      class="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40 px-4 md:px-6 flex items-center justify-between shadow-sm">
+      <!-- Brand Info with Official Logo -->
+      <div class="flex items-center gap-3">
+        <img src="/public/logo.png" alt="Spillburg Logo" class="h-9 md:h-10 object-contain">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-display font-bold text-base md:text-lg tracking-tight text-slate-900">SPILLBURG</span>
+            <span
+              class="text-[10px] uppercase font-semibold tracking-wider text-[#059669] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Portal</span>
+          </div>
+          <div class="text-[11px] text-slate-500 tracking-wide font-medium hidden sm:block">Holdings &middot; (Pvt) Ltd
+          </div>
+        </div>
+      </div>
+
+      <!-- Active User Profile Bar -->
+      <div class="flex items-center gap-2 md:gap-4">
+
+        <!-- Current User Pill -->
+        <div class="flex items-center gap-2.5 bg-slate-50 border border-slate-200 pl-2.5 pr-3 py-1.5 rounded-full">
+          <div id="userAvatar"
+            class="w-6 h-6 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-700 flex items-center justify-center font-bold text-xs">
+            U
+          </div>
+          <div class="text-left">
+            <div id="userNameDisplay" class="text-xs font-semibold leading-tight text-slate-900">User</div>
+            <div id="userRoleBadge" class="text-[10px] font-medium leading-none text-amber-600">STAFF</div>
+          </div>
+          <button onclick="handleLogout()" title="Sign Out"
+            class="ml-1 text-slate-400 hover:text-red-500 transition p-1">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- BODY WORKSPACE -->
+    <div class="flex-1 flex overflow-hidden">
+
+      <!-- LEFT SIDEBAR -->
+      <aside class="w-64 border-r border-slate-200 bg-white flex-shrink-0 flex flex-col justify-between hidden md:flex">
+        <div class="p-4 space-y-1">
+          <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400 px-3 py-2">Corporate Navigation
+          </div>
+
+          <button onclick="switchView('dashboard')" id="nav-dashboard"
+            class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-left bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <i data-lucide="layout-dashboard" class="w-4 h-4 text-emerald-600"></i>
+            <span>Executive Dashboard</span>
+          </button>
+
+          <button onclick="switchView('operations')" id="nav-operations"
+            class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-left text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+            <i data-lucide="check-square" class="w-4 h-4 text-blue-600"></i>
+            <span class="flex-1">Operations Tracker</span>
+            <span id="navOpsCount"
+              class="text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">0</span>
+          </button>
+
+          <button onclick="switchView('customer-files')" id="nav-customer-files"
+            class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-left text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+            <i data-lucide="folder-archive" class="w-4 h-4 text-amber-600"></i>
+            <span class="flex-1">Customer File DB</span>
+            <span id="navCustomerCount"
+              class="text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">173</span>
+          </button>
+
+          <button onclick="switchView('financial-files')" id="nav-financial-files"
+            class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-left text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
+            <span class="flex-1">Financial Files DB</span>
+            <span id="navFinCount"
+              class="text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">42</span>
+          </button>
+
+          <button onclick="switchView('access-control')" id="nav-access-control"
+            class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-left text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+            <i data-lucide="shield-check" class="w-4 h-4 text-purple-600"></i>
+            <span class="flex-1">Access Control Center</span>
+            <span id="navAdminBadge"
+              class="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200">Admin</span>
+          </button>
+        </div>
+
+        <!-- Sidebar Footer: Office & Sheet Status -->
+        <div class="p-4 border-t border-slate-200 bg-slate-50/70 space-y-3">
+          <div
+            class="flex items-center justify-between text-xs text-slate-600 p-2 rounded-lg bg-white border border-slate-200 shadow-sm">
+            <span class="flex items-center gap-2">
+              <i data-lucide="database" class="w-3.5 h-3.5 text-emerald-600"></i>
+              <span class="font-medium">Active Database: Online</span>
+            </span>
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          </div>
+          <div class="text-[11px] text-slate-500 leading-relaxed">
+            Office 14, Basement Level, Cinnamon Lakeside Hotel, Colombo 2
+          </div>
+        </div>
+      </aside>
+
+      <!-- MOBILE NAVIGATION (Bottom Bar) -->
+      <div
+        class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 z-40 flex items-center justify-around px-2 shadow-lg">
+        <button onclick="switchView('dashboard')"
+          class="flex flex-col items-center text-xs text-slate-600 hover:text-emerald-600">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span class="text-[10px]">Dashboard</span>
+        </button>
+        <button onclick="switchView('operations')"
+          class="flex flex-col items-center text-xs text-slate-600 hover:text-emerald-600">
+          <i data-lucide="check-square" class="w-4 h-4"></i>
+          <span class="text-[10px]">Operations</span>
+        </button>
+        <button onclick="switchView('customer-files')"
+          class="flex flex-col items-center text-xs text-slate-600 hover:text-emerald-600">
+          <i data-lucide="folder-archive" class="w-4 h-4"></i>
+          <span class="text-[10px]">Files DB</span>
+        </button>
+        <button onclick="switchView('financial-files')"
+          class="flex flex-col items-center text-xs text-slate-600 hover:text-emerald-600">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+          <span class="text-[10px]">Financial</span>
+        </button>
+        <button onclick="switchView('access-control')"
+          class="flex flex-col items-center text-xs text-slate-600 hover:text-emerald-600">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+          <span class="text-[10px]">Access</span>
+        </button>
+      </div>
+
+      <!-- MAIN CONTENT VIEW AREA -->
+      <main id="mainContent" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 pb-24 md:pb-12 bg-[#f8fafc]">
+        <!-- Views injected via JS -->
+      </main>
+
+    </div>
+  </div>
+
+  <!-- ================= MODALS CONTAINER ================= -->
+  <div id="modalBackdrop"
+    class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div id="modalContent"
+      class="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl relative fade-in">
+      <!-- Injected modal content -->
+    </div>
+  </div>
+
+  <!-- Lightbox for Register Photos -->
+  <div id="photoLightbox" class="lightbox-modal hidden" onclick="closePhotoLightbox()">
+    <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
+      <button onclick="closePhotoLightbox()"
+        class="absolute -top-12 right-0 text-white hover:text-emerald-400 transition flex items-center gap-1.5 text-sm bg-slate-900/80 px-3 py-1.5 rounded-full border border-slate-700">
+        <i data-lucide="x" class="w-4 h-4"></i> Close Photo
+      </button>
+      <img id="lightboxImg" src="" alt="Physical Register Page"
+        class="max-h-[82vh] max-w-full rounded-xl border border-slate-700 shadow-2xl object-contain bg-black">
+      <div id="lightboxCaption"
+        class="mt-3 text-xs text-center text-slate-200 bg-slate-900/90 px-4 py-1.5 rounded-full border border-slate-700">
+      </div>
+    </div>
+  </div>
+
+  <!-- App Core JS -->
+  <script src="/public/app.js"></script>
+</body>
+
+</html>

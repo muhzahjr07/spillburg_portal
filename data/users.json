@@ -1,0 +1,172 @@
+[
+  {
+    "id": "usr_dir_master",
+    "username": "director",
+    "password": "director123",
+    "fullName": "Executive Director",
+    "role": "director",
+    "title": "Managing Director / Board Member",
+    "email": "director@spillburg.com",
+    "permissions": {
+      "operations": "full",
+      "customer_files": "full",
+      "financial_files": "full",
+      "user_management": "full"
+    },
+    "createdAt": "2026-09-01T08:00:00Z",
+    "status": "active"
+  },
+  {
+    "id": "usr_dir_hameez",
+    "username": "hameez",
+    "password": "spillburg123",
+    "fullName": "Mohamed Hussain Kariapper Hameez",
+    "role": "director",
+    "title": "Managing Director",
+    "email": "hameezm@yahoo.com",
+    "permissions": {
+      "operations": "full",
+      "customer_files": "full",
+      "financial_files": "full",
+      "user_management": "full"
+    },
+    "createdAt": "2026-09-01T08:00:00Z",
+    "status": "active"
+  },
+  {
+    "id": "usr_dir_shameel",
+    "username": "shameel",
+    "password": "spillburg123",
+    "fullName": "Mohamed Shaameel Mohideen",
+    "role": "director",
+    "title": "Director - Operations & Development",
+    "email": "shaameelmohideen@gmail.com",
+    "permissions": {
+      "operations": "full",
+      "customer_files": "full",
+      "financial_files": "full",
+      "user_management": "full"
+    },
+    "createdAt": "2026-09-01T08:00:00Z",
+    "status": "active"
+  },
+  {
+    "id": "usr_dir_azad",
+    "username": "azad",
+    "password": "spillburg123",
+    "fullName": "Mr. Azad",
+    "role": "director",
+    "title": "Director - Designing & Strategy",
+    "email": "chatti5@yahoo.com",
+    "permissions": {
+      "operations": "full",
+      "customer_files": "full",
+      "financial_files": "full",
+      "user_management": "full"
+    },
+    "createdAt": "2026-09-01T08:00:00Z",
+    "status": "active"
+  },
+  {
+    "id": "usr_admin_master",
+    "username": "admin",
+    "password": "admin123",
+    "fullName": "System Administrator",
+    "role": "admin",
+    "title": "Corporate Portal Administrator",
+    "email": "admin@spillburg.com",
+    "permissions": {
+      "operations": "full",
+      "customer_files": "full",
+      "financial_files": "full",
+      "user_management": "full"
+    },
+    "createdAt": "2026-09-01T08:00:00Z",
+    "status": "active"
+  },
+  {
+    "id": "usr_admin_zaharan",
+    "username": "zaharan",
+    "password": "admin123",
+    "fullName": "Muhammad Zaharan",
+    "role": "admin",
+    "title": "Operations & Systems Admin",
+    "email": "zaharan@spillburg.com",
+    "permissions": {
+      "operations": "full",
+      "customer_files": "full",
+      "financial_files": "full",
+      "user_management": "full"
+    },
+    "createdAt": "2026-09-01T08:00:00Z",
+    "status": "active"
+  },
+  {
+    "id": "usr_staff_hemanthi",
+    "username": "staff_hemanthi",
+    "password": "staff123",
+    "fullName": "Miss Hemanthi",
+    "role": "staff",
+    "title": "Office Operations Officer",
+    "email": "hemanthi@spillburg.com",
+    "permissions": {
+      "operations": "editor",
+      "customer_files": "viewer",
+      "financial_files": "viewer",
+      "user_management": "none"
+    },
+    "createdAt": "2026-09-10T09:30:00Z",
+    "status": "active"
+  },
+  {
+    "id": "usr_staff_insaaf",
+    "username": "staff_insaaf",
+    "password": "staff123",
+    "fullName": "Insaaf",
+    "role": "staff",
+    "title": "Customer Database Coordinator",
+    "email": "insaaf@spillburg.com",
+    "permissions": {
+      "operations": "editor",
+      "customer_files": "editor",
+      "financial_files": "viewer",
+      "user_management": "none"
+    },
+    "createdAt": "2026-09-12T10:00:00Z",
+    "status": "active"
+  },
+  {
+    "id": "usr_staff_editor",
+    "username": "staff_editor",
+    "password": "staff123",
+    "fullName": "Staff Member (Editor)",
+    "role": "staff",
+    "title": "Senior Operations Executive",
+    "email": "editor@spillburg.com",
+    "permissions": {
+      "operations": "editor",
+      "customer_files": "editor",
+      "financial_files": "editor",
+      "user_management": "none"
+    },
+    "createdAt": "2026-09-15T11:00:00Z",
+    "status": "active"
+  },
+  {
+    "id": "usr_staff_viewer",
+    "username": "staff_viewer",
+    "password": "staff123",
+    "fullName": "Staff Member (Viewer)",
+    "role": "staff",
+    "title": "Research & Audit Assistant",
+    "email": "viewer@spillburg.com",
+    "permissions": {
+      "operations": "viewer",
+      "customer_files": "viewer",
+      "financial_files": "viewer",
+      "user_management": "none"
+    },
+    "createdAt": "2026-09-15T11:00:00Z",
+    "status": "active"
+  }
+]
