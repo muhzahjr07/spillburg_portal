@@ -1,5 +1,22 @@
 [
   {
+    "id": "ops_3d954f",
+    "no": 1,
+    "userId": "usr_33f74f4c",
+    "ownerUsername": "testuser_1790329566",
+    "title": "Spillburg Portal Onboarding - Corporate Compliance Officer",
+    "requestedBy": "System Administrator",
+    "assignedTo": "Auditing Specialist",
+    "workstream": "Personal Tasks",
+    "type": "Onboarding",
+    "taskedDate": "2026-09-25",
+    "completedDate": "",
+    "status": "In Progress",
+    "priority": "Medium",
+    "estimatedCost": "",
+    "notes": "Welcome to Spillburg Holdings. Review your assigned registers and manage your personal deliverables."
+  },
+  {
     "id": "ops_0ea5a2",
     "no": 1,
     "userId": "usr_7324f48c",
