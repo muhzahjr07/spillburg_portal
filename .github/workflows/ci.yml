@@ -1,0 +1,60 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-and-test:
+    name: Code Validation & Smoke Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Validate Python Syntax (Zero Dependencies)
+        run: |
+          python -m py_compile server.py
+          python -m py_compile verify_portal.py
+
+      - name: Validate JSON Data Files
+        run: |
+          python -c "
+          import json, glob, sys
+          files = glob.glob('data/*.json') + glob.glob('public/*.json')
+          errors = 0
+          for f in files:
+              try:
+                  with open(f, 'r', encoding='utf-8') as fp:
+                      json.load(fp)
+                  print(f'✓ Validated: {f}')
+              except Exception as e:
+                  print(f'✗ JSON Error in {f}: {e}', file=sys.stderr)
+                  errors += 1
+          if errors > 0:
+              sys.exit(1)
+          "
+
+      - name: Run Portal Verification Suite
+        run: |
+          # Start background server
+          python server.py 8080 &
+          SERVER_PID=$!
+          sleep 3
+
+          # Run verification tests
+          python verify_portal.py
+
+          # Clean up server
+          kill $SERVER_PID

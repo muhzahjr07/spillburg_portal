@@ -615,6 +615,14 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             file_path = os.path.join(PUBLIC_DIR, "index.html")
             self.serve_static_file(file_path, "text/html; charset=utf-8")
             return
+        elif path in ["/favicon.ico", "/logo.png"]:
+            file_path = os.path.join(PUBLIC_DIR, "logo.png")
+            self.serve_static_file(file_path, "image/png")
+            return
+        elif path == "/manifest.json":
+            file_path = os.path.join(PUBLIC_DIR, "manifest.json")
+            self.serve_static_file(file_path, "application/manifest+json")
+            return
         elif path.startswith("/public/"):
             rel = path[8:]
             file_path = os.path.join(PUBLIC_DIR, rel)
@@ -640,6 +648,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             elif file_path.endswith(".json"): content_type = "application/json; charset=utf-8"
             elif file_path.endswith(".svg"): content_type = "image/svg+xml"
             elif file_path.endswith(".png"): content_type = "image/png"
+            elif file_path.endswith(".ico"): content_type = "image/x-icon"
             elif file_path.endswith((".jpg", ".jpeg")): content_type = "image/jpeg"
             else: content_type = "application/octet-stream"
 
