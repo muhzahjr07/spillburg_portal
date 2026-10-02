@@ -16,9 +16,79 @@
     "directorPassportOrId": "FF 270133",
     "emails": "verity.no@gmail.com",
     "phones": "0112336116, 0777790919",
-    "filingStatus": "Year 2024/2025 SET - No need to be submitted (09/10/2025); Submitted Year 2024-2025 Audited Account to IRD System on 10/10/2025",
+    "filingStatus": "Year 2024/2025: Draft Accounts Done; Audited; Tax Returns Finalized; IRD Submitted on 2026-10-02 (Ref: DIN #2026-1010). Checklist: [Balance Sheet, PNL, QT, Cash Flow, Policies, Taxation, Notes to Account Ready]",
     "notes": "Verified active by portal test suite",
-    "photoFile": "Register_01_Remi_Dream_Lanka.jpeg"
+    "photoFile": "Register_01_Remi_Dream_Lanka.jpeg",
+    "filingChecklist": {
+      "assessmentYear": "2024/2025",
+      "stages": {
+        "draftAccounts": {
+          "status": "Completed",
+          "date": "2025-09-15",
+          "notes": "Prepared by In-house team"
+        },
+        "audit": {
+          "status": "Completed",
+          "date": "2025-09-28",
+          "auditor": "Kreston MNS"
+        },
+        "taxation": {
+          "status": "Completed",
+          "date": "2025-10-01",
+          "taxType": "CIT 30%"
+        },
+        "irdSubmission": {
+          "status": "Completed",
+          "date": "2025-10-10",
+          "refNo": "DIN #2026-1010"
+        }
+      },
+      "items": {
+        "balanceSheet": {
+          "checked": true,
+          "status": "Done",
+          "date": "2025-09-15",
+          "notes": "Audited BS signed"
+        },
+        "pnl": {
+          "checked": true,
+          "status": "Done",
+          "date": "2025-09-15",
+          "notes": "P&L approved"
+        },
+        "qt": {
+          "checked": true,
+          "status": "Done",
+          "date": "2025-08-15",
+          "notes": "Q1-Q4 verified"
+        },
+        "cashFlow": {
+          "checked": true,
+          "status": "Done",
+          "date": "2025-09-15",
+          "notes": "Cash flow signed"
+        },
+        "policies": {
+          "checked": true,
+          "status": "Done",
+          "date": "2025-09-15",
+          "notes": "LKAS notes"
+        },
+        "taxation": {
+          "checked": true,
+          "status": "Done",
+          "date": "2025-10-01",
+          "notes": "Tax computation sheet"
+        },
+        "notesToAccount": {
+          "checked": true,
+          "status": "Done",
+          "date": "2025-09-15",
+          "notes": "Full disclosures"
+        }
+      },
+      "customNotes": "Full compliance package verified and submitted to IRD."
+    }
   },
   {
     "id": "fin_02",

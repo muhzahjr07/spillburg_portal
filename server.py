@@ -866,7 +866,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "phones": body.get("phones", ""),
                 "filingStatus": body.get("filingStatus", ""),
                 "notes": body.get("notes", ""),
-                "photoFile": body.get("photoFile", "")
+                "photoFile": body.get("photoFile", ""),
+                "filingChecklist": body.get("filingChecklist", {})
             }
             FINANCIAL_RECORDS.insert(0, new_rec)
             save_json_file("financial_records_active.json", FINANCIAL_RECORDS)
@@ -995,7 +996,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Financial record not found"}, 404)
                 return
 
-            for key in ["entityName", "category", "regNo", "dateOfIncorp", "tinNo", "economicCode", "irdPin", "irdPassword", "irdEmail", "ssid", "ssidPin", "directorName", "directorPassportOrId", "emails", "phones", "filingStatus", "notes", "photoFile"]:
+            for key in ["entityName", "category", "regNo", "dateOfIncorp", "tinNo", "economicCode", "irdPin", "irdPassword", "irdEmail", "ssid", "ssidPin", "directorName", "directorPassportOrId", "emails", "phones", "filingStatus", "notes", "photoFile", "filingChecklist"]:
                 if key in body:
                     target[key] = body[key]
 

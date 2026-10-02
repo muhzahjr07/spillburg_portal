@@ -159,3 +159,44 @@ body {
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   z-index: 50;
 }
+
+/* Filing Status & Statutory Checklist Styles */
+.checklist-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.checklist-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(16, 185, 129, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+}
+
+.checklist-card.checked {
+  background: linear-gradient(135deg, rgba(236, 253, 245, 0.8) 0%, rgba(240, 253, 250, 0.6) 100%);
+  border-color: #6ee7b7;
+}
+
+.checklist-progress-bar {
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease;
+}
+
+.milestone-node {
+  transition: all 0.25s ease;
+}
+
+.milestone-node.completed {
+  border-color: #10b981;
+  background-color: #ecfdf5;
+  color: #047857;
+}
+
+.milestone-node.in-progress {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.milestone-node.pending {
+  border-color: #e2e8f0;
+  background-color: #f8fafc;
+  color: #64748b;
+}

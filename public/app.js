@@ -1394,7 +1394,9 @@ function renderFinancialTable(records) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            ${records.map(r => `
+            ${records.map(r => {
+              const chk = getFilingChecklistStats(r);
+              return `
               <tr class="hover:bg-slate-50/80 transition">
                 <td class="py-3 px-3.5">
                   <div class="font-semibold text-slate-900">${r.entityName || 'Unnamed'}</div>
@@ -1419,9 +1421,21 @@ function renderFinancialTable(records) {
                   ${r.ssidPin ? `<div class="font-mono text-[10px] text-slate-500">PIN: ${r.ssidPin}</div>` : ''}
                   ${!r.ssid && !r.ssidPin ? '<span class="text-slate-400">-</span>' : ''}
                 </td>
-                <td class="py-3 px-3.5 max-w-xs whitespace-normal">
-                  <div class="text-[11px] text-slate-600 line-clamp-2" title="${r.filingStatus || r.notes || ''}">
-                    ${r.filingStatus || r.notes || '<span class="text-slate-400">Normal status</span>'}
+                <td class="py-3 px-3.5 min-w-[240px] max-w-xs whitespace-normal">
+                  <div class="space-y-1.5">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <button onclick="openFilingChecklistModal('${r.id}')" title="Click to view and edit statutory filing checklist" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition shadow-xs group ${chk.badgeClass}">
+                        <i data-lucide="${chk.icon}" class="w-3.5 h-3.5"></i>
+                        <span>Checklist: ${chk.badgeText}</span>
+                        <i data-lucide="chevron-right" class="w-3 h-3 opacity-60 group-hover:translate-x-0.5 transition-transform"></i>
+                      </button>
+                      <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                        ${chk.stage}
+                      </span>
+                    </div>
+                    <div class="text-[11px] text-slate-600 line-clamp-2 leading-relaxed" title="${r.filingStatus || r.notes || ''}">
+                      ${r.filingStatus || r.notes || '<span class="text-slate-400 italic">No filing status recorded</span>'}
+                    </div>
                   </div>
                 </td>
                 <td class="py-3 px-3.5">
@@ -1432,6 +1446,9 @@ function renderFinancialTable(records) {
                   ` : '<span class="text-slate-400 text-[11px]">No Photo</span>'}
                 </td>
                 <td class="py-3 px-3.5 text-right sticky right-0 bg-white/95 backdrop-blur-xs space-x-1">
+                  <button onclick="openFilingChecklistModal('${r.id}')" title="Statutory Filing Checklist" class="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition">
+                    <i data-lucide="clipboard-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+                  </button>
                   <button onclick="openEditFinancialModal('${r.id}')" title="Edit Profile" class="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition ${!canEdit('financial_files') ? 'permission-locked' : ''}">
                     <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
                   </button>
@@ -1440,7 +1457,8 @@ function renderFinancialTable(records) {
                   </button>
                 </td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -2416,7 +2434,12 @@ function openEditFinancialModal(id) {
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Filing Status / Audit History</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block font-semibold text-slate-700">Filing Status / Audit History</label>
+            <button type="button" onclick="closeModal(); setTimeout(() => openFilingChecklistModal('${r.id}'), 120);" class="text-xs text-emerald-600 hover:text-emerald-700 font-semibold flex items-center gap-1 px-2.5 py-0.5 rounded-lg hover:bg-emerald-50 transition border border-emerald-200 shadow-2xs">
+              <i data-lucide="clipboard-check" class="w-3.5 h-3.5"></i> Open Filing Checklist Modal
+            </button>
+          </div>
           <textarea id="mEditFinFiling" rows="2" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">${r.filingStatus || ''}</textarea>
         </div>
 
@@ -2510,6 +2533,685 @@ async function deleteFinancialRecord(id) {
     }
   } catch (e) {
     alert('Error deleting financial record');
+  }
+}
+
+// ================= 4.1 STATUTORY FILING STATUS & COMPLIANCE CHECKLIST =================
+const FILING_CHECKLIST_ITEMS = [
+  { key: 'balanceSheet', label: 'Balance Sheet', subtitle: 'Statement of Financial Position', icon: 'scale' },
+  { key: 'pnl', label: 'Profit & Loss (P&L)', subtitle: 'Income & Expenditure Statement', icon: 'trending-up' },
+  { key: 'qt', label: 'Quarterly Tax (QT)', subtitle: 'Quarterly Advance Tax Schedules', icon: 'calendar' },
+  { key: 'cashFlow', label: 'Cash Flow Statement', subtitle: 'Operating, Investing & Financing Cash Flow', icon: 'banknote' },
+  { key: 'policies', label: 'Accounting Policies', subtitle: 'Significant Policies & Basis of Preparation', icon: 'book-open' },
+  { key: 'taxation', label: 'Taxation Computation', subtitle: 'Taxable Income & CIT Computation Schedules', icon: 'calculator' },
+  { key: 'notesToAccount', label: 'Notes to Accounts', subtitle: 'Disclosures, Fixed Asset & Ledger Schedules', icon: 'file-text' }
+];
+
+function getFilingChecklist(r) {
+  if (r && r.filingChecklist && typeof r.filingChecklist === 'object' && r.filingChecklist.items) {
+    return r.filingChecklist;
+  }
+  
+  // Intelligent auto-detection from existing filingStatus text if available
+  const text = (r && r.filingStatus ? r.filingStatus : '').toLowerCase();
+  const isIrdSubmitted = text.includes('submitted') || text.includes('ird submitted');
+  const isAudited = text.includes('audited') || text.includes('audit account');
+  const isDraftDone = text.includes('draft account') || text.includes('final accounts') || isAudited || isIrdSubmitted;
+  const isTaxDone = text.includes('tax') || text.includes('itr') || text.includes('ita') || text.includes('set') || text.includes('wht') || isIrdSubmitted;
+
+  return {
+    assessmentYear: "2024/2025",
+    stages: {
+      draftAccounts: { status: isDraftDone ? "Completed" : "Pending", date: "", notes: "" },
+      audit: { status: isAudited ? "Completed" : (isIrdSubmitted ? "Completed" : "Pending"), date: "", auditor: "" },
+      taxation: { status: isTaxDone ? "Completed" : "Pending", date: "", taxType: "CIT / ITR" },
+      irdSubmission: { status: isIrdSubmitted ? "Completed" : "Pending", date: "", refNo: "" }
+    },
+    items: {
+      balanceSheet: { checked: isDraftDone, status: isDraftDone ? "Done" : "Pending", date: "", notes: "" },
+      pnl: { checked: isDraftDone, status: isDraftDone ? "Done" : "Pending", date: "", notes: "" },
+      qt: { checked: isTaxDone, status: isTaxDone ? "Done" : "Pending", date: "", notes: "" },
+      cashFlow: { checked: isDraftDone, status: isDraftDone ? "Done" : "Pending", date: "", notes: "" },
+      policies: { checked: isDraftDone, status: isDraftDone ? "Done" : "Pending", date: "", notes: "" },
+      taxation: { checked: isTaxDone, status: isTaxDone ? "Done" : "Pending", date: "", notes: "" },
+      notesToAccount: { checked: isDraftDone, status: isDraftDone ? "Done" : "Pending", date: "", notes: "" }
+    },
+    customNotes: ""
+  };
+}
+
+function getFilingChecklistStats(r) {
+  const chk = getFilingChecklist(r);
+  let completed = 0;
+  FILING_CHECKLIST_ITEMS.forEach(it => {
+    if (chk.items && chk.items[it.key] && chk.items[it.key].checked) {
+      completed++;
+    }
+  });
+  
+  const total = FILING_CHECKLIST_ITEMS.length;
+  const percent = Math.round((completed / total) * 100);
+  
+  let stage = 'Draft Accounts';
+  let badgeClass = 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200';
+  let icon = 'list-checks';
+  let badgeText = `${completed}/${total} Ready`;
+
+  if (chk.stages && chk.stages.irdSubmission && chk.stages.irdSubmission.status === 'Completed') {
+    stage = 'IRD Submitted';
+  } else if (chk.stages && chk.stages.taxation && chk.stages.taxation.status === 'Completed') {
+    stage = 'Tax Finalized';
+  } else if (chk.stages && chk.stages.audit && chk.stages.audit.status === 'Completed') {
+    stage = 'Audited';
+  } else if (chk.stages && chk.stages.draftAccounts && chk.stages.draftAccounts.status === 'Completed') {
+    stage = 'Draft Accounts Done';
+  }
+
+  if (completed === total) {
+    badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
+    icon = 'check-circle-2';
+    badgeText = '7/7 Complete';
+  } else if (completed >= 4) {
+    badgeClass = 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100';
+    icon = 'clipboard-check';
+  } else if (completed > 0) {
+    badgeClass = 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100';
+    icon = 'clipboard-check';
+  }
+
+  return { completedCount: completed, total, percent, stage, badgeClass, icon, badgeText };
+}
+
+function openFilingChecklistModal(recordId) {
+  const r = financialRecords.find(x => x.id === recordId);
+  if (!r) {
+    alert('Financial entity not found.');
+    return;
+  }
+
+  const chk = getFilingChecklist(r);
+  const isEditor = canEdit('financial_files');
+  const stats = getFilingChecklistStats(r);
+
+  const modalContent = document.getElementById('modalContent');
+  modalContent.className = "bg-white border border-slate-200 rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-y-auto p-5 md:p-8 shadow-2xl relative fade-in";
+
+  modalContent.innerHTML = `
+    <div class="space-y-6">
+      <!-- Header Bar -->
+      <div class="flex items-start justify-between pb-4 border-b border-slate-200">
+        <div class="flex items-start gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center shadow-md shrink-0">
+            <i data-lucide="clipboard-check" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="font-display font-bold text-lg text-slate-900">${r.entityName || 'Unnamed Entity'}</h3>
+              <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${r.category === 'Corporate' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
+                ${r.category || 'Corporate'}
+              </span>
+              ${isEditor ? `
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                  <i data-lucide="shield-check" class="w-3 h-3"></i> Editor Access Active
+                </span>
+              ` : `
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+                  <i data-lucide="lock" class="w-3 h-3"></i> Viewer (Read-Only)
+                </span>
+              `}
+            </div>
+            <p class="text-xs text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
+              <span><strong>TIN:</strong> <span class="font-mono text-slate-700 font-bold">${r.tinNo || 'Not Assigned'}</span></span>
+              <span>&bull;</span>
+              <span><strong>SSID:</strong> <span class="font-mono text-slate-700">${r.ssid || 'None'}</span></span>
+              ${r.directorName ? `<span>&bull;</span><span><strong>Director:</strong> <span class="text-slate-700">${r.directorName}</span></span>` : ''}
+            </p>
+          </div>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Executive Compliance & Progress Meter Card -->
+      <div class="p-4 md:p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white shadow-md">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-emerald-400 text-xs font-bold uppercase tracking-wider">Statutory Financial Filing</span>
+              <span class="text-slate-400 text-xs">&bull;</span>
+              <span class="text-slate-300 text-xs font-medium">Compliance Pipeline</span>
+            </div>
+            <div class="text-xl md:text-2xl font-bold flex items-center gap-3">
+              <span id="chkProgressText">${stats.completedCount} of 7 Deliverables Ready</span>
+              <span id="chkProgressBadge" class="text-xs px-2.5 py-1 rounded-full font-semibold ${stats.percent === 100 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}">
+                ${stats.percent}% Complete
+              </span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/10">
+            <label class="text-xs font-semibold text-slate-300">Assessment Year:</label>
+            <select id="chkAssessmentYear" ${!isEditor ? 'disabled' : ''} class="bg-slate-800 text-white border border-slate-600 rounded-lg px-2.5 py-1 text-xs font-semibold focus:outline-none focus:border-emerald-400">
+              <option value="2024/2025" ${chk.assessmentYear === '2024/2025' ? 'selected' : ''}>Year 2024/2025</option>
+              <option value="2023/2024" ${chk.assessmentYear === '2023/2024' ? 'selected' : ''}>Year 2023/2024</option>
+              <option value="2025/2026" ${chk.assessmentYear === '2025/2026' ? 'selected' : ''}>Year 2025/2026</option>
+              <option value="2022/2023" ${chk.assessmentYear === '2022/2023' ? 'selected' : ''}>Year 2022/2023</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Live Progress Bar -->
+        <div class="w-full bg-slate-700/60 rounded-full h-2.5 mt-4 overflow-hidden p-0.5 border border-white/10">
+          <div id="chkProgressBar" class="h-full rounded-full checklist-progress-bar ${stats.percent === 100 ? 'bg-emerald-400' : 'bg-gradient-to-r from-blue-400 to-emerald-400'}" style="width: ${stats.percent}%"></div>
+        </div>
+
+        <!-- Visual 4-Stage Workflow Stepper -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4 pt-3 border-t border-white/10 text-xs">
+          <div class="flex items-center gap-2">
+            <div id="stepDot_draft" class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${chk.stages.draftAccounts.status === 'Completed' ? 'bg-emerald-400 text-slate-900' : 'bg-slate-700 text-slate-300'}">1</div>
+            <div>
+              <div class="font-semibold text-slate-200">Draft Accounts</div>
+              <div id="stepLbl_draft" class="text-[10px] text-slate-400">${chk.stages.draftAccounts.status || 'Pending'}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <div id="stepDot_audit" class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${chk.stages.audit.status === 'Completed' ? 'bg-emerald-400 text-slate-900' : 'bg-slate-700 text-slate-300'}">2</div>
+            <div>
+              <div class="font-semibold text-slate-200">Audit</div>
+              <div id="stepLbl_audit" class="text-[10px] text-slate-400">${chk.stages.audit.status || 'Pending'}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <div id="stepDot_tax" class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${chk.stages.taxation.status === 'Completed' ? 'bg-emerald-400 text-slate-900' : 'bg-slate-700 text-slate-300'}">3</div>
+            <div>
+              <div class="font-semibold text-slate-200">Taxation</div>
+              <div id="stepLbl_tax" class="text-[10px] text-slate-400">${chk.stages.taxation.status || 'Pending'}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <div id="stepDot_ird" class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${chk.stages.irdSubmission.status === 'Completed' ? 'bg-emerald-400 text-slate-900' : 'bg-slate-700 text-slate-300'}">4</div>
+            <div>
+              <div class="font-semibold text-slate-200">IRD Submission</div>
+              <div id="stepLbl_ird" class="text-[10px] text-slate-400">${chk.stages.irdSubmission.status || 'Pending'}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 1: The 4 Core Workflow Milestones -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h4 class="font-display font-bold text-sm text-slate-900 flex items-center gap-2">
+            <i data-lucide="workflow" class="w-4 h-4 text-emerald-600"></i>
+            Workflow Milestones (Draft Accounts, Audit, Taxation, IRD Submission)
+          </h4>
+          <span class="text-xs text-slate-400">Manage statutory timeline & dates</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <!-- Milestone 1: Draft Accounts -->
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-emerald-300 transition space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-600"></i> Draft Accounts
+              </span>
+              <select id="mChkDraftStatus" onchange="handleMilestoneStatusChange('draft', this.value)" ${!isEditor ? 'disabled' : ''} class="text-[11px] font-semibold rounded-lg px-2 py-1 border border-slate-200 bg-white text-slate-800 focus:outline-none">
+                <option value="Pending" ${chk.stages.draftAccounts.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                <option value="In Progress" ${chk.stages.draftAccounts.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                <option value="Completed" ${chk.stages.draftAccounts.status === 'Completed' ? 'selected' : ''}>Completed</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Completion Date</label>
+              <input type="date" id="mChkDraftDate" value="${chk.stages.draftAccounts.date || ''}" ${!isEditor ? 'disabled' : ''} class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Prepared By / Notes</label>
+              <input type="text" id="mChkDraftNotes" value="${chk.stages.draftAccounts.notes || ''}" placeholder="e.g. In-house Accountant" ${!isEditor ? 'disabled' : ''} class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+            </div>
+          </div>
+
+          <!-- Milestone 2: Audit -->
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-emerald-300 transition space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-purple-600"></i> Audit Process
+              </span>
+              <select id="mChkAuditStatus" onchange="handleMilestoneStatusChange('audit', this.value)" ${!isEditor ? 'disabled' : ''} class="text-[11px] font-semibold rounded-lg px-2 py-1 border border-slate-200 bg-white text-slate-800 focus:outline-none">
+                <option value="Pending" ${chk.stages.audit.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                <option value="In Progress" ${chk.stages.audit.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                <option value="Completed" ${chk.stages.audit.status === 'Completed' ? 'selected' : ''}>Audited / Signed</option>
+                <option value="Exempt" ${chk.stages.audit.status === 'Exempt' ? 'selected' : ''}>Exempt / N/A</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Audit Sign-Off Date</label>
+              <input type="date" id="mChkAuditDate" value="${chk.stages.audit.date || ''}" ${!isEditor ? 'disabled' : ''} class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Auditor / Firm</label>
+              <input type="text" id="mChkAuditAuditor" value="${chk.stages.audit.auditor || ''}" placeholder="e.g. Audit firm / sign-off" ${!isEditor ? 'disabled' : ''} class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+            </div>
+          </div>
+
+          <!-- Milestone 3: Taxation -->
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-emerald-300 transition space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                <i data-lucide="calculator" class="w-3.5 h-3.5 text-amber-600"></i> Taxation
+              </span>
+              <select id="mChkTaxStatus" onchange="handleMilestoneStatusChange('tax', this.value)" ${!isEditor ? 'disabled' : ''} class="text-[11px] font-semibold rounded-lg px-2 py-1 border border-slate-200 bg-white text-slate-800 focus:outline-none">
+                <option value="Pending" ${chk.stages.taxation.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                <option value="In Progress" ${chk.stages.taxation.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                <option value="Completed" ${chk.stages.taxation.status === 'Completed' ? 'selected' : ''}>Finalized</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Tax Computation Date</label>
+              <input type="date" id="mChkTaxDate" value="${chk.stages.taxation.date || ''}" ${!isEditor ? 'disabled' : ''} class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Tax Type / Scheme</label>
+              <input type="text" id="mChkTaxType" value="${chk.stages.taxation.taxType || ''}" placeholder="e.g. CIT / ITR / SET" ${!isEditor ? 'disabled' : ''} class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+            </div>
+          </div>
+
+          <!-- Milestone 4: IRD Submission -->
+          <div class="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-emerald-300 transition space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                <i data-lucide="send" class="w-3.5 h-3.5 text-emerald-600"></i> IRD Submission
+              </span>
+              <select id="mChkIrdStatus" onchange="handleMilestoneStatusChange('ird', this.value)" ${!isEditor ? 'disabled' : ''} class="text-[11px] font-semibold rounded-lg px-2 py-1 border border-slate-200 bg-white text-slate-800 focus:outline-none">
+                <option value="Pending" ${chk.stages.irdSubmission.status === 'Pending' ? 'selected' : ''}>Not Submitted</option>
+                <option value="Drafted" ${chk.stages.irdSubmission.status === 'Drafted' ? 'selected' : ''}>Drafted on RAMIS</option>
+                <option value="Completed" ${chk.stages.irdSubmission.status === 'Completed' ? 'selected' : ''}>Submitted to IRD</option>
+                <option value="Acknowledged" ${chk.stages.irdSubmission.status === 'Acknowledged' ? 'selected' : ''}>Acknowledged</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">IRD Submission Date</label>
+              <input type="date" id="mChkIrdDate" value="${chk.stages.irdSubmission.date || ''}" ${!isEditor ? 'disabled' : ''} class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+            </div>
+            <div>
+              <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">RAMIS DIN / Ref No</label>
+              <input type="text" id="mChkIrdRef" value="${chk.stages.irdSubmission.refNo || ''}" placeholder="e.g. DIN #2026-88192" ${!isEditor ? 'disabled' : ''} class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500 font-mono">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: The 7 Core Deliverables Checklist -->
+      <div class="space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h4 class="font-display font-bold text-sm text-slate-900 flex items-center gap-2">
+              <i data-lucide="check-square" class="w-4 h-4 text-emerald-600"></i>
+              Statutory Deliverables Checklist (7 Core Components)
+            </h4>
+            <p class="text-xs text-slate-500">Balance sheet, PNL, QT, Cash flow, policies, taxation, notes to account</p>
+          </div>
+          ${isEditor ? `
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="handleBatchChecklistToggle(true)" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold rounded-lg border border-emerald-200 text-xs transition flex items-center gap-1 shadow-2xs">
+                <i data-lucide="check-check" class="w-3.5 h-3.5"></i> Mark All Ready
+              </button>
+              <button type="button" onclick="handleBatchChecklistToggle(false)" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium rounded-lg text-xs transition">
+                Reset All
+              </button>
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- 7 Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="checklistCardsContainer">
+          ${FILING_CHECKLIST_ITEMS.map(it => {
+            const itemData = (chk.items && chk.items[it.key]) ? chk.items[it.key] : { checked: false, status: 'Pending', date: '', notes: '' };
+            return `
+              <div id="card_${it.key}" class="checklist-card p-3.5 rounded-xl border ${itemData.checked ? 'checked border-emerald-300' : 'border-slate-200 bg-white'} space-y-2">
+                <div class="flex items-start justify-between gap-3">
+                  <label class="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input type="checkbox" id="chk_${it.key}" onchange="handleItemCheckChange('${it.key}')" ${itemData.checked ? 'checked' : ''} ${!isEditor ? 'disabled' : ''} class="w-4 h-4 mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300">
+                    <div>
+                      <div class="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                        <i data-lucide="${it.icon}" class="w-3.5 h-3.5 text-emerald-600"></i> ${it.label}
+                      </div>
+                      <div class="text-[11px] text-slate-500">${it.subtitle}</div>
+                    </div>
+                  </label>
+                  <select id="stat_${it.key}" onchange="handleItemSelectChange('${it.key}')" ${!isEditor ? 'disabled' : ''} class="text-[11px] font-semibold rounded-lg px-2 py-1 border border-slate-200 bg-white text-slate-700 focus:outline-none">
+                    <option value="Done" ${itemData.status === 'Done' ? 'selected' : ''}>Done / Ready</option>
+                    <option value="In Progress" ${itemData.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                    <option value="Pending" ${itemData.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                    <option value="N/A" ${itemData.status === 'N/A' ? 'selected' : ''}>N/A</option>
+                  </select>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100/80">
+                  <div>
+                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Date</label>
+                    <input type="date" id="date_${it.key}" value="${itemData.date || ''}" ${!isEditor ? 'disabled' : ''} class="w-full text-[11px] px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-500">
+                  </div>
+                  <div>
+                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Reference / Notes</label>
+                    <input type="text" id="notes_${it.key}" value="${itemData.notes || ''}" placeholder="e.g. Audited BS signed" ${!isEditor ? 'disabled' : ''} class="w-full text-[11px] px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-500">
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- Section 3: Synchronized Filing Status & Notes -->
+      <div class="space-y-3 pt-2 border-t border-slate-200">
+        <div class="flex items-center justify-between">
+          <label class="font-display font-bold text-sm text-slate-900 flex items-center gap-2">
+            <i data-lucide="align-left" class="w-4 h-4 text-emerald-600"></i>
+            Filing Status Text & Submission Log
+          </label>
+          ${isEditor ? `
+            <button type="button" onclick="handleAutoGenerateSummary('${r.id}')" class="text-xs text-emerald-700 hover:text-emerald-800 font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition shadow-2xs">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-600"></i> Auto-Generate Summary from Checklist
+            </button>
+          ` : ''}
+        </div>
+        <div>
+          <textarea id="mChkFilingStatus" rows="2" ${!isEditor ? 'disabled' : ''} placeholder="Year 2024/2025 Audited Accounts & Returns submitted to IRD..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">${r.filingStatus || ''}</textarea>
+          <p class="text-[11px] text-slate-400 mt-1">This text updates the main Financial Files table, status filter, and search index.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Additional Internal Compliance Notes</label>
+          <textarea id="mChkCustomNotes" rows="2" ${!isEditor ? 'disabled' : ''} placeholder="Auditor contact details, liaison officer notes, tax queries..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">${chk.customNotes || ''}</textarea>
+        </div>
+      </div>
+
+      <!-- Modal Actions Footer -->
+      <div class="pt-4 flex items-center justify-between border-t border-slate-200">
+        <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-slate-600 bg-slate-100 hover:bg-slate-200 font-semibold text-xs transition">
+          Close
+        </button>
+
+        <div class="flex items-center gap-2">
+          ${isEditor ? `
+            <button type="button" onclick="submitFilingChecklist('${r.id}')" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition shadow-md flex items-center gap-2">
+              <i data-lucide="save" class="w-4 h-4"></i> Save Filing Checklist & Status
+            </button>
+          ` : `
+            <button disabled class="px-5 py-2.5 rounded-xl bg-slate-200 text-slate-400 font-semibold text-xs cursor-not-allowed flex items-center gap-2">
+              <i data-lucide="lock" class="w-4 h-4"></i> Read-Only Mode
+            </button>
+          `}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function handleItemCheckChange(key) {
+  const chk = document.getElementById(`chk_${key}`);
+  const card = document.getElementById(`card_${key}`);
+  const stat = document.getElementById(`stat_${key}`);
+  if (!chk || !card || !stat) return;
+
+  if (chk.checked) {
+    card.classList.add('checked', 'border-emerald-300');
+    card.classList.remove('border-slate-200', 'bg-white');
+    if (stat.value === 'Pending') stat.value = 'Done';
+  } else {
+    card.classList.remove('checked', 'border-emerald-300');
+    card.classList.add('border-slate-200', 'bg-white');
+    if (stat.value === 'Done') stat.value = 'Pending';
+  }
+
+  updateChecklistLiveCount();
+}
+
+function handleItemSelectChange(key) {
+  const chk = document.getElementById(`chk_${key}`);
+  const card = document.getElementById(`card_${key}`);
+  const stat = document.getElementById(`stat_${key}`);
+  if (!chk || !card || !stat) return;
+
+  if (stat.value === 'Done') {
+    chk.checked = true;
+    card.classList.add('checked', 'border-emerald-300');
+    card.classList.remove('border-slate-200', 'bg-white');
+  } else if (stat.value === 'Pending' || stat.value === 'N/A') {
+    chk.checked = false;
+    card.classList.remove('checked', 'border-emerald-300');
+    card.classList.add('border-slate-200', 'bg-white');
+  }
+
+  updateChecklistLiveCount();
+}
+
+function handleMilestoneStatusChange(stage, value) {
+  const lbl = document.getElementById(`stepLbl_${stage}`);
+  const dot = document.getElementById(`stepDot_${stage}`);
+  if (lbl) lbl.textContent = value;
+  if (dot) {
+    if (value === 'Completed') {
+      dot.className = "w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] bg-emerald-400 text-slate-900";
+    } else if (value === 'In Progress' || value === 'Drafted') {
+      dot.className = "w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] bg-blue-400 text-slate-900";
+    } else {
+      dot.className = "w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] bg-slate-700 text-slate-300";
+    }
+  }
+}
+
+function handleBatchChecklistToggle(selectAll) {
+  FILING_CHECKLIST_ITEMS.forEach(it => {
+    const chk = document.getElementById(`chk_${it.key}`);
+    const card = document.getElementById(`card_${it.key}`);
+    const stat = document.getElementById(`stat_${it.key}`);
+    if (chk && card && stat) {
+      chk.checked = selectAll;
+      stat.value = selectAll ? 'Done' : 'Pending';
+      if (selectAll) {
+        card.classList.add('checked', 'border-emerald-300');
+        card.classList.remove('border-slate-200', 'bg-white');
+      } else {
+        card.classList.remove('checked', 'border-emerald-300');
+        card.classList.add('border-slate-200', 'bg-white');
+      }
+    }
+  });
+
+  if (selectAll) {
+    const draft = document.getElementById('mChkDraftStatus');
+    const audit = document.getElementById('mChkAuditStatus');
+    const tax = document.getElementById('mChkTaxStatus');
+    const ird = document.getElementById('mChkIrdStatus');
+    if (draft) { draft.value = 'Completed'; handleMilestoneStatusChange('draft', 'Completed'); }
+    if (audit) { audit.value = 'Completed'; handleMilestoneStatusChange('audit', 'Completed'); }
+    if (tax) { tax.value = 'Completed'; handleMilestoneStatusChange('tax', 'Completed'); }
+    if (ird) { ird.value = 'Completed'; handleMilestoneStatusChange('ird', 'Completed'); }
+  }
+
+  updateChecklistLiveCount();
+}
+
+function updateChecklistLiveCount() {
+  let completed = 0;
+  FILING_CHECKLIST_ITEMS.forEach(it => {
+    const chk = document.getElementById(`chk_${it.key}`);
+    if (chk && chk.checked) completed++;
+  });
+
+  const total = FILING_CHECKLIST_ITEMS.length;
+  const percent = Math.round((completed / total) * 100);
+
+  const textEl = document.getElementById('chkProgressText');
+  const badgeEl = document.getElementById('chkProgressBadge');
+  const barEl = document.getElementById('chkProgressBar');
+
+  if (textEl) textEl.textContent = `${completed} of ${total} Deliverables Ready`;
+  if (badgeEl) {
+    badgeEl.textContent = `${percent}% Complete`;
+    if (percent === 100) {
+      badgeEl.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+    } else {
+      badgeEl.className = 'text-xs px-2.5 py-1 rounded-full font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30';
+    }
+  }
+  if (barEl) {
+    barEl.style.width = `${percent}%`;
+    barEl.className = `h-full rounded-full checklist-progress-bar ${percent === 100 ? 'bg-emerald-400' : 'bg-gradient-to-r from-blue-400 to-emerald-400'}`;
+  }
+}
+
+function handleAutoGenerateSummary(recordId) {
+  const r = financialRecords.find(x => x.id === recordId);
+  const year = document.getElementById('chkAssessmentYear')?.value || '2024/2025';
+  
+  const draftStatus = document.getElementById('mChkDraftStatus')?.value || 'Pending';
+  const draftDate = document.getElementById('mChkDraftDate')?.value || '';
+  
+  const auditStatus = document.getElementById('mChkAuditStatus')?.value || 'Pending';
+  const auditDate = document.getElementById('mChkAuditDate')?.value || '';
+  
+  const taxStatus = document.getElementById('mChkTaxStatus')?.value || 'Pending';
+  const taxDate = document.getElementById('mChkTaxDate')?.value || '';
+  
+  const irdStatus = document.getElementById('mChkIrdStatus')?.value || 'Pending';
+  const irdDate = document.getElementById('mChkIrdDate')?.value || '';
+  const irdRef = document.getElementById('mChkIrdRef')?.value || '';
+
+  const completedItems = [];
+  FILING_CHECKLIST_ITEMS.forEach(it => {
+    const chk = document.getElementById(`chk_${it.key}`);
+    if (chk && chk.checked) {
+      completedItems.push(it.label);
+    }
+  });
+
+  const parts = [`Year ${year}`];
+  if (draftStatus === 'Completed') {
+    parts.push(`Draft Accounts Done${draftDate ? ' (' + draftDate + ')' : ''}`);
+  }
+  if (auditStatus === 'Completed') {
+    parts.push(`Audited Account Done${auditDate ? ' (' + auditDate + ')' : ''}`);
+  }
+  if (taxStatus === 'Completed') {
+    parts.push(`Tax Returns Finalized${taxDate ? ' (' + taxDate + ')' : ''}`);
+  }
+  if (irdStatus === 'Completed' || irdStatus === 'Acknowledged') {
+    parts.push(`IRD Submitted${irdDate ? ' on ' + irdDate : ''}${irdRef ? ' (Ref: ' + irdRef + ')' : ''}`);
+  } else if (irdStatus === 'Drafted') {
+    parts.push(`Drafted on RAMIS System${irdDate ? ' (' + irdDate + ')' : ''}`);
+  }
+
+  if (completedItems.length > 0) {
+    parts.push(`Checklist: [${completedItems.join(', ')} Ready]`);
+  }
+
+  const generated = parts.join('; ');
+  const txtArea = document.getElementById('mChkFilingStatus');
+  if (txtArea) {
+    txtArea.value = generated;
+  }
+}
+
+async function submitFilingChecklist(recordId) {
+  if (!canEdit('financial_files')) {
+    alert('Editor privileges required to update statutory filing checklist.');
+    return;
+  }
+
+  const items = {};
+  FILING_CHECKLIST_ITEMS.forEach(it => {
+    const chk = document.getElementById(`chk_${it.key}`);
+    const stat = document.getElementById(`stat_${it.key}`);
+    const dt = document.getElementById(`date_${it.key}`);
+    const nt = document.getElementById(`notes_${it.key}`);
+    items[it.key] = {
+      checked: chk ? chk.checked : false,
+      status: stat ? stat.value : 'Pending',
+      date: dt ? dt.value.trim() : '',
+      notes: nt ? nt.value.trim() : ''
+    };
+  });
+
+  const stages = {
+    draftAccounts: {
+      status: document.getElementById('mChkDraftStatus')?.value || 'Pending',
+      date: document.getElementById('mChkDraftDate')?.value || '',
+      notes: document.getElementById('mChkDraftNotes')?.value.trim() || ''
+    },
+    audit: {
+      status: document.getElementById('mChkAuditStatus')?.value || 'Pending',
+      date: document.getElementById('mChkAuditDate')?.value || '',
+      auditor: document.getElementById('mChkAuditAuditor')?.value.trim() || ''
+    },
+    taxation: {
+      status: document.getElementById('mChkTaxStatus')?.value || 'Pending',
+      date: document.getElementById('mChkTaxDate')?.value || '',
+      taxType: document.getElementById('mChkTaxType')?.value.trim() || ''
+    },
+    irdSubmission: {
+      status: document.getElementById('mChkIrdStatus')?.value || 'Pending',
+      date: document.getElementById('mChkIrdDate')?.value || '',
+      refNo: document.getElementById('mChkIrdRef')?.value.trim() || ''
+    }
+  };
+
+  const assessmentYear = document.getElementById('chkAssessmentYear')?.value || '2024/2025';
+  const customNotes = document.getElementById('mChkCustomNotes')?.value.trim() || '';
+  const filingStatus = document.getElementById('mChkFilingStatus')?.value.trim() || '';
+
+  const filingChecklist = {
+    assessmentYear,
+    stages,
+    items,
+    customNotes,
+    updatedAt: new Date().toISOString(),
+    updatedBy: currentUser?.username || 'editor'
+  };
+
+  try {
+    const res = await fetch(`/api/financial-files/${recordId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        filingChecklist,
+        filingStatus
+      })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      // Update local cache
+      const rec = financialRecords.find(x => x.id === recordId);
+      if (rec) {
+        rec.filingChecklist = filingChecklist;
+        rec.filingStatus = filingStatus;
+      }
+
+      closeModal();
+      // Re-render table
+      const tbl = document.getElementById('financialTableContainer');
+      if (tbl) {
+        tbl.innerHTML = renderFinancialTable(getFilteredFinancialRecords());
+      } else {
+        renderFinancialFiles(document.getElementById('mainContent'));
+      }
+      if (window.lucide) lucide.createIcons();
+      alert('Statutory filing checklist and status updated successfully.');
+    } else {
+      alert(data.error || 'Failed to save filing checklist.');
+    }
+  } catch (err) {
+    alert('Network error while saving filing checklist: ' + err.message);
   }
 }
 
