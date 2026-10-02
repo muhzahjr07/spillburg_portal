@@ -327,6 +327,16 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     token = part.strip()[6:]
                     break
         
+        # Also check URL query string for token (critical for <img> tags and direct links)
+        if not token:
+            try:
+                parsed = urllib.parse.urlparse(self.path)
+                qs = urllib.parse.parse_qs(parsed.query)
+                if "token" in qs and qs["token"]:
+                    token = qs["token"][0].strip()
+            except Exception:
+                pass
+        
         if token and token in SESSIONS:
             user_id = SESSIONS[token]["userId"]
             for u in USERS:
@@ -378,11 +388,11 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"authenticated": False}, 401)
             return
 
-        # 2. API: Users List (Admin only)
+        # 2. API: Users List (Admin and Director)
         elif path == "/api/users":
             user = self.get_auth_user()
-            if not user or user.get("role") != "admin":
-                self.send_json({"error": "Admin privileges required"}, 403)
+            if not user or user.get("role") not in ["admin", "director"]:
+                self.send_json({"error": "Admin or Director privileges required"}, 403)
                 return
             safe_list = []
             for u in USERS:
@@ -448,7 +458,11 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 else:
                     base_tasks = [t for t in OPERATIONS if t.get("userId") == for_user or t.get("ownerUsername") == for_user]
             else:
-                base_tasks = [t for t in OPERATIONS if t.get("userId") == user.get("id") or t.get("ownerUsername") == user.get("username")]
+                user_tasks = [t for t in OPERATIONS if t.get("userId") == user.get("id") or t.get("ownerUsername") == user.get("username")]
+                if user_tasks or role not in ["director", "admin"]:
+                    base_tasks = user_tasks
+                else:
+                    base_tasks = list(OPERATIONS)
 
             filtered = base_tasks
             if search:
@@ -478,7 +492,11 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 else:
                     base_tasks = [t for t in OPERATIONS if t.get("userId") == for_user or t.get("ownerUsername") == for_user]
             else:
-                base_tasks = [t for t in OPERATIONS if t.get("userId") == user.get("id") or t.get("ownerUsername") == user.get("username")]
+                user_tasks = [t for t in OPERATIONS if t.get("userId") == user.get("id") or t.get("ownerUsername") == user.get("username")]
+                if user_tasks or role not in ["director", "admin"]:
+                    base_tasks = user_tasks
+                else:
+                    base_tasks = list(OPERATIONS)
 
             total = len(base_tasks)
             pending = sum(1 for t in base_tasks if t.get("status") == "Pending")
@@ -533,22 +551,30 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             return
 
         elif path.startswith("/api/financial-files/photos/"):
-            user = self.require_permission("financial_files", "viewer")
-            if not user: return
-            photo_name = urllib.parse.unquote(path.replace("/api/financial-files/photos/", ""))
+            photo_raw = path.replace("/api/financial-files/photos/", "")
+            photo_name = os.path.basename(urllib.parse.unquote(photo_raw))
             photo_path = os.path.join(FINANCIAL_PHOTOS_DIR, photo_name)
+
+            if not os.path.exists(photo_path):
+                # Attempt case-insensitive or partial match
+                for f in os.listdir(FINANCIAL_PHOTOS_DIR):
+                    if f.lower() == photo_name.lower():
+                        photo_path = os.path.join(FINANCIAL_PHOTOS_DIR, f)
+                        break
+
             if os.path.exists(photo_path) and photo_path.lower().endswith(('.jpg', '.jpeg', '.png')):
                 with open(photo_path, "rb") as f:
                     content = f.read()
+                ext = "png" if photo_path.lower().endswith(".png") else "jpeg"
                 self.send_response(200)
-                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Type", f"image/{ext}")
                 self.send_header("Content-Length", str(len(content)))
                 self.send_header("Cache-Control", "public, max-age=86400")
                 self.end_headers()
                 self.wfile.write(content)
                 return
             else:
-                self.send_json({"error": "Photo not found"}, 404)
+                self.send_json({"error": f"Photo '{photo_name}' not found"}, 404)
                 return
 
         # 6. API: Customer File Database (Connected to Access)
@@ -714,8 +740,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         # 4. Users: Create (Admin Panel only)
         elif path == "/api/users":
             user = self.get_auth_user()
-            if not user or user.get("role") != "admin":
-                self.send_json({"error": "Admin privileges required to create accounts"}, 403)
+            if not user or user.get("role") not in ["admin", "director"]:
+                self.send_json({"error": "Admin or Director privileges required to create accounts"}, 403)
                 return
 
             username = body.get("username", "").strip().lower()
@@ -890,11 +916,11 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         path = parsed.path
         body = self.parse_body()
 
-        # 1. Users: Update role & permissions (Admin only)
+        # 1. Users: Update role & permissions (Admin & Director)
         if path.startswith("/api/users/"):
             user = self.get_auth_user()
-            if not user or user.get("role") != "admin":
-                self.send_json({"error": "Admin privileges required"}, 403)
+            if not user or user.get("role") not in ["admin", "director"]:
+                self.send_json({"error": "Admin or Director privileges required"}, 403)
                 return
 
             user_id = path.replace("/api/users/", "")
@@ -912,7 +938,10 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             if "fullName" in body: target["fullName"] = body["fullName"]
             if "title" in body: target["title"] = body["title"]
             if "email" in body: target["email"] = body["email"]
-            if "permissions" in body: target["permissions"] = body["permissions"]
+            if "permissions" in body:
+                if not isinstance(target.get("permissions"), dict):
+                    target["permissions"] = {}
+                target["permissions"].update(body["permissions"])
             if "status" in body: target["status"] = body["status"]
             if "password" in body and body["password"]: target["password"] = body["password"]
 
@@ -971,6 +1000,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     target[key] = body[key]
 
             save_json_file("financial_records_active.json", FINANCIAL_RECORDS)
+            save_json_file("financial_records.json", FINANCIAL_RECORDS)
             self.send_json({"success": True, "record": target})
             return
 
@@ -978,6 +1008,10 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path.startswith("/api/customer-files/"):
             user = self.require_permission("customer_files", "editor")
             if not user: return
+
+            rec_no = path.replace("/api/customer-files/", "")
+            if "No" not in body or not body.get("No"):
+                body["No"] = rec_no
 
             res = call_access_bridge("UpdateRecord", body)
             if res.get("success"):
@@ -994,11 +1028,11 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
-        # 1. Users: Delete (Admin only)
+        # 1. Users: Delete (Admin & Director)
         if path.startswith("/api/users/"):
             user = self.get_auth_user()
-            if not user or user.get("role") != "admin":
-                self.send_json({"error": "Admin privileges required"}, 403)
+            if not user or user.get("role") not in ["admin", "director"]:
+                self.send_json({"error": "Admin or Director privileges required"}, 403)
                 return
 
             user_id = path.replace("/api/users/", "")

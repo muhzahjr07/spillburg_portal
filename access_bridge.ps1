@@ -148,8 +148,17 @@ try {
 
         "UpdateRecord" {
             $data = $PayloadJson | ConvertFrom-Json
+            $regNo = if ($data.'Registration No') { $data.'Registration No' } elseif ($data.RegistrationNo) { $data.RegistrationNo } else { "" }
+            $compName = if ($data.'Company Name') { $data.'Company Name' } elseif ($data.CompanyName) { $data.CompanyName } else { "" }
+            $type = if ($data.Type) { $data.Type } else { "Standard" }
+            $cat = if ($data.Category) { $data.Category } else { "Customer Files" }
+            $cupboard = if ($data.Cupboard) { $data.Cupboard } else { "Cupboard 1" }
+            $boxNo = if ($data.'Box No') { $data.'Box No' } elseif ($data.BoxNo) { $data.BoxNo } else { "" }
+            $doi = if ($data.'Date of Incorporation') { $data.'Date of Incorporation' } elseif ($data.DateOfIncorporation) { $data.DateOfIncorporation } else { "" }
+            $recNo = [string]$data.No
+
             $q = "UPDATE [File Register] SET [Registration No] = ?, [Company Name] = ?, [Type] = ?, [Category] = ?, [Cupboard] = ?, [Box No] = ?, [Date of Incorporation] = ? WHERE [No] = ?"
-            Execute-NonQuery $q @($data.'Registration No', $data.'Company Name', $data.Type, $data.Category, $data.Cupboard, $data.'Box No', $data.'Date of Incorporation', [string]$data.No) | Out-Null
+            Execute-NonQuery $q @($regNo, $compName, $type, $cat, $cupboard, $boxNo, $doi, $recNo) | Out-Null
             
             $out = @{
                 success = $true

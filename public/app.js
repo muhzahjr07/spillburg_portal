@@ -15,6 +15,78 @@ let customerViewMode = 'table'; // 'table' or 'boxes'
 let operationsViewMode = 'table'; // 'table' or 'kanban'
 let operationsUserFilter = 'me'; // 'me', 'all', or specific userId
 
+// Universal Table Sorting State
+const tableSortState = {
+  operations: { col: 'no', asc: true },
+  customer: { col: 'No', asc: true },
+  financial: { col: 'entityName', asc: true },
+  users: { col: 'fullName', asc: true }
+};
+
+function toggleTableSort(tableKey, col) {
+  if (tableSortState[tableKey].col === col) {
+    tableSortState[tableKey].asc = !tableSortState[tableKey].asc;
+  } else {
+    tableSortState[tableKey].col = col;
+    tableSortState[tableKey].asc = true;
+  }
+}
+
+function getSortHeaderIcon(tableKey, col) {
+  if (tableSortState[tableKey].col !== col) {
+    return `<span class="inline-block text-slate-300 ml-1 text-[11px] group-hover:text-slate-400">⇅</span>`;
+  }
+  return `<span class="inline-block text-emerald-600 font-bold ml-1 text-[11px]">${tableSortState[tableKey].asc ? '▲' : '▼'}</span>`;
+}
+
+function sortGenericRecords(list, col, asc) {
+  return [...list].sort((a, b) => {
+    let valA = a[col] ?? '';
+    let valB = b[col] ?? '';
+
+    if (typeof valA === 'object' && valA !== null) valA = JSON.stringify(valA);
+    if (typeof valB === 'object' && valB !== null) valB = JSON.stringify(valB);
+
+    valA = String(valA).trim();
+    valB = String(valB).trim();
+
+    // Check if numeric (including currency like "Rs. 1,520.00" or numbers)
+    const cleanA = valA.replace(/[^0-9.-]+/g, '');
+    const cleanB = valB.replace(/[^0-9.-]+/g, '');
+    const numA = parseFloat(cleanA);
+    const numB = parseFloat(cleanB);
+    const isNumA = cleanA !== '' && !isNaN(numA);
+    const isNumB = cleanB !== '' && !isNaN(numB);
+
+    if (isNumA && isNumB) {
+      return asc ? numA - numB : numB - numA;
+    }
+
+    // Check if date (e.g. "03-Sep-2026")
+    const dateA = Date.parse(valA);
+    const dateB = Date.parse(valB);
+    if (!isNaN(dateA) && !isNaN(dateB) && valA.includes('-')) {
+      return asc ? dateA - dateB : dateB - dateA;
+    }
+
+    const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+    return asc ? cmp : -cmp;
+  });
+}
+
+function handleSort(tableKey, col) {
+  toggleTableSort(tableKey, col);
+  if (tableKey === 'operations') {
+    handleOperationsFilter();
+  } else if (tableKey === 'customer') {
+    handleCustomerFilter();
+  } else if (tableKey === 'financial') {
+    handleFinancialFilter();
+  } else if (tableKey === 'users') {
+    handleUsersFilter();
+  }
+}
+
 // Initialize on DOM Ready
 document.addEventListener('DOMContentLoaded', async () => {
   if (authToken) {
@@ -89,6 +161,7 @@ async function loginAs(username, password) {
     if (data.success) {
       authToken = data.token;
       localStorage.setItem('spillburg_token', authToken);
+      document.cookie = `token=${encodeURIComponent(authToken)}; path=/; max-age=86400; SameSite=Lax`;
       currentUser = data.user;
       showPortalWorkspace();
       await loadInitialData();
@@ -114,6 +187,7 @@ async function handleLogout() {
     } catch (e) {}
   }
   localStorage.removeItem('spillburg_token');
+  document.cookie = 'token=; path=/; max-age=0; SameSite=Lax';
   authToken = '';
   currentUser = null;
   operationsTasks = [];
@@ -167,7 +241,7 @@ function canView(module) {
 }
 
 function isAdmin() {
-  return currentUser && currentUser.role === 'admin';
+  return currentUser && (currentUser.role === 'admin' || currentUser.role === 'director' || currentUser.permissions?.user_management === 'full');
 }
 
 // ================= DATA LOADING =================
@@ -232,6 +306,10 @@ function switchView(viewName) {
     case 'access-control':
       renderAccessControl(container);
       break;
+    case 'know-it-all':
+      renderDashboard(container);
+      openKnowItAllModal();
+      break;
     default:
       renderDashboard(container);
   }
@@ -280,12 +358,17 @@ function renderDashboard(container) {
             <button onclick="switchView('financial-files')" class="px-4 py-2 rounded-xl bg-emerald-900/40 hover:bg-emerald-900/60 text-white border border-white/20 font-medium text-xs md:text-sm flex items-center gap-2 transition">
               <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-300"></i> Financial Files DB
             </button>
+            <button onclick="openKnowItAllModal()" class="px-4 py-2 rounded-xl bg-purple-900/50 hover:bg-purple-900/70 text-white border border-purple-300/30 font-medium text-xs md:text-sm flex items-center gap-2 transition group shadow-md">
+              <i data-lucide="brain" class="w-4 h-4 text-purple-300 group-hover:rotate-12 transition-transform"></i>
+              <span>Know It All</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-400/20 text-purple-200 border border-purple-300/30 font-semibold">To be done later</span>
+            </button>
           </div>
         </div>
       </div>
 
       <!-- KPI Overview Cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         
         <!-- Ops Card (Personal) -->
         <div class="glass-card p-5 bg-white border border-slate-200 rounded-2xl flex flex-col justify-between shadow-sm">
@@ -361,6 +444,49 @@ function renderDashboard(container) {
           </div>
         </div>
 
+        <!-- Know It All Card (To be done later) -->
+        <div class="glass-card p-5 bg-gradient-to-br from-white via-purple-50/20 to-white border border-purple-200/80 rounded-2xl flex flex-col justify-between shadow-sm hover:border-purple-300 transition">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-purple-700">Know It All</span>
+            <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-200">
+              <i data-lucide="brain" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div class="mt-4">
+            <div class="text-2xl font-display font-bold text-slate-900">Knowledge Hub</div>
+            <div class="mt-1 text-xs text-purple-700 font-semibold flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span> To Be Done Later
+            </div>
+          </div>
+          <div class="mt-3 flex items-center justify-between text-xs text-slate-500 border-t border-purple-100 pt-2 font-medium">
+            <span class="text-[11px] text-slate-500">Corporate SOPs & AI Search</span>
+            <button onclick="openKnowItAllModal()" class="text-purple-700 font-bold hover:underline">Preview</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Dedicated Know It All Section (In Development) -->
+      <div class="bg-gradient-to-r from-purple-50 via-indigo-50/40 to-white p-5 rounded-2xl border border-purple-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="flex items-start gap-3.5">
+          <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-md">
+            <i data-lucide="brain" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="font-display font-bold text-base text-slate-900">Know It All — Corporate Intelligence Engine</h3>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-100 px-2 py-0.5 rounded border border-purple-200">
+                To Be Done Later
+              </span>
+            </div>
+            <p class="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
+              Centralized AI-powered knowledge repository connecting bilateral business council archives, standard operating procedures (SOPs), company charters, IRD compliance blueprints, and automated querying.
+            </p>
+          </div>
+        </div>
+        <button onclick="openKnowItAllModal()" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shrink-0 transition flex items-center gap-2 shadow-sm">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Preview Scope
+        </button>
       </div>
 
       <!-- Quick Operational Shortcuts -->
@@ -420,7 +546,18 @@ function renderDashboard(container) {
 // ================= 2. OPERATIONS TRACKER (UNIQUE PER USER) =================
 function renderOperations(container) {
   const isDirectorOrAdmin = currentUser && ['director', 'admin'].includes(currentUser.role);
-  const totalTasks = operationsTasks.length;
+  
+  // Calculate Tracker Status Row exactly matching Google Sheet / Screenshot 2
+  const total = operationsTasks.length;
+  const pending = operationsTasks.filter(t => (t.status || '').toLowerCase() === 'pending').length;
+  const inProgress = operationsTasks.filter(t => (t.status || '').toLowerCase() === 'in progress').length;
+  const completed = operationsTasks.filter(t => (t.status || '').toLowerCase() === 'completed').length;
+  const onHold = operationsTasks.filter(t => (t.status || '').toLowerCase() === 'on hold').length;
+  const progressPct = total > 0 ? ((completed / total) * 100).toFixed(1) : '0.0';
+
+  // Extract unique workstreams and requesters for dynamic filters
+  const workstreams = [...new Set(operationsTasks.map(t => t.workstream).filter(Boolean))].sort();
+  const requesters = [...new Set(operationsTasks.map(t => t.requestedBy).filter(Boolean))].sort();
 
   container.innerHTML = `
     <div class="space-y-6 fade-in">
@@ -435,12 +572,11 @@ function renderOperations(container) {
             </span>
           </div>
           <p class="text-xs text-slate-500 mt-1">
-            ${operationsUserFilter === 'all' ? 'Viewing combined tasks across all company personnel' : `Personal task log for ${currentUser ? currentUser.fullName : 'You'}`}
+            ${operationsUserFilter === 'all' ? 'Viewing combined tasks across all company personnel' : `Personal task log for ${currentUser ? currentUser.fullName : 'You'}`} &middot; Live synchronized with Google Sheet
           </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-          
           <!-- Filter for Director/Admin to switch between personal and team trackers -->
           ${isDirectorOrAdmin ? `
             <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
@@ -448,9 +584,9 @@ function renderOperations(container) {
               <select onchange="changeOperationsUserFilter(this.value)" class="bg-transparent text-slate-800 font-semibold focus:outline-none cursor-pointer">
                 <option value="me" ${operationsUserFilter === 'me' ? 'selected' : ''}>👤 My Personal Tasks</option>
                 <option value="all" ${operationsUserFilter === 'all' ? 'selected' : ''}>👥 All Team Tasks</option>
+                <option value="usr_admin_zaharan" ${operationsUserFilter === 'usr_admin_zaharan' ? 'selected' : ''}>Muhammad Zaharan</option>
                 <option value="usr_dir_master" ${operationsUserFilter === 'usr_dir_master' ? 'selected' : ''}>Executive Director</option>
                 <option value="usr_admin_master" ${operationsUserFilter === 'usr_admin_master' ? 'selected' : ''}>Admin</option>
-                <option value="usr_admin_zaharan" ${operationsUserFilter === 'usr_admin_zaharan' ? 'selected' : ''}>Muhammad Zaharan</option>
                 <option value="usr_staff_hemanthi" ${operationsUserFilter === 'usr_staff_hemanthi' ? 'selected' : ''}>Miss Hemanthi</option>
                 <option value="usr_staff_insaaf" ${operationsUserFilter === 'usr_staff_insaaf' ? 'selected' : ''}>Insaaf</option>
                 <option value="usr_staff_editor" ${operationsUserFilter === 'usr_staff_editor' ? 'selected' : ''}>Staff Editor</option>
@@ -476,37 +612,139 @@ function renderOperations(container) {
         </div>
       </div>
 
-      <!-- Search & Filters -->
-      <div class="flex flex-col sm:flex-row items-center gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
-        <div class="relative flex-1 w-full">
-          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-          <input type="text" id="opsSearchInput" oninput="handleOperationsFilter()" placeholder="Search tasks by title, deliverable, or notes..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+      <!-- Tracker Status Summary Row (Screenshot 2 Match) -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <!-- Total -->
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Total Tasks</div>
+            <div class="text-2xl font-bold font-display text-slate-900 mt-0.5">${total}</div>
+          </div>
+          <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs"><i data-lucide="layers" class="w-4 h-4"></i></div>
         </div>
-        <div class="flex items-center gap-2 w-full sm:w-auto">
-          <select id="opsStatusFilter" onchange="handleOperationsFilter()" class="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none">
-            <option value="">All Statuses</option>
-            <option value="Pending">Pending</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Completed">Completed</option>
-            <option value="On Hold">On Hold</option>
-          </select>
-          <select id="opsPriorityFilter" onchange="handleOperationsFilter()" class="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none">
-            <option value="">All Priorities</option>
-            <option value="Critical">Critical</option>
-            <option value="High">High</option>
-            <option value="Medium">Medium</option>
-            <option value="Low">Low</option>
-          </select>
+        <!-- Pending -->
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-amber-600 tracking-wider">Pending</div>
+            <div class="text-2xl font-bold font-display text-amber-600 mt-0.5">${pending}</div>
+          </div>
+          <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs"><i data-lucide="clock" class="w-4 h-4"></i></div>
+        </div>
+        <!-- In Progress -->
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-blue-600 tracking-wider">In Progress</div>
+            <div class="text-2xl font-bold font-display text-blue-600 mt-0.5">${inProgress}</div>
+          </div>
+          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs"><i data-lucide="loader" class="w-4 h-4"></i></div>
+        </div>
+        <!-- Completed -->
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-emerald-600 tracking-wider">Completed</div>
+            <div class="text-2xl font-bold font-display text-emerald-600 mt-0.5">${completed}</div>
+          </div>
+          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs"><i data-lucide="check-circle-2" class="w-4 h-4"></i></div>
+        </div>
+        <!-- On Hold -->
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-purple-600 tracking-wider">On Hold</div>
+            <div class="text-2xl font-bold font-display text-purple-600 mt-0.5">${onHold}</div>
+          </div>
+          <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xs"><i data-lucide="pause-circle" class="w-4 h-4"></i></div>
+        </div>
+        <!-- Progress % -->
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-teal-600 tracking-wider">Completion</div>
+            <div class="text-2xl font-bold font-display text-teal-600 mt-0.5">${progressPct}%</div>
+          </div>
+          <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-xs"><i data-lucide="trending-up" class="w-4 h-4"></i></div>
+        </div>
+      </div>
+
+      <!-- Search & Dynamic Filters -->
+      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-2.5">
+          <div class="relative md:col-span-2">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+            <input type="text" id="opsSearchInput" oninput="handleOperationsFilter()" placeholder="Search tasks, deliverables, requesters, notes, costs..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+          </div>
+          <div>
+            <select id="opsWorkstreamFilter" onchange="handleOperationsFilter()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none">
+              <option value="">All Workstreams (${workstreams.length})</option>
+              ${workstreams.map(w => `<option value="${w}">${w}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <select id="opsStatusFilter" onchange="handleOperationsFilter()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none">
+              <option value="">All Statuses</option>
+              <option value="Completed">Completed</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Pending">Pending</option>
+              <option value="On Hold">On Hold</option>
+            </select>
+          </div>
+          <div>
+            <select id="opsPriorityFilter" onchange="handleOperationsFilter()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none">
+              <option value="">All Priorities</option>
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+          <div class="flex items-center gap-2">
+            <span>Filter by Requester:</span>
+            <select id="opsRequestedByFilter" onchange="handleOperationsFilter()" class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-700 focus:outline-none">
+              <option value="">All Requesters</option>
+              ${requesters.map(r => `<option value="${r}">${r}</option>`).join('')}
+            </select>
+          </div>
+          <div class="text-slate-400">
+            Click any column header to sort (&Delta;/&nabla;)
+          </div>
         </div>
       </div>
 
       <!-- Container for Table or Kanban -->
       <div id="operationsContainer">
-        ${operationsViewMode === 'table' ? renderOperationsTable(operationsTasks) : renderOperationsKanban(operationsTasks)}
+        ${operationsViewMode === 'table' ? renderOperationsTable(getFilteredOperations()) : renderOperationsKanban(getFilteredOperations())}
       </div>
 
     </div>
   `;
+}
+
+function getFilteredOperations() {
+  const q = (document.getElementById('opsSearchInput')?.value || '').toLowerCase();
+  const status = document.getElementById('opsStatusFilter')?.value || '';
+  const priority = document.getElementById('opsPriorityFilter')?.value || '';
+  const workstream = document.getElementById('opsWorkstreamFilter')?.value || '';
+  const requestedBy = document.getElementById('opsRequestedByFilter')?.value || '';
+
+  let filtered = operationsTasks.filter(t => {
+    const mSearch = !q || 
+      (t.title || '').toLowerCase().includes(q) || 
+      (t.notes || '').toLowerCase().includes(q) || 
+      (t.workstream || '').toLowerCase().includes(q) ||
+      (t.requestedBy || '').toLowerCase().includes(q) ||
+      (t.estimatedCost || '').toLowerCase().includes(q) ||
+      String(t.no || '').toLowerCase().includes(q);
+    const mStatus = !status || (t.status || '').toLowerCase() === status.toLowerCase();
+    const mPri = !priority || (t.priority || '').toLowerCase() === priority.toLowerCase();
+    const mWork = !workstream || (t.workstream || '').toLowerCase() === workstream.toLowerCase();
+    const mReq = !requestedBy || (t.requestedBy || '').toLowerCase() === requestedBy.toLowerCase();
+    return mSearch && mStatus && mPri && mWork && mReq;
+  });
+
+  const sortCol = tableSortState.operations.col;
+  const sortAsc = tableSortState.operations.asc;
+  return sortGenericRecords(filtered, sortCol, sortAsc);
 }
 
 async function changeOperationsUserFilter(val) {
@@ -521,23 +759,14 @@ function setOperationsViewMode(mode) {
   operationsViewMode = mode;
   const container = document.getElementById('operationsContainer');
   if (container) {
-    container.innerHTML = mode === 'table' ? renderOperationsTable(operationsTasks) : renderOperationsKanban(operationsTasks);
+    const filtered = getFilteredOperations();
+    container.innerHTML = mode === 'table' ? renderOperationsTable(filtered) : renderOperationsKanban(filtered);
     if (window.lucide) lucide.createIcons();
   }
 }
 
 function handleOperationsFilter() {
-  const q = (document.getElementById('opsSearchInput')?.value || '').toLowerCase();
-  const status = document.getElementById('opsStatusFilter')?.value || '';
-  const priority = document.getElementById('opsPriorityFilter')?.value || '';
-
-  const filtered = operationsTasks.filter(t => {
-    const mSearch = !q || (t.title || '').toLowerCase().includes(q) || (t.notes || '').toLowerCase().includes(q) || (t.workstream || '').toLowerCase().includes(q);
-    const mStatus = !status || (t.status || '').toLowerCase() === status.toLowerCase();
-    const mPri = !priority || (t.priority || '').toLowerCase() === priority.toLowerCase();
-    return mSearch && mStatus && mPri;
-  });
-
+  const filtered = getFilteredOperations();
   const container = document.getElementById('operationsContainer');
   if (container) {
     container.innerHTML = operationsViewMode === 'table' ? renderOperationsTable(filtered) : renderOperationsKanban(filtered);
@@ -545,13 +774,14 @@ function handleOperationsFilter() {
   }
 }
 
+// 10-Column Operations Tracker Table
 function renderOperationsTable(tasks) {
   if (!tasks.length) {
     return `
       <div class="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 space-y-2 shadow-sm">
         <i data-lucide="clipboard-list" class="w-10 h-10 mx-auto text-slate-300"></i>
-        <div class="text-sm font-semibold text-slate-700">No tasks found in your tracker</div>
-        <p class="text-xs text-slate-500">Click "Add Task" above to add your first personal deliverable.</p>
+        <div class="text-sm font-semibold text-slate-700">No tasks match your filter criteria</div>
+        <p class="text-xs text-slate-500">Try adjusting your filters or click "Add Task" to create a deliverable.</p>
       </div>
     `;
   }
@@ -559,44 +789,75 @@ function renderOperationsTable(tasks) {
   return `
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs">
+        <table class="w-full text-left text-xs whitespace-nowrap">
           <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
             <tr>
-              <th class="py-3 px-4 w-12">#</th>
-              <th class="py-3 px-4">Task Deliverable</th>
-              <th class="py-3 px-4">Workstream</th>
-              <th class="py-3 px-4">Priority</th>
-              <th class="py-3 px-4">Status</th>
-              <th class="py-3 px-4">Assigned To</th>
-              <th class="py-3 px-4">Cost / Timeline</th>
-              <th class="py-3 px-4 text-right">Actions</th>
+              <th onclick="handleSort('operations', 'no')" class="py-3 px-3.5 w-12 cursor-pointer select-none hover:bg-slate-100 transition">
+                No. ${getSortHeaderIcon('operations', 'no')}
+              </th>
+              <th onclick="handleSort('operations', 'title')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition min-w-[220px]">
+                Task / Procurement Item ${getSortHeaderIcon('operations', 'title')}
+              </th>
+              <th onclick="handleSort('operations', 'requestedBy')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Requested By ${getSortHeaderIcon('operations', 'requestedBy')}
+              </th>
+              <th onclick="handleSort('operations', 'workstream')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Workstream ${getSortHeaderIcon('operations', 'workstream')}
+              </th>
+              <th onclick="handleSort('operations', 'taskedDate')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Tasked Date ${getSortHeaderIcon('operations', 'taskedDate')}
+              </th>
+              <th onclick="handleSort('operations', 'completedDate')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Completed Date ${getSortHeaderIcon('operations', 'completedDate')}
+              </th>
+              <th onclick="handleSort('operations', 'status')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Status ${getSortHeaderIcon('operations', 'status')}
+              </th>
+              <th onclick="handleSort('operations', 'priority')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Priority ${getSortHeaderIcon('operations', 'priority')}
+              </th>
+              <th onclick="handleSort('operations', 'estimatedCost')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Estimated Cost (LKR) ${getSortHeaderIcon('operations', 'estimatedCost')}
+              </th>
+              <th onclick="handleSort('operations', 'notes')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition min-w-[240px]">
+                Notes / Action Details ${getSortHeaderIcon('operations', 'notes')}
+              </th>
+              <th class="py-3 px-3.5 text-right sticky right-0 bg-slate-50">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             ${tasks.map(t => `
-              <tr class="hover:bg-slate-50/70 transition">
-                <td class="py-3 px-4 font-mono text-slate-400 font-medium">${t.no || t.id}</td>
-                <td class="py-3 px-4">
-                  <div class="font-semibold text-slate-900">${t.title}</div>
-                  ${t.notes ? `<div class="text-[11px] text-slate-500 mt-0.5 line-clamp-1">${t.notes}</div>` : ''}
+              <tr class="hover:bg-slate-50/80 transition">
+                <td class="py-3 px-3.5 font-mono text-slate-500 font-semibold">${t.no ?? t.id}</td>
+                <td class="py-3 px-3.5">
+                  <div class="font-semibold text-slate-900">${t.title || 'Untitled Task'}</div>
+                  ${t.assignedTo ? `<div class="text-[10px] text-slate-400 mt-0.5">Assigned: ${t.assignedTo}</div>` : ''}
                 </td>
-                <td class="py-3 px-4 text-slate-600 font-medium">${t.workstream || 'Operations'}</td>
-                <td class="py-3 px-4">
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${getPriorityBadgeClass(t.priority)}">
-                    ${t.priority || 'Medium'}
+                <td class="py-3 px-3.5 text-slate-700 font-medium">${t.requestedBy || '-'}</td>
+                <td class="py-3 px-3.5">
+                  <span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                    ${t.workstream || 'Operations'}
                   </span>
                 </td>
-                <td class="py-3 px-4">
+                <td class="py-3 px-3.5 text-slate-600 font-mono text-[11px]">${t.taskedDate || '-'}</td>
+                <td class="py-3 px-3.5 text-slate-600 font-mono text-[11px]">${t.completedDate || '-'}</td>
+                <td class="py-3 px-3.5">
                   <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${getStatusBadgeClass(t.status)}">
                     ${t.status || 'Pending'}
                   </span>
                 </td>
-                <td class="py-3 px-4 text-slate-600">${t.assignedTo || 'Self'}</td>
-                <td class="py-3 px-4 text-slate-500">
-                  ${t.estimatedCost ? `<div class="font-medium text-slate-700">${t.estimatedCost}</div>` : ''}
-                  <div class="text-[11px]">${t.taskedDate || ''}</div>
+                <td class="py-3 px-3.5">
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${getPriorityBadgeClass(t.priority)}">
+                    ${t.priority || 'Medium'}
+                  </span>
                 </td>
-                <td class="py-3 px-4 text-right space-x-1">
+                <td class="py-3 px-3.5 font-medium text-slate-800">
+                  ${t.estimatedCost ? `<span class="font-mono bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 text-[11px]">${t.estimatedCost}</span>` : '<span class="text-slate-400">-</span>'}
+                </td>
+                <td class="py-3 px-3.5 max-w-xs whitespace-normal text-slate-600 text-[11px] leading-relaxed">
+                  ${t.notes || '<span class="text-slate-400">-</span>'}
+                </td>
+                <td class="py-3 px-3.5 text-right sticky right-0 bg-white/95 backdrop-blur-xs space-x-1">
                   <button onclick="openEditOperationModal('${t.id}')" title="Edit Task" class="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition">
                     <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
                   </button>
@@ -609,15 +870,19 @@ function renderOperationsTable(tasks) {
           </tbody>
         </table>
       </div>
+      <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-slate-500 text-[11px] flex items-center justify-between">
+        <span>Showing ${tasks.length} of ${operationsTasks.length} tasks</span>
+        <span class="font-mono">Sorted by: ${tableSortState.operations.col} (${tableSortState.operations.asc ? 'Ascending' : 'Descending'})</span>
+      </div>
     </div>
   `;
 }
 
 function renderOperationsKanban(tasks) {
-  const columns = ['Pending', 'In Progress', 'Completed'];
+  const columns = ['Pending', 'In Progress', 'Completed', 'On Hold'];
 
   return `
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
       ${columns.map(col => {
         const colTasks = tasks.filter(t => (t.status || 'Pending').toLowerCase() === col.toLowerCase());
         return `
@@ -648,16 +913,16 @@ function renderOperationsKanban(tasks) {
                   ${t.notes ? `<p class="text-[11px] text-slate-500 leading-relaxed">${t.notes}</p>` : ''}
 
                   <div class="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
-                    <span>${t.assignedTo || 'Self'}</span>
-                    <div class="flex items-center gap-1">
+                    <span class="truncate">${t.requestedBy || 'Self'}</span>
+                    <div class="flex items-center gap-1 shrink-0">
                       ${col !== 'Pending' ? `
-                        <button onclick="quickUpdateTaskStatus('${t.id}', '${col === 'Completed' ? 'In Progress' : 'Pending'}')" class="text-slate-400 hover:text-slate-700" title="Move Back">
+                        <button onclick="quickUpdateTaskStatus('${t.id}', 'Pending')" class="text-slate-400 hover:text-slate-700 p-1" title="Mark Pending">
                           <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
                         </button>
                       ` : ''}
                       ${col !== 'Completed' ? `
-                        <button onclick="quickUpdateTaskStatus('${t.id}', '${col === 'Pending' ? 'In Progress' : 'Completed'}')" class="text-slate-400 hover:text-emerald-600" title="Move Forward">
-                          <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                        <button onclick="quickUpdateTaskStatus('${t.id}', 'Completed')" class="text-slate-400 hover:text-emerald-600 p-1" title="Mark Completed">
+                          <i data-lucide="check" class="w-3.5 h-3.5"></i>
                         </button>
                       ` : ''}
                     </div>
@@ -719,8 +984,10 @@ async function quickUpdateTaskStatus(id, newStatus) {
 
 // ================= 3. CUSTOMER FILES DATABASE (LIGHT THEME) =================
 function renderCustomerFiles(container) {
+  const totalCount = customerRecords.length;
   const origCount = customerRecords.filter(r => (r.Type || '').toLowerCase().includes('original')).length;
   const copyCount = customerRecords.filter(r => (r.Type || '').toLowerCase().includes('copy')).length;
+  const uniqueCompanies = [...new Set(customerRecords.map(r => r['Company Name']).filter(Boolean))].length;
 
   container.innerHTML = `
     <div class="space-y-6 fade-in">
@@ -764,36 +1031,93 @@ function renderCustomerFiles(container) {
         </div>
       </div>
 
+      <!-- Physical Archive Counts Banner (Mentioning Number of Original and Copy Files) -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Total Physical Files</div>
+            <div class="text-2xl font-bold font-display text-slate-900 mt-0.5">${totalCount}</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">Across All Cupboards</div>
+          </div>
+          <div class="w-9 h-9 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs"><i data-lucide="archive" class="w-4 h-4"></i></div>
+        </div>
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-emerald-700 tracking-wider">Original Files</div>
+            <div class="text-2xl font-bold font-display text-emerald-700 mt-0.5">${origCount}</div>
+            <div class="text-[10px] text-emerald-600 font-medium mt-0.5">Stored in Cupboard 1</div>
+          </div>
+          <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs border border-emerald-200"><i data-lucide="file-check-2" class="w-4 h-4"></i></div>
+        </div>
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-blue-700 tracking-wider">Customer Copies</div>
+            <div class="text-2xl font-bold font-display text-blue-700 mt-0.5">${copyCount}</div>
+            <div class="text-[10px] text-blue-600 font-medium mt-0.5">Stored in Cupboards 2 & 3</div>
+          </div>
+          <div class="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs border border-blue-200"><i data-lucide="copy" class="w-4 h-4"></i></div>
+        </div>
+        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-purple-700 tracking-wider">Unique Companies</div>
+            <div class="text-2xl font-bold font-display text-purple-700 mt-0.5">${uniqueCompanies}</div>
+            <div class="text-[10px] text-purple-600 font-medium mt-0.5">Dual-Archived Portfolio</div>
+          </div>
+          <div class="w-9 h-9 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center font-bold text-xs border border-purple-200"><i data-lucide="building-2" class="w-4 h-4"></i></div>
+        </div>
+      </div>
+
       <!-- Cupboards Tabs & Filter Bar -->
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
         <div class="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
           ${['All', 'Cupboard 1', 'Cupboard 2', 'Cupboard 3'].map(c => `
             <button onclick="setCustomerCupboardFilter('${c}')" class="px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${customerCupboardFilter === c ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'}">
-              ${c === 'All' ? 'All Cupboards' : c}
+              ${c === 'All' ? `All Cupboards (${totalCount})` : c === 'Cupboard 1' ? `${c} (${origCount} Orig)` : `${c} (Copies)`}
             </button>
           `).join('')}
         </div>
 
-        <div class="flex items-center gap-2 w-full sm:w-80">
+        <div class="flex items-center gap-2 w-full sm:w-96">
           <div class="relative w-full">
             <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-            <input type="text" id="custSearchInput" oninput="handleCustomerFilter()" placeholder="Search company, reg no, box..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+            <input type="text" id="custSearchInput" oninput="handleCustomerFilter()" placeholder="Search company, reg no, box, no..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
           </div>
           <select id="custTypeFilter" onchange="handleCustomerFilter()" class="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none">
             <option value="">All Types</option>
-            <option value="original">Originals</option>
-            <option value="copy">Copies</option>
+            <option value="original">Originals (${origCount})</option>
+            <option value="copy">Copies (${copyCount})</option>
           </select>
         </div>
       </div>
 
       <!-- Container -->
       <div id="customerContentContainer">
-        ${customerViewMode === 'table' ? renderCustomerTable(customerRecords) : renderCustomerBoxes(customerRecords)}
+        ${customerViewMode === 'table' ? renderCustomerTable(getFilteredCustomerRecords()) : renderCustomerBoxes(getFilteredCustomerRecords())}
       </div>
 
     </div>
   `;
+}
+
+function getFilteredCustomerRecords() {
+  const q = (document.getElementById('custSearchInput')?.value || '').toLowerCase();
+  const type = (document.getElementById('custTypeFilter')?.value || '').toLowerCase();
+
+  let filtered = customerRecords.filter(r => {
+    const compMatch = !q || 
+      (r['Company Name'] || '').toLowerCase().includes(q) || 
+      (r['Registration No'] || '').toLowerCase().includes(q) || 
+      (r['Box No'] || '').toLowerCase().includes(q) || 
+      (r['No'] || '').toLowerCase().includes(q) ||
+      (r['Category'] || '').toLowerCase().includes(q);
+    const cupMatch = customerCupboardFilter === 'All' || (r['Cupboard'] || '').toLowerCase() === customerCupboardFilter.toLowerCase();
+    const typeMatch = !type || (r['Type'] || '').toLowerCase().includes(type);
+    return compMatch && cupMatch && typeMatch;
+  });
+
+  const sortCol = tableSortState.customer.col;
+  const sortAsc = tableSortState.customer.asc;
+  return sortGenericRecords(filtered, sortCol, sortAsc);
 }
 
 function setCustomerViewMode(mode) {
@@ -807,16 +1131,7 @@ function setCustomerCupboardFilter(c) {
 }
 
 function handleCustomerFilter() {
-  const q = (document.getElementById('custSearchInput')?.value || '').toLowerCase();
-  const type = (document.getElementById('custTypeFilter')?.value || '').toLowerCase();
-
-  const filtered = customerRecords.filter(r => {
-    const compMatch = !q || (r['Company Name'] || '').toLowerCase().includes(q) || (r['Registration No'] || '').toLowerCase().includes(q) || (r['Box No'] || '').toLowerCase().includes(q) || (r['No'] || '').toLowerCase().includes(q);
-    const cupMatch = customerCupboardFilter === 'All' || (r['Cupboard'] || '').toLowerCase() === customerCupboardFilter.toLowerCase();
-    const typeMatch = !type || (r['Type'] || '').toLowerCase().includes(type);
-    return compMatch && cupMatch && typeMatch;
-  });
-
+  const filtered = getFilteredCustomerRecords();
   const container = document.getElementById('customerContentContainer');
   if (container) {
     container.innerHTML = customerViewMode === 'table' ? renderCustomerTable(filtered) : renderCustomerBoxes(filtered);
@@ -834,41 +1149,60 @@ function renderCustomerTable(records) {
     `;
   }
 
+  const origCount = records.filter(r => (r.Type || '').toLowerCase().includes('original')).length;
+  const copyCount = records.filter(r => (r.Type || '').toLowerCase().includes('copy')).length;
+
   return `
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs">
+        <table class="w-full text-left text-xs whitespace-nowrap">
           <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
             <tr>
-              <th class="py-3 px-4 w-12">No</th>
-              <th class="py-3 px-4">Company Name</th>
-              <th class="py-3 px-4">Registration No</th>
-              <th class="py-3 px-4">Cupboard</th>
-              <th class="py-3 px-4">Box No</th>
-              <th class="py-3 px-4">Type</th>
-              <th class="py-3 px-4 text-right">Actions</th>
+              <th onclick="handleSort('customer', 'No')" class="py-3 px-3.5 w-12 cursor-pointer select-none hover:bg-slate-100 transition">
+                No ${getSortHeaderIcon('customer', 'No')}
+              </th>
+              <th onclick="handleSort('customer', 'Company Name')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition min-w-[240px]">
+                Company Name ${getSortHeaderIcon('customer', 'Company Name')}
+              </th>
+              <th onclick="handleSort('customer', 'Registration No')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Registration No ${getSortHeaderIcon('customer', 'Registration No')}
+              </th>
+              <th onclick="handleSort('customer', 'Cupboard')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Cupboard ${getSortHeaderIcon('customer', 'Cupboard')}
+              </th>
+              <th onclick="handleSort('customer', 'Box No')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Box No ${getSortHeaderIcon('customer', 'Box No')}
+              </th>
+              <th onclick="handleSort('customer', 'Type')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Type ${getSortHeaderIcon('customer', 'Type')}
+              </th>
+              <th onclick="handleSort('customer', 'Category')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Category ${getSortHeaderIcon('customer', 'Category')}
+              </th>
+              <th class="py-3 px-3.5 text-right sticky right-0 bg-slate-50">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             ${records.map(r => {
               const isOrig = (r['Type'] || '').toLowerCase().includes('original');
               return `
-                <tr class="hover:bg-slate-50/70 transition">
-                  <td class="py-3 px-4 font-mono text-slate-400 font-medium">${r['No'] || ''}</td>
-                  <td class="py-3 px-4 font-semibold text-slate-900">${r['Company Name'] || ''}</td>
-                  <td class="py-3 px-4 text-slate-600 font-mono">${r['Registration No'] || '-'}</td>
-                  <td class="py-3 px-4 text-slate-700 font-medium">${r['Cupboard'] || '-'}</td>
-                  <td class="py-3 px-4">
+                <tr class="hover:bg-slate-50/80 transition">
+                  <td class="py-3 px-3.5 font-mono text-slate-400 font-medium">${r['No'] || ''}</td>
+                  <td class="py-3 px-3.5 font-semibold text-slate-900">${r['Company Name'] || ''}</td>
+                  <td class="py-3 px-3.5 text-slate-600 font-mono">${r['Registration No'] || '-'}</td>
+                  <td class="py-3 px-3.5 text-slate-700 font-medium">${r['Cupboard'] || '-'}</td>
+                  <td class="py-3 px-3.5">
                     <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px] border border-slate-200">
                       ${r['Box No'] || '-'}
                     </span>
                   </td>
-                  <td class="py-3 px-4">
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${isOrig ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}">
+                  <td class="py-3 px-3.5">
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${isOrig ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}">
                       ${r['Type'] || 'Standard'}
                     </span>
                   </td>
-                  <td class="py-3 px-4 text-right space-x-1">
+                  <td class="py-3 px-3.5 text-slate-500 text-[11px]">${r['Category'] || 'Customer Files'}</td>
+                  <td class="py-3 px-3.5 text-right sticky right-0 bg-white/95 backdrop-blur-xs space-x-1">
                     <button onclick="openEditCustomerModal('${r['No']}')" title="Edit File" class="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition ${!canEdit('customer_files') ? 'permission-locked' : ''}">
                       <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
                     </button>
@@ -881,6 +1215,10 @@ function renderCustomerTable(records) {
             }).join('')}
           </tbody>
         </table>
+      </div>
+      <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-slate-500 text-[11px] flex items-center justify-between">
+        <span>Showing ${records.length} of ${customerRecords.length} records (${origCount} Originals &middot; ${copyCount} Copies)</span>
+        <span class="font-mono">Sorted by: ${tableSortState.customer.col} (${tableSortState.customer.asc ? 'Ascending' : 'Descending'})</span>
       </div>
     </div>
   `;
@@ -934,6 +1272,9 @@ function renderCustomerBoxes(records) {
 
 // ================= 4. FINANCIAL FILES DATABASE (LIGHT THEME & PHOTOS) =================
 function renderFinancialFiles(container) {
+  const categories = [...new Set(financialRecords.map(r => r.category).filter(Boolean))];
+  const withPhotos = financialRecords.filter(r => r.photoFile).length;
+
   container.innerHTML = `
     <div class="space-y-6 fade-in">
       
@@ -947,7 +1288,7 @@ function renderFinancialFiles(container) {
             </span>
           </div>
           <p class="text-xs text-slate-500 mt-1">
-            Digitized from 44 physical register photos in <span class="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">financial_records_active.json</span> (${financialRecords.length} profiles)
+            Digitized from 44 physical register photos in <span class="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">financial_records_active.json</span> (${financialRecords.length} profiles &middot; ${withPhotos} photo pages linked)
           </p>
         </div>
 
@@ -959,38 +1300,52 @@ function renderFinancialFiles(container) {
       </div>
 
       <!-- Search & Filters -->
-      <div class="flex flex-col sm:flex-row items-center gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+      <div class="flex flex-col sm:flex-row items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
         <div class="relative flex-1 w-full">
           <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-          <input type="text" id="finSearchInput" oninput="handleFinancialFilter()" placeholder="Search by entity name, TIN, SSID, director..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+          <input type="text" id="finSearchInput" oninput="handleFinancialFilter()" placeholder="Search entity name, TIN, SSID, director, filing notes..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
         </div>
         <select id="finCategoryFilter" onchange="handleFinancialFilter()" class="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none w-full sm:w-auto">
-          <option value="">All Categories</option>
-          <option value="Corporate">Corporate Entities</option>
-          <option value="Individual">Individual Directors</option>
-          <option value="IRD Contacts">IRD Directory</option>
+          <option value="">All Categories (${categories.length})</option>
+          ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
         </select>
+        <div class="text-[11px] text-slate-400 hidden lg:block shrink-0">
+          Click any column to sort (&Delta;/&nabla;)
+        </div>
       </div>
 
       <!-- Financial Table -->
       <div id="financialTableContainer">
-        ${renderFinancialTable(financialRecords)}
+        ${renderFinancialTable(getFilteredFinancialRecords())}
       </div>
 
     </div>
   `;
 }
 
-function handleFinancialFilter() {
+function getFilteredFinancialRecords() {
   const q = (document.getElementById('finSearchInput')?.value || '').toLowerCase();
   const cat = (document.getElementById('finCategoryFilter')?.value || '').toLowerCase();
 
-  const filtered = financialRecords.filter(r => {
-    const matchQ = !q || (r.entityName || '').toLowerCase().includes(q) || (r.tinNo || '').toLowerCase().includes(q) || (r.ssid || '').toLowerCase().includes(q) || (r.directorName || '').toLowerCase().includes(q) || (r.notes || '').toLowerCase().includes(q);
+  let filtered = financialRecords.filter(r => {
+    const matchQ = !q || 
+      (r.entityName || '').toLowerCase().includes(q) || 
+      (r.tinNo || '').toLowerCase().includes(q) || 
+      (r.ssid || '').toLowerCase().includes(q) || 
+      (r.directorName || '').toLowerCase().includes(q) || 
+      (r.notes || '').toLowerCase().includes(q) ||
+      (r.filingStatus || '').toLowerCase().includes(q);
     const matchCat = !cat || (r.category || '').toLowerCase().includes(cat);
     return matchQ && matchCat;
   });
 
+  const sortCol = tableSortState.financial.col;
+  const sortAsc = tableSortState.financial.asc;
+  return sortGenericRecords(filtered, sortCol, sortAsc);
+}
+
+function handleFinancialFilter() {
+  const filtered = getFilteredFinancialRecords();
   const container = document.getElementById('financialTableContainer');
   if (container) {
     container.innerHTML = renderFinancialTable(filtered);
@@ -1003,7 +1358,7 @@ function renderFinancialTable(records) {
     return `
       <div class="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 space-y-2 shadow-sm">
         <i data-lucide="file-x" class="w-10 h-10 mx-auto text-slate-300"></i>
-        <div class="text-sm font-semibold text-slate-700">No financial records match your search</div>
+        <div class="text-sm font-semibold text-slate-700">No financial records match your search criteria</div>
       </div>
     `;
   }
@@ -1011,50 +1366,72 @@ function renderFinancialTable(records) {
   return `
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-xs">
+        <table class="w-full text-left text-xs whitespace-nowrap">
           <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
             <tr>
-              <th class="py-3 px-4">Entity / Director</th>
-              <th class="py-3 px-4">Tax ID (TIN)</th>
-              <th class="py-3 px-4">IRD Credentials</th>
-              <th class="py-3 px-4">SSID / PIN</th>
-              <th class="py-3 px-4">Filing Status</th>
-              <th class="py-3 px-4">Notebook Photo</th>
-              <th class="py-3 px-4 text-right">Actions</th>
+              <th onclick="handleSort('financial', 'entityName')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition min-w-[220px]">
+                Entity / Director ${getSortHeaderIcon('financial', 'entityName')}
+              </th>
+              <th onclick="handleSort('financial', 'category')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Category ${getSortHeaderIcon('financial', 'category')}
+              </th>
+              <th onclick="handleSort('financial', 'tinNo')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Tax ID (TIN) ${getSortHeaderIcon('financial', 'tinNo')}
+              </th>
+              <th onclick="handleSort('financial', 'irdPin')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                IRD Credentials ${getSortHeaderIcon('financial', 'irdPin')}
+              </th>
+              <th onclick="handleSort('financial', 'ssid')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                SSID / PIN ${getSortHeaderIcon('financial', 'ssid')}
+              </th>
+              <th onclick="handleSort('financial', 'filingStatus')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition min-w-[200px]">
+                Filing Status & Notes ${getSortHeaderIcon('financial', 'filingStatus')}
+              </th>
+              <th onclick="handleSort('financial', 'photoFile')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Notebook Photo ${getSortHeaderIcon('financial', 'photoFile')}
+              </th>
+              <th class="py-3 px-3.5 text-right sticky right-0 bg-slate-50">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             ${records.map(r => `
-              <tr class="hover:bg-slate-50/70 transition">
-                <td class="py-3 px-4">
+              <tr class="hover:bg-slate-50/80 transition">
+                <td class="py-3 px-3.5">
                   <div class="font-semibold text-slate-900">${r.entityName || 'Unnamed'}</div>
                   <div class="text-[11px] text-slate-500 font-medium">${r.directorName ? `Director: ${r.directorName}` : (r.category || 'Corporate')}</div>
                 </td>
-                <td class="py-3 px-4">
-                  ${r.tinNo ? `<div class="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-block">${r.tinNo}</div>` : '<span class="text-slate-400">-</span>'}
+                <td class="py-3 px-3.5">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${r.category === 'Corporate' ? 'bg-blue-50 text-blue-700 border border-blue-200' : (r.category === 'Individual' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-700 border border-slate-200')}">
+                    ${r.category || 'Corporate'}
+                  </span>
+                </td>
+                <td class="py-3 px-3.5">
+                  ${r.tinNo ? `<div class="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-block text-[11px]">${r.tinNo}</div>` : '<span class="text-slate-400">-</span>'}
                   ${r.economicCode ? `<div class="text-[10px] text-slate-400 mt-0.5 font-mono">Code: ${r.economicCode}</div>` : ''}
                 </td>
-                <td class="py-3 px-4 text-slate-600">
+                <td class="py-3 px-3.5 text-slate-600">
                   ${r.irdPin ? `<div class="font-mono text-[11px]">PIN: <span class="text-slate-900 font-semibold">${r.irdPin}</span></div>` : ''}
-                  ${r.irdPassword ? `<div class="font-mono text-[11px] text-slate-500">Pwd: ${r.irdPassword}</div>` : ''}
+                  ${r.irdPassword ? `<div class="font-mono text-[10px] text-slate-500">Pwd: ${r.irdPassword}</div>` : ''}
+                  ${!r.irdPin && !r.irdPassword ? '<span class="text-slate-400">-</span>' : ''}
                 </td>
-                <td class="py-3 px-4 text-slate-600">
+                <td class="py-3 px-3.5 text-slate-600">
                   ${r.ssid ? `<div class="font-mono text-[11px]">SSID: <span class="text-slate-900 font-semibold">${r.ssid}</span></div>` : ''}
-                  ${r.ssidPin ? `<div class="font-mono text-[11px] text-slate-500">PIN: ${r.ssidPin}</div>` : ''}
+                  ${r.ssidPin ? `<div class="font-mono text-[10px] text-slate-500">PIN: ${r.ssidPin}</div>` : ''}
+                  ${!r.ssid && !r.ssidPin ? '<span class="text-slate-400">-</span>' : ''}
                 </td>
-                <td class="py-3 px-4 max-w-xs">
+                <td class="py-3 px-3.5 max-w-xs whitespace-normal">
                   <div class="text-[11px] text-slate-600 line-clamp-2" title="${r.filingStatus || r.notes || ''}">
-                    ${r.filingStatus || r.notes || 'Normal status'}
+                    ${r.filingStatus || r.notes || '<span class="text-slate-400">Normal status</span>'}
                   </div>
                 </td>
-                <td class="py-3 px-4">
+                <td class="py-3 px-3.5">
                   ${r.photoFile ? `
-                    <button onclick="openPhotoLightbox('${r.photoFile}', '${r.entityName || ''}')" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold rounded-lg border border-emerald-200 transition flex items-center gap-1 text-[11px]">
-                      <i data-lucide="image" class="w-3.5 h-3.5"></i> View Photo
+                    <button onclick="openPhotoLightbox('${r.photoFile}', '${(r.entityName || '').replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold rounded-lg border border-emerald-200 transition flex items-center gap-1.5 text-[11px] shadow-xs">
+                      <i data-lucide="image" class="w-3.5 h-3.5 text-emerald-600"></i> View Photo
                     </button>
                   ` : '<span class="text-slate-400 text-[11px]">No Photo</span>'}
                 </td>
-                <td class="py-3 px-4 text-right space-x-1">
+                <td class="py-3 px-3.5 text-right sticky right-0 bg-white/95 backdrop-blur-xs space-x-1">
                   <button onclick="openEditFinancialModal('${r.id}')" title="Edit Profile" class="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition ${!canEdit('financial_files') ? 'permission-locked' : ''}">
                     <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
                   </button>
@@ -1067,18 +1444,34 @@ function renderFinancialTable(records) {
           </tbody>
         </table>
       </div>
+      <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-slate-500 text-[11px] flex items-center justify-between">
+        <span>Showing ${records.length} of ${financialRecords.length} records</span>
+        <span class="font-mono">Sorted by: ${tableSortState.financial.col} (${tableSortState.financial.asc ? 'Ascending' : 'Descending'})</span>
+      </div>
     </div>
   `;
 }
 
-// Lightbox for Photos
+// Lightbox for Photos (with Token Query and Graceful Fallback)
 function openPhotoLightbox(photoFile, caption) {
   const modal = document.getElementById('photoLightbox');
   const img = document.getElementById('lightboxImg');
   const cap = document.getElementById('lightboxCaption');
 
-  img.src = `/api/financial-files/photos/${encodeURIComponent(photoFile)}`;
-  cap.textContent = `Physical Register Notebook Capture — ${caption} (${photoFile})`;
+  const tokenParam = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+  img.src = `/api/financial-files/photos/${encodeURIComponent(photoFile)}${tokenParam}`;
+  img.alt = caption || 'Physical Register Notebook Page';
+  img.onerror = function() {
+    this.onerror = null;
+    cap.innerHTML = `
+      <div class="text-red-400 font-semibold">Could not load photo: ${photoFile}</div>
+      <div class="text-slate-400 text-[11px] mt-1">Please verify the image exists in financial_files_db/</div>
+    `;
+  };
+  cap.innerHTML = `
+    <span class="font-semibold text-white">Physical Register Notebook Capture &mdash; ${caption}</span>
+    <span class="text-slate-400 font-mono text-[11px] block mt-0.5">${photoFile}</span>
+  `;
   modal.classList.remove('hidden');
   if (window.lucide) lucide.createIcons();
 }
@@ -1089,13 +1482,14 @@ function closePhotoLightbox() {
 }
 
 // ================= 5. ACCESS CONTROL CENTER (LIGHT THEME) =================
+// ================= 5. ACCESS CONTROL CENTER (LIGHT THEME) =================
 async function renderAccessControl(container) {
   if (!isAdmin()) {
     container.innerHTML = `
       <div class="p-12 text-center bg-white rounded-2xl border border-red-200 space-y-3 shadow-sm fade-in">
         <i data-lucide="shield-alert" class="w-12 h-12 mx-auto text-red-500"></i>
         <h2 class="text-lg font-bold text-slate-900">Restricted Administrator Area</h2>
-        <p class="text-xs text-slate-500 max-w-md mx-auto">Only users with Administrator privileges can modify user credentials and permissions.</p>
+        <p class="text-xs text-slate-500 max-w-md mx-auto">Only users with Administrator or Director privileges can modify user credentials and permissions.</p>
       </div>
     `;
     return;
@@ -1122,7 +1516,7 @@ async function renderAccessControl(container) {
             </span>
           </div>
           <p class="text-xs text-slate-500 mt-1">
-            Grant or take access, assign granular module permissions (Editor vs. Viewer), and manage staff accounts.
+            Grant or take access, assign granular module permissions (Editor vs. Viewer), and manage staff accounts (${usersList.length} accounts).
           </p>
         </div>
 
@@ -1131,63 +1525,149 @@ async function renderAccessControl(container) {
         </button>
       </div>
 
-      <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left text-xs">
-            <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-              <tr>
-                <th class="py-3 px-4">User</th>
-                <th class="py-3 px-4">Role</th>
-                <th class="py-3 px-4">Designation</th>
-                <th class="py-3 px-4">Operations Perm</th>
-                <th class="py-3 px-4">Customer DB Perm</th>
-                <th class="py-3 px-4">Financial DB Perm</th>
-                <th class="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              ${usersList.map(u => `
-                <tr class="hover:bg-slate-50/70 transition">
-                  <td class="py-3 px-4">
-                    <div class="font-semibold text-slate-900">${u.fullName || u.username}</div>
-                    <div class="text-[11px] text-slate-500 font-mono">@${u.username}</div>
+      <!-- Search & Filters -->
+      <div class="flex flex-col sm:flex-row items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="relative flex-1 w-full">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+          <input type="text" id="userSearchInput" oninput="handleUsersFilter()" placeholder="Search staff by name, username, designation, email..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500">
+        </div>
+        <select id="userRoleFilter" onchange="handleUsersFilter()" class="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none w-full sm:w-auto">
+          <option value="">All Roles</option>
+          <option value="admin">Administrator</option>
+          <option value="director">Director</option>
+          <option value="staff">Staff Member</option>
+        </select>
+        <div class="text-[11px] text-slate-400 hidden lg:block shrink-0">
+          Click any column to sort (&Delta;/&nabla;)
+        </div>
+      </div>
+
+      <!-- Users Table Container -->
+      <div id="usersTableContainer">
+        ${renderUsersTable(getFilteredUsers())}
+      </div>
+    </div>
+  `;
+}
+
+function getFilteredUsers() {
+  const q = (document.getElementById('userSearchInput')?.value || '').toLowerCase();
+  const role = (document.getElementById('userRoleFilter')?.value || '').toLowerCase();
+
+  let filtered = usersList.filter(u => {
+    const matchQ = !q || 
+      (u.fullName || '').toLowerCase().includes(q) || 
+      (u.username || '').toLowerCase().includes(q) || 
+      (u.title || '').toLowerCase().includes(q) || 
+      (u.email || '').toLowerCase().includes(q);
+    const matchRole = !role || (u.role || '').toLowerCase() === role;
+    return matchQ && matchRole;
+  });
+
+  const sortCol = tableSortState.users.col;
+  const sortAsc = tableSortState.users.asc;
+  return sortGenericRecords(filtered, sortCol, sortAsc);
+}
+
+function handleUsersFilter() {
+  const filtered = getFilteredUsers();
+  const container = document.getElementById('usersTableContainer');
+  if (container) {
+    container.innerHTML = renderUsersTable(filtered);
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+function renderUsersTable(users) {
+  if (!users.length) {
+    return `
+      <div class="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 space-y-2 shadow-sm">
+        <i data-lucide="users" class="w-10 h-10 mx-auto text-slate-300"></i>
+        <div class="text-sm font-semibold text-slate-700">No user accounts found</div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs whitespace-nowrap">
+          <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+            <tr>
+              <th onclick="handleSort('users', 'fullName')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition min-w-[200px]">
+                User &amp; Username ${getSortHeaderIcon('users', 'fullName')}
+              </th>
+              <th onclick="handleSort('users', 'role')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Role ${getSortHeaderIcon('users', 'role')}
+              </th>
+              <th onclick="handleSort('users', 'title')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Designation ${getSortHeaderIcon('users', 'title')}
+              </th>
+              <th class="py-3 px-3.5">Operations</th>
+              <th class="py-3 px-3.5">Customer DB</th>
+              <th class="py-3 px-3.5">Financial DB</th>
+              <th class="py-3 px-3.5">User Mgmt</th>
+              <th class="py-3 px-3.5 text-right sticky right-0 bg-slate-50">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            ${users.map(u => {
+              const isSelf = currentUser && u.id === currentUser.id;
+              const isRootAdmin = u.username === 'admin';
+              return `
+                <tr class="hover:bg-slate-50/80 transition">
+                  <td class="py-3 px-3.5">
+                    <div class="font-semibold text-slate-900 flex items-center gap-1.5">
+                      <span>${u.fullName || u.username}</span>
+                      ${isSelf ? '<span class="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold">You</span>' : ''}
+                    </div>
+                    <div class="text-[11px] text-slate-500 font-mono">@${u.username} &middot; <span class="text-slate-400">${u.email || 'No email'}</span></div>
                   </td>
-                  <td class="py-3 px-4">
+                  <td class="py-3 px-3.5">
                     <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${u.role === 'director' ? 'bg-amber-50 text-amber-800 border border-amber-200' : (u.role === 'admin' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-indigo-50 text-indigo-800 border border-indigo-200')}">
                       ${u.role}
                     </span>
                   </td>
-                  <td class="py-3 px-4 text-slate-600">${u.title || 'Staff Member'}</td>
-                  <td class="py-3 px-4">
-                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${u.permissions?.operations === 'editor' || u.role === 'director' || u.role === 'admin' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}">
-                      ${u.role in {director:1,admin:1} ? 'Full' : (u.permissions?.operations || 'none')}
+                  <td class="py-3 px-3.5 text-slate-600 font-medium">${u.title || 'Staff Member'}</td>
+                  <td class="py-3 px-3.5">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${['editor', 'full'].includes(u.permissions?.operations) || ['director', 'admin'].includes(u.role) ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}">
+                      ${['director', 'admin'].includes(u.role) ? 'Full' : (u.permissions?.operations || 'none')}
                     </span>
                   </td>
-                  <td class="py-3 px-4">
-                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${u.permissions?.customer_files === 'editor' || u.role === 'director' || u.role === 'admin' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}">
-                      ${u.role in {director:1,admin:1} ? 'Full' : (u.permissions?.customer_files || 'none')}
+                  <td class="py-3 px-3.5">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${['editor', 'full'].includes(u.permissions?.customer_files) || ['director', 'admin'].includes(u.role) ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}">
+                      ${['director', 'admin'].includes(u.role) ? 'Full' : (u.permissions?.customer_files || 'none')}
                     </span>
                   </td>
-                  <td class="py-3 px-4">
-                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${u.permissions?.financial_files === 'editor' || u.role === 'director' || u.role === 'admin' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}">
-                      ${u.role in {director:1,admin:1} ? 'Full' : (u.permissions?.financial_files || 'none')}
+                  <td class="py-3 px-3.5">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${['editor', 'full'].includes(u.permissions?.financial_files) || ['director', 'admin'].includes(u.role) ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}">
+                      ${['director', 'admin'].includes(u.role) ? 'Full' : (u.permissions?.financial_files || 'none')}
                     </span>
                   </td>
-                  <td class="py-3 px-4 text-right space-x-1">
-                    <button onclick="openEditUserModal('${u.id}')" title="Edit Permissions" class="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition">
-                      <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+                  <td class="py-3 px-3.5">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${u.permissions?.user_management === 'full' || ['director', 'admin'].includes(u.role) ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-slate-100 text-slate-500'}">
+                      ${['director', 'admin'].includes(u.role) ? 'Full' : (u.permissions?.user_management || 'none')}
+                    </span>
+                  </td>
+                  <td class="py-3 px-3.5 text-right sticky right-0 bg-white/95 backdrop-blur-xs space-x-1">
+                    <button onclick="openEditUserModal('${u.id}')" title="Edit Permissions & Details" class="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition">
+                      <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
                     </button>
-                    ${u.username !== 'admin' && u.id !== currentUser.id ? `
-                      <button onclick="deleteUserAccount('${u.id}')" title="Revoke Access" class="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition">
-                        <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
+                    ${!isSelf && !isRootAdmin ? `
+                      <button onclick="deleteUserAccount('${u.id}')" title="Revoke User Access" class="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                       </button>
                     ` : ''}
                   </td>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-slate-500 text-[11px] flex items-center justify-between">
+        <span>Showing ${users.length} of ${usersList.length} accounts</span>
+        <span class="font-mono">Sorted by: ${tableSortState.users.col} (${tableSortState.users.asc ? 'Ascending' : 'Descending'})</span>
       </div>
     </div>
   `;
@@ -1204,39 +1684,51 @@ function openAddOperationModal() {
     alert('You have Viewer access only on Operations Tracker.');
     return;
   }
+  const defaultRequester = currentUser ? currentUser.fullName : 'Muhammad Zaharan';
+  const todayStr = new Date().toISOString().split('T')[0];
+
   const c = document.getElementById('modalContent');
   c.innerHTML = `
     <div class="space-y-4 text-xs">
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
-        <h3 class="font-display font-bold text-base text-slate-900">Add New Operation Task</h3>
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Add New Operation Task</h3>
+          <p class="text-[11px] text-slate-500">Track a new deliverable across all 10 corporate operations columns.</p>
+        </div>
         <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
 
       <form onsubmit="submitAddOperation(event)" class="space-y-3">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Task Deliverable Title *</label>
-          <input type="text" id="mOpsTitle" required placeholder="e.g. Audit Cupboard 1 File Index" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          <label class="block font-semibold text-slate-700 mb-1">Task / Procurement Item *</label>
+          <input type="text" id="mOpsTitle" required placeholder="e.g. Purchase Heavy-duty Stapler & Pins" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Requested By</label>
+            <input type="text" id="mOpsRequestedBy" value="${defaultRequester}" placeholder="e.g. Mr. Zaharan / Director" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Workstream</label>
-            <input type="text" id="mOpsWorkstream" placeholder="e.g. Office Operations" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
-          </div>
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1">Priority</label>
-            <select id="mOpsPriority" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none">
-              <option value="Low">Low</option>
-              <option value="Medium" selected>Medium</option>
-              <option value="High">High</option>
-              <option value="Critical">Critical</option>
-            </select>
+            <input type="text" id="mOpsWorkstream" placeholder="e.g. Office Operations, IT, Secretarial" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Status</label>
+            <label class="block font-semibold text-slate-700 mb-1">Tasked Date</label>
+            <input type="date" id="mOpsTaskedDate" value="${todayStr}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Completed Date</label>
+            <input type="date" id="mOpsCompletedDate" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Status *</label>
             <select id="mOpsStatus" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none">
               <option value="Pending" selected>Pending</option>
               <option value="In Progress">In Progress</option>
@@ -1245,14 +1737,23 @@ function openAddOperationModal() {
             </select>
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Estimated Cost</label>
+            <label class="block font-semibold text-slate-700 mb-1">Priority</label>
+            <select id="mOpsPriority" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none">
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Estimated Cost (LKR)</label>
             <input type="text" id="mOpsCost" placeholder="e.g. 25,000 LKR" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
           </div>
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Detailed Action Notes</label>
-          <textarea id="mOpsNotes" rows="3" placeholder="Add specific requirements or steps..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500"></textarea>
+          <label class="block font-semibold text-slate-700 mb-1">Notes / Action Details</label>
+          <textarea id="mOpsNotes" rows="3" placeholder="Add specific procurement details, vendor contact, or completion requirements..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500"></textarea>
         </div>
 
         <div class="pt-3 flex justify-end gap-2 border-t border-slate-100">
@@ -1270,9 +1771,12 @@ async function submitAddOperation(e) {
   e.preventDefault();
   const payload = {
     title: document.getElementById('mOpsTitle').value.trim(),
-    workstream: document.getElementById('mOpsWorkstream').value.trim() || 'General Operations',
-    priority: document.getElementById('mOpsPriority').value,
+    requestedBy: document.getElementById('mOpsRequestedBy').value.trim() || 'Executive',
+    workstream: document.getElementById('mOpsWorkstream').value.trim() || 'Office Operations',
+    taskedDate: document.getElementById('mOpsTaskedDate').value,
+    completedDate: document.getElementById('mOpsCompletedDate').value,
     status: document.getElementById('mOpsStatus').value,
+    priority: document.getElementById('mOpsPriority').value,
     estimatedCost: document.getElementById('mOpsCost').value.trim(),
     notes: document.getElementById('mOpsNotes').value.trim()
   };
@@ -1308,35 +1812,49 @@ function openEditOperationModal(taskId) {
   c.innerHTML = `
     <div class="space-y-4 text-xs">
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
-        <h3 class="font-display font-bold text-base text-slate-900">Edit Operation Task</h3>
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-display font-bold text-base text-slate-900">Edit Operation Task</h3>
+            <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono font-bold text-xs border border-slate-200">
+              No. ${task.no ?? task.id}
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-500">Update task status, priority, completed date, or cost estimates.</p>
+        </div>
         <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
 
       <form onsubmit="submitEditOperation(event, '${task.id}')" class="space-y-3">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Task Deliverable Title *</label>
+          <label class="block font-semibold text-slate-700 mb-1">Task / Procurement Item *</label>
           <input type="text" id="mEditOpsTitle" required value="${task.title || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Workstream</label>
-            <input type="text" id="mEditOpsWorkstream" value="${task.workstream || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <label class="block font-semibold text-slate-700 mb-1">Requested By</label>
+            <input type="text" id="mEditOpsReq" value="${task.requestedBy || ''}" placeholder="e.g. Mr. Zaharan" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Priority</label>
-            <select id="mEditOpsPriority" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none">
-              <option value="Low" ${task.priority === 'Low' ? 'selected' : ''}>Low</option>
-              <option value="Medium" ${task.priority === 'Medium' ? 'selected' : ''}>Medium</option>
-              <option value="High" ${task.priority === 'High' ? 'selected' : ''}>High</option>
-              <option value="Critical" ${task.priority === 'Critical' ? 'selected' : ''}>Critical</option>
-            </select>
+            <label class="block font-semibold text-slate-700 mb-1">Workstream</label>
+            <input type="text" id="mEditOpsWorkstream" value="${task.workstream || ''}" placeholder="e.g. Office Operations" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Status</label>
+            <label class="block font-semibold text-slate-700 mb-1">Tasked Date</label>
+            <input type="text" id="mEditOpsTaskedDate" value="${task.taskedDate || ''}" placeholder="YYYY-MM-DD" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Completed Date</label>
+            <input type="text" id="mEditOpsCompletedDate" value="${task.completedDate || ''}" placeholder="YYYY-MM-DD" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Status *</label>
             <select id="mEditOpsStatus" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none">
               <option value="Pending" ${task.status === 'Pending' ? 'selected' : ''}>Pending</option>
               <option value="In Progress" ${task.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
@@ -1345,13 +1863,22 @@ function openEditOperationModal(taskId) {
             </select>
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Estimated Cost</label>
-            <input type="text" id="mEditOpsCost" value="${task.estimatedCost || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <label class="block font-semibold text-slate-700 mb-1">Priority</label>
+            <select id="mEditOpsPriority" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none">
+              <option value="Critical" ${task.priority === 'Critical' ? 'selected' : ''}>Critical</option>
+              <option value="High" ${task.priority === 'High' ? 'selected' : ''}>High</option>
+              <option value="Medium" ${task.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+              <option value="Low" ${task.priority === 'Low' ? 'selected' : ''}>Low</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Estimated Cost (LKR)</label>
+            <input type="text" id="mEditOpsCost" value="${task.estimatedCost || ''}" placeholder="e.g. 25,000 LKR" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
           </div>
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Action Notes</label>
+          <label class="block font-semibold text-slate-700 mb-1">Notes / Action Details</label>
           <textarea id="mEditOpsNotes" rows="3" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">${task.notes || ''}</textarea>
         </div>
 
@@ -1370,7 +1897,10 @@ async function submitEditOperation(e, taskId) {
   e.preventDefault();
   const payload = {
     title: document.getElementById('mEditOpsTitle').value.trim(),
+    requestedBy: document.getElementById('mEditOpsReq').value.trim(),
     workstream: document.getElementById('mEditOpsWorkstream').value.trim(),
+    taskedDate: document.getElementById('mEditOpsTaskedDate').value.trim(),
+    completedDate: document.getElementById('mEditOpsCompletedDate').value.trim(),
     priority: document.getElementById('mEditOpsPriority').value,
     status: document.getElementById('mEditOpsStatus').value,
     estimatedCost: document.getElementById('mEditOpsCost').value.trim(),
@@ -1504,6 +2034,126 @@ async function submitDualOnboarding(e) {
     }
   } catch (err) {
     alert('Error during dual onboarding');
+  }
+}
+
+// Edit Customer File Record Modal
+function openEditCustomerModal(no) {
+  if (!canEdit('customer_files')) {
+    alert('You have Viewer access only on Customer Files.');
+    return;
+  }
+  const r = customerRecords.find(item => String(item.No) === String(no));
+  if (!r) {
+    alert(`File record #${no} not found.`);
+    return;
+  }
+
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-display font-bold text-base text-slate-900">Edit Customer Archive File</h3>
+            <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-mono font-bold text-xs border border-emerald-200">
+              Record #${r.No || no}
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-500">Update file metadata in the live Access database registry.</p>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <form onsubmit="submitEditCustomer(event, '${r.No || no}')" class="space-y-3">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Company / Entity Name *</label>
+          <input type="text" id="mEditCustName" required value="${r['Company Name'] || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Company Registration No</label>
+            <input type="text" id="mEditCustReg" value="${r['Registration No'] || ''}" placeholder="e.g. PV 00298172" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Date of Incorporation</label>
+            <input type="text" id="mEditCustIncorp" value="${r['Date of Incorporation'] || ''}" placeholder="e.g. 2021-08-15" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Cupboard Destination *</label>
+            <select id="mEditCustCupboard" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none">
+              <option value="Cupboard 1" ${r.Cupboard === 'Cupboard 1' ? 'selected' : ''}>Cupboard 1 (Originals)</option>
+              <option value="Cupboard 2" ${r.Cupboard === 'Cupboard 2' ? 'selected' : ''}>Cupboard 2 (Copies)</option>
+              <option value="Cupboard 3" ${r.Cupboard === 'Cupboard 3' ? 'selected' : ''}>Cupboard 3 (Copies)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Box Number *</label>
+            <input type="text" id="mEditCustBox" required value="${r['Box No'] || ''}" placeholder="e.g. Box 11" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">File Type *</label>
+            <select id="mEditCustType" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none">
+              <option value="Original File" ${(r.Type || '').toLowerCase().includes('original') ? 'selected' : ''}>Original File</option>
+              <option value="Customer Copy" ${(r.Type || '').toLowerCase().includes('copy') ? 'selected' : ''}>Customer Copy</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Category</label>
+          <input type="text" id="mEditCustCategory" value="${r.Category || 'Customer Files'}" placeholder="e.g. Customer Files" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div class="pt-3 flex justify-end gap-2 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-slate-600 bg-slate-100 hover:bg-slate-200 font-semibold transition">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 font-semibold transition shadow-sm">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function submitEditCustomer(e, no) {
+  e.preventDefault();
+  const payload = {
+    No: no,
+    'Company Name': document.getElementById('mEditCustName').value.trim(),
+    'Registration No': document.getElementById('mEditCustReg').value.trim(),
+    Cupboard: document.getElementById('mEditCustCupboard').value,
+    'Box No': document.getElementById('mEditCustBox').value.trim(),
+    Type: document.getElementById('mEditCustType').value,
+    Category: document.getElementById('mEditCustCategory').value.trim() || 'Customer Files',
+    'Date of Incorporation': document.getElementById('mEditCustIncorp').value.trim()
+  };
+
+  try {
+    const res = await fetch(`/api/customer-files/${no}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeModal();
+      await loadInitialData();
+      renderCustomerFiles(document.getElementById('mainContent'));
+      if (window.lucide) lucide.createIcons();
+      alert(`Record #${no} updated successfully.`);
+    } else {
+      alert(data.error || 'Update failed');
+    }
+  } catch (err) {
+    alert('Error updating customer record');
   }
 }
 
@@ -1653,6 +2303,192 @@ async function submitAddFinancial(e) {
   }
 }
 
+// Edit Financial File Record Modal
+function openEditFinancialModal(id) {
+  if (!canEdit('financial_files')) {
+    alert('You have Viewer access only on Financial Files.');
+    return;
+  }
+  const r = financialRecords.find(item => String(item.id) === String(id));
+  if (!r) {
+    alert('Financial profile record not found.');
+    return;
+  }
+
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-display font-bold text-base text-slate-900">Edit Financial Tax Profile</h3>
+            <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-mono font-bold text-xs border border-emerald-200">
+              ${r.category || 'Corporate'}
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-500">Update TIN, IRD credentials, SSID numbers, and director tax information.</p>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <form onsubmit="submitEditFinancial(event, '${r.id}')" class="space-y-3">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Entity / Director Name *</label>
+          <input type="text" id="mEditFinName" required value="${r.entityName || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Category</label>
+            <select id="mEditFinCategory" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none">
+              <option value="Corporate" ${r.category === 'Corporate' ? 'selected' : ''}>Corporate Entity</option>
+              <option value="Individual" ${r.category === 'Individual' ? 'selected' : ''}>Individual / Director</option>
+              <option value="Bilateral Council" ${r.category === 'Bilateral Council' ? 'selected' : ''}>Bilateral Council</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Registration No</label>
+            <input type="text" id="mEditFinRegNo" value="${r.regNo || ''}" placeholder="e.g. PV 11488" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Date of Incorp</label>
+            <input type="text" id="mEditFinDateIncorp" value="${r.dateOfIncorp || ''}" placeholder="e.g. 2018-05-10" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Tax ID Number (TIN)</label>
+            <input type="text" id="mEditFinTin" value="${r.tinNo || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Economic Code</label>
+            <input type="text" id="mEditFinEcon" value="${r.economicCode || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">IRD Portal PIN</label>
+            <input type="text" id="mEditFinIrdPin" value="${r.irdPin || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">IRD Password</label>
+            <input type="text" id="mEditFinIrdPwd" value="${r.irdPassword || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">IRD Registered Email</label>
+            <input type="text" id="mEditFinIrdEmail" value="${r.irdEmail || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">SSID Number</label>
+            <input type="text" id="mEditFinSsid" value="${r.ssid || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">SSID PIN</label>
+            <input type="text" id="mEditFinSsidPin" value="${r.ssidPin || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Director Name</label>
+            <input type="text" id="mEditFinDirector" value="${r.directorName || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Director Passport / ID</label>
+            <input type="text" id="mEditFinDirectorId" value="${r.directorPassportOrId || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Emails</label>
+            <input type="text" id="mEditFinEmails" value="${r.emails || ''}" placeholder="Comma-separated emails" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Phones</label>
+            <input type="text" id="mEditFinPhones" value="${r.phones || ''}" placeholder="Comma-separated numbers" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Filing Status / Audit History</label>
+          <textarea id="mEditFinFiling" rows="2" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">${r.filingStatus || ''}</textarea>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">General Notes</label>
+            <input type="text" id="mEditFinNotes" value="${r.notes || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Linked Physical Register Photo</label>
+            <input type="text" id="mEditFinPhoto" value="${r.photoFile || ''}" placeholder="e.g. Register_01_Remi_Dream_Lanka.jpeg" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+          </div>
+        </div>
+
+        <div class="pt-3 flex justify-end gap-2 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-slate-600 bg-slate-100 hover:bg-slate-200 font-semibold transition">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 font-semibold transition shadow-sm">Save Profile</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function submitEditFinancial(e, id) {
+  e.preventDefault();
+  const payload = {
+    entityName: document.getElementById('mEditFinName').value.trim(),
+    category: document.getElementById('mEditFinCategory').value,
+    regNo: document.getElementById('mEditFinRegNo').value.trim(),
+    dateOfIncorp: document.getElementById('mEditFinDateIncorp').value.trim(),
+    tinNo: document.getElementById('mEditFinTin').value.trim(),
+    economicCode: document.getElementById('mEditFinEcon').value.trim(),
+    irdPin: document.getElementById('mEditFinIrdPin').value.trim(),
+    irdPassword: document.getElementById('mEditFinIrdPwd').value.trim(),
+    irdEmail: document.getElementById('mEditFinIrdEmail').value.trim(),
+    ssid: document.getElementById('mEditFinSsid').value.trim(),
+    ssidPin: document.getElementById('mEditFinSsidPin').value.trim(),
+    directorName: document.getElementById('mEditFinDirector').value.trim(),
+    directorPassportOrId: document.getElementById('mEditFinDirectorId').value.trim(),
+    emails: document.getElementById('mEditFinEmails').value.trim(),
+    phones: document.getElementById('mEditFinPhones').value.trim(),
+    filingStatus: document.getElementById('mEditFinFiling').value.trim(),
+    notes: document.getElementById('mEditFinNotes').value.trim(),
+    photoFile: document.getElementById('mEditFinPhoto').value.trim()
+  };
+
+  try {
+    const res = await fetch(`/api/financial-files/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeModal();
+      await loadInitialData();
+      renderFinancialFiles(document.getElementById('mainContent'));
+      if (window.lucide) lucide.createIcons();
+      alert('Financial profile updated successfully.');
+    } else {
+      alert(data.error || 'Update failed');
+    }
+  } catch (err) {
+    alert('Error updating financial profile');
+  }
+}
+
 async function deleteFinancialRecord(id) {
   if (!canEdit('financial_files')) {
     alert('You have Viewer access only on Financial Files.');
@@ -1729,7 +2565,7 @@ function openAddUserModal() {
 
         <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
           <div class="font-bold text-slate-800">Module Access Level</div>
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div>
               <label class="block text-[11px] font-medium text-slate-600 mb-1">Operations</label>
               <select id="mUserPermOps" class="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs">
@@ -1755,6 +2591,14 @@ function openAddUserModal() {
                 <option value="editor">Editor (Read/Write)</option>
                 <option value="full">Full Control</option>
                 <option value="none">No Access</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">User Mgmt</label>
+              <select id="mUserPermUserMgmt" class="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs">
+                <option value="none" selected>No Access</option>
+                <option value="viewer">Viewer (Read Only)</option>
+                <option value="full">Full Control</option>
               </select>
             </div>
           </div>
@@ -1783,7 +2627,8 @@ async function submitAddUser(e) {
     permissions: {
       operations: document.getElementById('mUserPermOps').value,
       customer_files: document.getElementById('mUserPermCust').value,
-      financial_files: document.getElementById('mUserPermFin').value
+      financial_files: document.getElementById('mUserPermFin').value,
+      user_management: document.getElementById('mUserPermUserMgmt').value
     }
   };
 
@@ -1859,7 +2704,7 @@ function openEditUserModal(userId) {
 
         <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
           <div class="font-bold text-slate-800">Module Permissions</div>
-          <div class="grid grid-cols-3 gap-2">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div>
               <label class="block text-[11px] font-medium text-slate-600 mb-1">Operations</label>
               <select id="mEditPermOps" class="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs">
@@ -1887,6 +2732,14 @@ function openEditUserModal(userId) {
                 <option value="none" ${target.permissions?.financial_files === 'none' ? 'selected' : ''}>None</option>
               </select>
             </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">User Mgmt</label>
+              <select id="mEditPermUserMgmt" class="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs">
+                <option value="full" ${target.permissions?.user_management === 'full' ? 'selected' : ''}>Full</option>
+                <option value="viewer" ${target.permissions?.user_management === 'viewer' ? 'selected' : ''}>Viewer</option>
+                <option value="none" ${(!target.permissions?.user_management || target.permissions?.user_management === 'none') ? 'selected' : ''}>None</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -1911,7 +2764,8 @@ async function submitEditUser(e, userId) {
     permissions: {
       operations: document.getElementById('mEditPermOps').value,
       customer_files: document.getElementById('mEditPermCust').value,
-      financial_files: document.getElementById('mEditPermFin').value
+      financial_files: document.getElementById('mEditPermFin').value,
+      user_management: document.getElementById('mEditPermUserMgmt').value
     }
   };
 
@@ -1944,7 +2798,18 @@ async function submitEditUser(e, userId) {
 }
 
 async function deleteUserAccount(userId) {
-  if (!confirm('Are you sure you want to permanently revoke this user account? This cannot be undone.')) return;
+  const target = usersList.find(u => u.id === userId);
+  if (!target) return;
+  if (currentUser && target.id === currentUser.id) {
+    alert('Security Alert: You cannot delete your own active administrator account.');
+    return;
+  }
+  if (target.username === 'admin') {
+    alert('Security Alert: The root admin account cannot be deleted.');
+    return;
+  }
+  if (!confirm(`Are you sure you want to permanently revoke access for @${target.username} (${target.fullName})? This cannot be undone.`)) return;
+
   try {
     const res = await fetch(`/api/users/${userId}`, {
       method: 'DELETE',
@@ -1954,11 +2819,94 @@ async function deleteUserAccount(userId) {
     if (data.success) {
       await loadInitialData();
       renderAccessControl(document.getElementById('mainContent'));
-      alert('User access revoked.');
+      alert(`User access for @${target.username} has been revoked.`);
     } else {
       alert(data.error || 'Failed to delete user');
     }
   } catch (e) {
     alert('Error deleting user');
   }
+}
+
+// Know It All Section Roadmap Modal
+function openKnowItAllModal() {
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-5 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
+            <i data-lucide="brain" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-display font-bold text-base text-slate-900">Know It All — Corporate Intelligence Engine</h3>
+            <span class="text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+              Scheduled Roadmap: Q4 2026 &middot; To Be Done Later
+            </span>
+          </div>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <div class="p-4 rounded-xl bg-gradient-to-br from-purple-50/70 via-indigo-50/40 to-white border border-purple-200 space-y-2">
+        <div class="font-bold text-slate-900 flex items-center gap-1.5 text-sm">
+          <i data-lucide="sparkles" class="w-4 h-4 text-purple-600"></i> Next-Generation Knowledge Architecture
+        </div>
+        <p class="text-slate-600 leading-relaxed">
+          The "Know It All" platform will unify Spillburg Holdings' cross-entity knowledge base, automated statutory compliance monitoring, bilateral business councils, and an executive AI query assistant.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="p-3.5 rounded-xl border border-slate-200 bg-white shadow-xs space-y-1.5">
+          <div class="font-semibold text-slate-900 flex items-center gap-2">
+            <i data-lucide="building" class="w-4 h-4 text-emerald-600"></i> Bilateral Business Councils
+          </div>
+          <p class="text-slate-500 text-[11px] leading-relaxed">
+            Sri Lanka - Greater Mekong, Sri Lanka - Nordic, and European chamber charters, secretariats, and member registers.
+          </p>
+        </div>
+
+        <div class="p-3.5 rounded-xl border border-slate-200 bg-white shadow-xs space-y-1.5">
+          <div class="font-semibold text-slate-900 flex items-center gap-2">
+            <i data-lucide="file-check" class="w-4 h-4 text-blue-600"></i> Corporate Secretarial SOPs
+          </div>
+          <p class="text-slate-500 text-[11px] leading-relaxed">
+            ROC Form 1, Form 13, Form 15, Form 20 workflows, annual return deadlines, and notary public checklists.
+          </p>
+        </div>
+
+        <div class="p-3.5 rounded-xl border border-slate-200 bg-white shadow-xs space-y-1.5">
+          <div class="font-semibold text-slate-900 flex items-center gap-2">
+            <i data-lucide="landmark" class="w-4 h-4 text-amber-600"></i> Inland Revenue (RAMIS)
+          </div>
+          <p class="text-slate-500 text-[11px] leading-relaxed">
+            Automated tax calculation guidelines, APIT, SSCL, VAT filing timetables, and IRD regional office directories.
+          </p>
+        </div>
+
+        <div class="p-3.5 rounded-xl border border-slate-200 bg-white shadow-xs space-y-1.5">
+          <div class="font-semibold text-slate-900 flex items-center gap-2">
+            <i data-lucide="bot" class="w-4 h-4 text-purple-600"></i> Semantic Intelligence Search
+          </div>
+          <p class="text-slate-500 text-[11px] leading-relaxed">
+            Instant vector search across all scanned agreements, physical archive records, and operational task notes.
+          </p>
+        </div>
+      </div>
+
+      <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 text-[11px] flex items-center justify-between">
+        <span>Status: Architectural planning in progress.</span>
+        <span class="font-semibold text-purple-700">Sprint Target: Version 2.2</span>
+      </div>
+
+      <div class="pt-3 flex justify-end border-t border-slate-100">
+        <button onclick="closeModal()" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold transition shadow-sm">
+          Close Preview
+        </button>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
 }
