@@ -146,15 +146,15 @@ def test_suite():
     assert_test("Staff Viewer Login ('staff_viewer' / 'staff123')", status == 200 and data.get("success") is True)
     viewer_token = data.get("token")
 
-    # 5. Muhammad Zaharan's Tracker (All 34 Sheet Tasks)
+    # 5. Muhammad Zaharan's Tracker (All 38 Sheet Tasks)
     print("\n--- 5. Testing Muhammad Zaharan's Personal Operations Tracker ---")
     status, z_ops, _ = make_request("/api/operations", token=zaharan_token)
     z_tasks = z_ops.get("tasks", [])
-    assert_test(f"Zaharan's tracker contains all 34 tasks (found {len(z_tasks)})", status == 200 and len(z_tasks) == 34)
+    assert_test(f"Zaharan's tracker contains all 38 tasks (found {len(z_tasks)})", status == 200 and len(z_tasks) == 38)
 
     # Spot check specific tasks from sheet
-    task_laptop = next((t for t in z_tasks if "Quote Work Laptop" in t.get("title", "")), None)
-    assert_test("Task #33 'Quote Work Laptop for Director' present", task_laptop is not None)
+    task_laptop = next((t for t in z_tasks if "Work Laptop for Director" in t.get("title", "")), None)
+    assert_test("Task #33 'Purchase Work Laptop for Director' present", task_laptop is not None)
 
     task_mktg = next((t for t in z_tasks if "Digital Marketing" in t.get("title", "")), None)
     assert_test("Task #1 'Digital Marketing' present", task_mktg is not None and task_mktg.get("status") == "On Hold")

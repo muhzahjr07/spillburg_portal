@@ -1042,6 +1042,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
 
             USERS = [u for u in USERS if u["id"] != user_id]
             save_json_file("users.json", USERS)
+            OPERATIONS = [t for t in OPERATIONS if t.get("userId") != user_id]
+            save_json_file("operations.json", OPERATIONS)
             self.send_json({"success": True, "message": "User access revoked"})
             return
 

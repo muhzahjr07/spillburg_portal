@@ -1,22 +1,5 @@
 [
   {
-    "id": "ops_8cde17",
-    "no": 1,
-    "userId": "usr_12297122",
-    "ownerUsername": "test_staff_qa",
-    "title": "Spillburg Portal Onboarding - QA Analyst",
-    "requestedBy": "System Administrator",
-    "assignedTo": "Test Staff Member",
-    "workstream": "Personal Tasks",
-    "type": "Onboarding",
-    "taskedDate": "2026-10-02",
-    "completedDate": "",
-    "status": "In Progress",
-    "priority": "Medium",
-    "estimatedCost": "",
-    "notes": "Welcome to Spillburg Holdings. Review your assigned registers and manage your personal deliverables."
-  },
-  {
     "id": "ops_001",
     "no": 1,
     "userId": "usr_admin_zaharan",
