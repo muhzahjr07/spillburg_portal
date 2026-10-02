@@ -14,6 +14,8 @@ import sys
 import json
 import uuid
 import time
+import copy
+import shutil
 import urllib.parse
 import subprocess
 import sqlite3
@@ -39,6 +41,163 @@ OPERATIONS = []
 FINANCIAL_RECORDS = []
 CUSTOMER_RECORDS = []
 
+# Canonical Default Users Format (Preserved baseline - do NOT wipe or alter on portal updates)
+DEFAULT_USERS = [
+    {
+        "id": "usr_dir_master",
+        "username": "director",
+        "password": "director123",
+        "fullName": "Executive Director",
+        "role": "director",
+        "title": "Managing Director / Board Member",
+        "email": "director@spillburg.com",
+        "permissions": {
+            "operations": "full",
+            "customer_files": "full",
+            "financial_files": "full",
+            "user_management": "full"
+        },
+        "createdAt": "2026-09-01T08:00:00Z",
+        "status": "active"
+    },
+    {
+        "id": "usr_staff_insaaf",
+        "username": "staff_insaaf",
+        "password": "staff123",
+        "fullName": "Insaaf",
+        "role": "staff",
+        "title": "Customer Database Coordinator",
+        "email": "insaaf@spillburg.com",
+        "permissions": {
+            "operations": "editor",
+            "customer_files": "editor",
+            "financial_files": "none",
+            "user_management": "none"
+        },
+        "createdAt": "2026-09-12T10:00:00Z",
+        "status": "active"
+    },
+    {
+        "id": "usr_staff_hemanthi",
+        "username": "staff_hemanthi",
+        "password": "staff123",
+        "fullName": "Miss Hemanthi",
+        "role": "staff",
+        "title": "Office Operations Officer",
+        "email": "hemanthi@spillburg.com",
+        "permissions": {
+            "operations": "editor",
+            "customer_files": "editor",
+            "financial_files": "editor",
+            "user_management": "none"
+        },
+        "createdAt": "2026-09-10T09:30:00Z",
+        "status": "active"
+    },
+    {
+        "id": "usr_dir_hameez",
+        "username": "hameez",
+        "password": "spillburg123",
+        "fullName": "Mohamed Hussain Kariapper Hameez",
+        "role": "director",
+        "title": "Managing Director",
+        "email": "hameezm@yahoo.com",
+        "permissions": {
+            "operations": "full",
+            "customer_files": "full",
+            "financial_files": "full",
+            "user_management": "full"
+        },
+        "createdAt": "2026-09-01T08:00:00Z",
+        "status": "active"
+    },
+    {
+        "id": "usr_dir_shameel",
+        "username": "shameel",
+        "password": "spillburg123",
+        "fullName": "Mohamed Shaameel Mohideen",
+        "role": "director",
+        "title": "Director/CEO",
+        "email": "shaameelmohideen@gmail.com",
+        "permissions": {
+            "operations": "full",
+            "customer_files": "full",
+            "financial_files": "full",
+            "user_management": "full"
+        },
+        "createdAt": "2026-09-01T08:00:00Z",
+        "status": "active"
+    },
+    {
+        "id": "usr_admin_zaharan",
+        "username": "zaharan",
+        "password": "admin123",
+        "fullName": "Muhammad Zaharan",
+        "role": "admin",
+        "title": "Operations & Systems Admin",
+        "email": "zaharan@spillburg.com",
+        "permissions": {
+            "operations": "full",
+            "customer_files": "full",
+            "financial_files": "full",
+            "user_management": "full"
+        },
+        "createdAt": "2026-09-01T08:00:00Z",
+        "status": "active"
+    },
+    {
+        "id": "usr_staff_editor",
+        "username": "staff_editor",
+        "password": "staff123",
+        "fullName": "Staff Member (Editor)",
+        "role": "staff",
+        "title": "Senior Operations Executive",
+        "email": "editor@spillburg.com",
+        "permissions": {
+            "operations": "editor",
+            "customer_files": "editor",
+            "financial_files": "editor",
+            "user_management": "none"
+        },
+        "createdAt": "2026-09-15T11:00:00Z",
+        "status": "active"
+    },
+    {
+        "id": "usr_staff_viewer",
+        "username": "staff_viewer",
+        "password": "staff123",
+        "fullName": "Staff Member (Viewer)",
+        "role": "staff",
+        "title": "Research & Audit Assistant",
+        "email": "viewer@spillburg.com",
+        "permissions": {
+            "operations": "viewer",
+            "customer_files": "viewer",
+            "financial_files": "viewer",
+            "user_management": "none"
+        },
+        "createdAt": "2026-09-15T11:00:00Z",
+        "status": "active"
+    },
+    {
+        "id": "usr_admin_master",
+        "username": "admin",
+        "password": "admin123",
+        "fullName": "System Administrator",
+        "role": "admin",
+        "title": "Corporate Portal Administrator",
+        "email": "admin@spillburg.com",
+        "permissions": {
+            "operations": "full",
+            "customer_files": "full",
+            "financial_files": "full",
+            "user_management": "full"
+        },
+        "createdAt": "2026-09-01T08:00:00Z",
+        "status": "active"
+    }
+]
+
 def load_json_file(filename, default_val):
     path = os.path.join(DATA_DIR, filename)
     if os.path.exists(path):
@@ -52,12 +211,34 @@ def load_json_file(filename, default_val):
 def save_json_file(filename, data):
     path = os.path.join(DATA_DIR, filename)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    temp_path = path + ".tmp"
+    with open(temp_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+    if os.path.exists(path):
+        try:
+            shutil.copy2(path, path + ".bak")
+        except Exception:
+            pass
+    shutil.move(temp_path, path)
+
+def sync_users_from_disk():
+    global USERS
+    disk_users = load_json_file("users.json", None)
+    if disk_users and isinstance(disk_users, list) and len(disk_users) > 0:
+        USERS = disk_users
+    return USERS
 
 def init_data():
     global USERS, OPERATIONS, FINANCIAL_RECORDS, CUSTOMER_RECORDS
-    USERS = load_json_file("users.json", [])
+    existing_users = load_json_file("users.json", None)
+    if not existing_users or not isinstance(existing_users, list) or len(existing_users) == 0:
+        USERS = copy.deepcopy(DEFAULT_USERS)
+        save_json_file("users.json", USERS)
+        print(f"[INIT] Initialized default user format with {len(USERS)} accounts.")
+    else:
+        USERS = existing_users
+        print(f"[INIT] Loaded {len(USERS)} user accounts from users.json (all user edits and additions preserved).")
+
     OPERATIONS = load_json_file("operations.json", [])
     # Load from active financial database if present, else fallback
     active_fin = os.path.join(DATA_DIR, "financial_records_active.json")
@@ -69,7 +250,7 @@ def init_data():
     # Initialize customer records from Access DB bridge
     sync_customer_records_from_access()
     print(f"[INIT] Active Cust DB: {CUSTOMER_DB_PATH}")
-    print(f"[INIT] Loaded {len(USERS)} users, {len(OPERATIONS)} operations tasks, {len(FINANCIAL_RECORDS)} financial files, {len(CUSTOMER_RECORDS)} customer file records.")
+    print(f"[INIT] Active portal ready with {len(USERS)} users, {len(OPERATIONS)} operations tasks, {len(FINANCIAL_RECORDS)} financial files, {len(CUSTOMER_RECORDS)} customer file records.")
 
 def init_sqlite_db():
     os.makedirs(os.path.dirname(SQLITE_CUSTOMER_DB), exist_ok=True)
@@ -342,6 +523,10 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             for u in USERS:
                 if u["id"] == user_id:
                     return u
+            sync_users_from_disk()
+            for u in USERS:
+                if u["id"] == user_id:
+                    return u
         return None
 
     def require_permission(self, module, required_level="editor"):
@@ -394,6 +579,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             if not user or user.get("role") not in ["admin", "director"]:
                 self.send_json({"error": "Admin or Director privileges required"}, 403)
                 return
+            sync_users_from_disk()
             safe_list = []
             for u in USERS:
                 cu = dict(u)
@@ -705,6 +891,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             username = body.get("username", "").strip().lower()
             password = body.get("password", "")
             
+            sync_users_from_disk()
             matched = None
             for u in USERS:
                 if u["username"].lower() == username and u["password"] == password:

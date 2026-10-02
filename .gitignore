@@ -41,5 +41,6 @@ desktop.ini
 
 # Logs and runtime artifacts
 *.log
+*.bak
 scratch/
 .system_generated/
