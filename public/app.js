@@ -265,6 +265,16 @@ async function loadInitialData() {
     financialRecords = finRes.records || [];
     operationsStats = statsRes || {};
 
+    if (isAdmin()) {
+      try {
+        const uRes = await fetch('/api/users', { headers });
+        if (uRes.ok) {
+          const uData = await uRes.json();
+          usersList = uData.users || [];
+        }
+      } catch (err) {}
+    }
+
     // Update sidebar counters
     document.getElementById('navOpsCount').textContent = operationsTasks.length;
     document.getElementById('navCustomerCount').textContent = customerRecords.length;
@@ -275,7 +285,7 @@ async function loadInitialData() {
 }
 
 // ================= VIEW SWITCHING =================
-function switchView(viewName) {
+async function switchView(viewName) {
   currentView = viewName;
   
   // Update sidebar buttons styling for Light Theme
@@ -304,7 +314,7 @@ function switchView(viewName) {
       renderFinancialFiles(container);
       break;
     case 'access-control':
-      renderAccessControl(container);
+      await renderAccessControl(container);
       break;
     case 'know-it-all':
       renderDashboard(container);
@@ -1510,6 +1520,7 @@ async function renderAccessControl(container) {
         <p class="text-xs text-slate-500 max-w-md mx-auto">Only users with Administrator or Director privileges can modify user credentials and permissions.</p>
       </div>
     `;
+    if (window.lucide) lucide.createIcons();
     return;
   }
 
@@ -1566,6 +1577,7 @@ async function renderAccessControl(container) {
       </div>
     </div>
   `;
+  if (window.lucide) lucide.createIcons();
 }
 
 function getFilteredUsers() {
@@ -1625,7 +1637,7 @@ function renderUsersTable(users) {
               <th class="py-3 px-3.5">Customer DB</th>
               <th class="py-3 px-3.5">Financial DB</th>
               <th class="py-3 px-3.5">User Mgmt</th>
-              <th class="py-3 px-3.5 text-right sticky right-0 bg-slate-50">Actions</th>
+              <th class="py-3 px-3.5 text-right sticky right-0 bg-slate-50 min-w-[140px]">Actions</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -1667,15 +1679,19 @@ function renderUsersTable(users) {
                       ${['director', 'admin'].includes(u.role) ? 'Full' : (u.permissions?.user_management || 'none')}
                     </span>
                   </td>
-                  <td class="py-3 px-3.5 text-right sticky right-0 bg-white/95 backdrop-blur-xs space-x-1">
-                    <button onclick="openEditUserModal('${u.id}')" title="Edit Permissions & Details" class="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition">
-                      <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
-                    </button>
-                    ${!isSelf && !isRootAdmin ? `
-                      <button onclick="deleteUserAccount('${u.id}')" title="Revoke User Access" class="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition">
-                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  <td class="py-3 px-3.5 text-right sticky right-0 bg-white/95 backdrop-blur-xs min-w-[140px] whitespace-nowrap">
+                    <div class="inline-flex items-center justify-end gap-1.5">
+                      <button onclick="openEditUserModal('${u.id}')" title="Edit Permissions & Details" class="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border border-blue-200 shadow-2xs transition">
+                        <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                        <span>Edit</span>
                       </button>
-                    ` : ''}
+                      ${!isSelf && !isRootAdmin ? `
+                        <button onclick="deleteUserAccount('${u.id}')" title="Revoke User Access" class="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold rounded-lg bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 border border-red-200 shadow-2xs transition">
+                          <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                          <span>Revoke</span>
+                        </button>
+                      ` : ''}
+                    </div>
                   </td>
                 </tr>
               `;
@@ -3347,7 +3363,7 @@ async function submitAddUser(e) {
     if (data.success) {
       closeModal();
       await loadInitialData();
-      renderAccessControl(document.getElementById('mainContent'));
+      await renderAccessControl(document.getElementById('mainContent'));
       alert(`User @${payload.username} created successfully.`);
     } else {
       alert(data.error || 'Failed to create user');
@@ -3489,7 +3505,7 @@ async function submitEditUser(e, userId) {
     if (data.success) {
       closeModal();
       await loadInitialData();
-      renderAccessControl(document.getElementById('mainContent'));
+      await renderAccessControl(document.getElementById('mainContent'));
       alert('User details and permissions updated successfully.');
     } else {
       alert(data.error || 'Failed to update user');
@@ -3520,7 +3536,7 @@ async function deleteUserAccount(userId) {
     const data = await res.json();
     if (data.success) {
       await loadInitialData();
-      renderAccessControl(document.getElementById('mainContent'));
+      await renderAccessControl(document.getElementById('mainContent'));
       alert(`User access for @${target.username} has been revoked.`);
     } else {
       alert(data.error || 'Failed to delete user');
