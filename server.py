@@ -19,6 +19,7 @@ import shutil
 import urllib.parse
 import subprocess
 import sqlite3
+import re
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 
@@ -455,15 +456,56 @@ def call_access_bridge(action, payload=None):
 
     return query_sqlite(action, payload)
 
+MONTHS_LIST = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+MONTH_NAME_TO_IDX = {m.lower(): i for i, m in enumerate(MONTHS_LIST)}
+
+def to_standard_date_format(val):
+    if not val or str(val).strip() in ['', '-', 'N/A', 'None']:
+        return ''
+    val = str(val).strip()
+    # Already DD-MMM-YYYY or D-MMM-YYYY
+    m = re.match(r'^(\d{1,2})-([A-Za-z]{3})-(\d{4})$', val)
+    if m:
+        day = int(m.group(1))
+        mon_str = m.group(2).lower()
+        year = int(m.group(3))
+        if mon_str in MONTH_NAME_TO_IDX:
+            return f"{day:02d}-{MONTHS_LIST[MONTH_NAME_TO_IDX[mon_str]]}-{year}"
+    # YYYY-MM-DD or YYYY/MM/DD
+    m = re.match(r'^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})', val)
+    if m:
+        year = int(m.group(1))
+        mon = int(m.group(2)) - 1
+        day = int(m.group(3))
+        if 0 <= mon < 12 and 1 <= day <= 31:
+            return f"{day:02d}-{MONTHS_LIST[mon]}-{year}"
+    # DD/MM/YYYY or DD-MM-YYYY
+    m = re.match(r'^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})', val)
+    if m:
+        day = int(m.group(1))
+        mon = int(m.group(2)) - 1
+        year = int(m.group(3))
+        if 0 <= mon < 12 and 1 <= day <= 31:
+            return f"{day:02d}-{MONTHS_LIST[mon]}-{year}"
+    return val
+
 def sync_customer_records_from_access():
     global CUSTOMER_RECORDS
     init_sqlite_db()
     res = call_access_bridge("GetRecords")
     if res.get("success") and "records" in res:
-        CUSTOMER_RECORDS = res["records"]
+        records = res["records"]
+        for r in records:
+            if "Date of Incorporation" in r and r["Date of Incorporation"]:
+                r["Date of Incorporation"] = to_standard_date_format(r["Date of Incorporation"])
+        CUSTOMER_RECORDS = records
         save_json_file("customer_records_cache.json", CUSTOMER_RECORDS)
     else:
-        CUSTOMER_RECORDS = load_json_file("customer_records_cache.json", [])
+        records = load_json_file("customer_records_cache.json", [])
+        for r in records:
+            if "Date of Incorporation" in r and r["Date of Incorporation"]:
+                r["Date of Incorporation"] = to_standard_date_format(r["Date of Incorporation"])
+        CUSTOMER_RECORDS = records
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
@@ -1045,7 +1087,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "entityName": body.get("entityName", "New Entity"),
                 "category": body.get("category", "Corporate"),
                 "regNo": body.get("regNo", ""),
-                "dateOfIncorp": body.get("dateOfIncorp", ""),
+                "dateOfIncorp": to_standard_date_format(body.get("dateOfIncorp", "")),
                 "tinNo": body.get("tinNo", ""),
                 "economicCode": body.get("economicCode", ""),
                 "irdPin": body.get("irdPin", ""),
@@ -1072,6 +1114,9 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             user = self.require_permission("customer_files", "editor")
             if not user: return
 
+            if "Date of Incorporation" in body and body["Date of Incorporation"]:
+                body["Date of Incorporation"] = to_standard_date_format(body["Date of Incorporation"])
+
             res = call_access_bridge("AddRecord", body)
             if res.get("success"):
                 sync_customer_records_from_access()
@@ -1084,6 +1129,11 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/customer-files/dual":
             user = self.require_permission("customer_files", "editor")
             if not user: return
+
+            if "Date of Incorporation" in body and body["Date of Incorporation"]:
+                body["Date of Incorporation"] = to_standard_date_format(body["Date of Incorporation"])
+            if "dateOfIncorp" in body and body["dateOfIncorp"]:
+                body["dateOfIncorp"] = to_standard_date_format(body["dateOfIncorp"])
 
             res = call_access_bridge("DualOnboard", body)
             if res.get("success"):
@@ -1189,6 +1239,9 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Financial record not found"}, 404)
                 return
 
+            if "dateOfIncorp" in body and body["dateOfIncorp"]:
+                body["dateOfIncorp"] = to_standard_date_format(body["dateOfIncorp"])
+
             for key in ["entityName", "category", "regNo", "dateOfIncorp", "tinNo", "economicCode", "irdPin", "irdPassword", "irdEmail", "ssid", "ssidPin", "directorName", "directorPassportOrId", "emails", "phones", "filingStatus", "notes", "photoFile", "filingChecklist"]:
                 if key in body:
                     target[key] = body[key]
@@ -1206,6 +1259,9 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             rec_no = path.replace("/api/customer-files/", "")
             if "No" not in body or not body.get("No"):
                 body["No"] = rec_no
+
+            if "Date of Incorporation" in body and body["Date of Incorporation"]:
+                body["Date of Incorporation"] = to_standard_date_format(body["Date of Incorporation"])
 
             res = call_access_bridge("UpdateRecord", body)
             if res.get("success"):
