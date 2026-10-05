@@ -200,3 +200,167 @@ body {
   background-color: #f8fafc;
   color: #64748b;
 }
+
+/* ================= FLATPICKR CUSTOM SPILLBURG CALENDAR THEME ================= */
+.flatpickr-calendar {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.06) !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  padding: 0.5rem !important;
+  width: 312px !important;
+  z-index: 99999 !important;
+  margin-top: 4px !important;
+}
+
+.flatpickr-calendar::before,
+.flatpickr-calendar::after {
+  display: none !important;
+}
+
+.flatpickr-months {
+  padding: 0.25rem 0.5rem 0.5rem 0.5rem !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  align-items: center !important;
+}
+
+.flatpickr-months .flatpickr-month {
+  height: 38px !important;
+  color: #0f172a !important;
+}
+
+.flatpickr-current-month {
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+}
+
+.flatpickr-current-month .cur-month {
+  font-weight: 700 !important;
+  color: #0f172a !important;
+}
+
+.flatpickr-current-month .numInputWrapper {
+  width: 5.5ch !important;
+}
+
+.flatpickr-current-month .numInputWrapper span {
+  display: none !important;
+}
+
+.flatpickr-current-month input.cur-year {
+  font-weight: 700 !important;
+  color: #059669 !important;
+}
+
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month {
+  padding: 6px 8px !important;
+  color: #64748b !important;
+  border-radius: 0.5rem !important;
+  transition: all 0.15s ease !important;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover,
+.flatpickr-months .flatpickr-next-month:hover {
+  background: #f1f5f9 !important;
+  color: #059669 !important;
+}
+
+.flatpickr-months .flatpickr-prev-month svg,
+.flatpickr-months .flatpickr-next-month svg {
+  width: 14px !important;
+  height: 14px !important;
+  fill: currentColor !important;
+}
+
+span.flatpickr-weekday {
+  color: #94a3b8 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+}
+
+.flatpickr-day {
+  border-radius: 0.5rem !important;
+  color: #1e293b !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+  border: 1px solid transparent !important;
+  transition: all 0.15s ease !important;
+}
+
+.flatpickr-day:hover {
+  background: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+}
+
+.flatpickr-day.today {
+  border-color: #10b981 !important;
+  color: #047857 !important;
+  background: #f0fdf4 !important;
+  font-weight: 700 !important;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+  background: #059669 !important;
+  border-color: #059669 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.3) !important;
+}
+
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+  color: #cbd5e1 !important;
+}
+
+.flatpickr-day.prevMonthDay:hover,
+.flatpickr-day.nextMonthDay:hover {
+  color: #64748b !important;
+  background: #f8fafc !important;
+}
+
+/* Date Input Wrapper with Calendar Icon */
+.date-picker-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.date-picker-wrapper input {
+  cursor: pointer;
+  padding-right: 2.25rem !important;
+}
+
+.date-picker-wrapper .date-picker-icon,
+.date-picker-wrapper .date-icon {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: #059669;
+  pointer-events: none;
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
+}
+
+.date-picker-wrapper:focus-within .date-picker-icon,
+.date-picker-wrapper:focus-within .date-icon {
+  opacity: 1;
+  color: #047857;
+}
+

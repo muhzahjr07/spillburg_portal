@@ -23,6 +23,163 @@ const tableSortState = {
   users: { col: 'fullName', asc: true }
 };
 
+// ================= DATE FORMATTING & CALENDAR UTILITIES =================
+// Official Corporate Spillburg Standard: "22-Sep-2026" (DD-MMM-YYYY)
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_MAP = {
+  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+};
+
+function formatDisplayDate(val) {
+  if (!val || (typeof val !== 'string' && typeof val !== 'number' && !(val instanceof Date))) {
+    return '';
+  }
+  const str = String(val).trim();
+  if (!str || str === '-' || str.toLowerCase() === 'n/a' || str.toLowerCase() === 'null') {
+    return '';
+  }
+
+  // Already DD-MMM-YYYY or D-MMM-YYYY (e.g. 22-Sep-2026 or 3-Sep-2026)
+  const m1 = str.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  if (m1) {
+    const day = parseInt(m1[1], 10);
+    const monKey = m1[2].toLowerCase();
+    const year = parseInt(m1[3], 10);
+    if (MONTH_MAP[monKey] !== undefined) {
+      return `${String(day).padStart(2, '0')}-${MONTH_NAMES[MONTH_MAP[monKey]]}-${year}`;
+    }
+  }
+
+  // ISO or slash YYYY-MM-DD or YYYY/MM/DD (with optional time or timezone)
+  const m2 = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m2) {
+    const year = parseInt(m2[1], 10);
+    const mon = parseInt(m2[2], 10) - 1;
+    const day = parseInt(m2[3], 10);
+    if (mon >= 0 && mon < 12 && day >= 1 && day <= 31) {
+      return `${String(day).padStart(2, '0')}-${MONTH_NAMES[mon]}-${year}`;
+    }
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY
+  const m3 = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (m3) {
+    const day = parseInt(m3[1], 10);
+    const mon = parseInt(m3[2], 10) - 1;
+    const year = parseInt(m3[3], 10);
+    if (mon >= 0 && mon < 12 && day >= 1 && day <= 31) {
+      return `${String(day).padStart(2, '0')}-${MONTH_NAMES[mon]}-${year}`;
+    }
+  }
+
+  // Fallback to JS Date object
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const day = str.includes('Z') || str.includes('T') ? d.getUTCDate() : d.getDate();
+    const mon = str.includes('Z') || str.includes('T') ? d.getUTCMonth() : d.getMonth();
+    const year = str.includes('Z') || str.includes('T') ? d.getUTCFullYear() : d.getFullYear();
+    return `${String(day).padStart(2, '0')}-${MONTH_NAMES[mon]}-${year}`;
+  }
+
+  return str;
+}
+
+// Convert any date format to YYYY-MM-DD for ISO needs
+function toISODateString(val) {
+  if (!val) return '';
+  const str = String(val).trim();
+  const m1 = str.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  if (m1) {
+    const d = parseInt(m1[1], 10);
+    const m = MONTH_MAP[m1[2].toLowerCase()];
+    const y = parseInt(m1[3], 10);
+    if (m !== undefined) {
+      return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+  }
+  const m2 = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m2) {
+    return `${m2[1]}-${String(m2[2]).padStart(2, '0')}-${String(m2[3]).padStart(2, '0')}`;
+  }
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return d.toISOString().split('T')[0];
+  }
+  return '';
+}
+
+// Parse date to chronological millisecond timestamp for precise sorting
+function parseDateTimestamp(val) {
+  if (!val) return 0;
+  const str = String(val).trim();
+  const m1 = str.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  if (m1) {
+    const d = parseInt(m1[1], 10);
+    const m = MONTH_MAP[m1[2].toLowerCase()];
+    const y = parseInt(m1[3], 10);
+    if (m !== undefined) return Date.UTC(y, m, d);
+  }
+  const m2 = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m2) {
+    return Date.UTC(parseInt(m2[1], 10), parseInt(m2[2], 10) - 1, parseInt(m2[3], 10));
+  }
+  const parsed = Date.parse(str);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+function getTodayFormatted() {
+  const d = new Date();
+  const day = String(d.getDate()).padStart(2, '0');
+  const mon = MONTH_NAMES[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day}-${mon}-${year}`;
+}
+
+// Attach Flatpickr calendar picker with emerald styling and DD-MMM-YYYY format
+function attachCalendarPicker(el, options = {}) {
+  if (!el) return null;
+  if (window.flatpickr) {
+    if (el._flatpickr) {
+      try { el._flatpickr.destroy(); } catch (err) {}
+    }
+    const currentVal = el.value || options.defaultDate || '';
+    const formatted = formatDisplayDate(currentVal);
+    if (formatted) el.value = formatted;
+
+    const fp = window.flatpickr(el, {
+      dateFormat: 'd-M-Y',
+      defaultDate: formatted || undefined,
+      allowInput: true,
+      monthSelectorType: 'dropdown',
+      animate: true,
+      onOpen: function(selectedDates, dateStr, instance) {
+        if (instance.calendarContainer) {
+          instance.calendarContainer.style.zIndex = '99999';
+        }
+      },
+      onChange: function(selectedDates, dateStr) {
+        if (options.onChange) options.onChange(dateStr, selectedDates);
+      },
+      ...options
+    });
+    return fp;
+  }
+  return null;
+}
+
+// Auto-initialize all datepickers inside a container
+function initAllDatePickers(container) {
+  const root = container || document;
+  const inputs = root.querySelectorAll('input[data-calendar="true"], input.date-picker-input');
+  inputs.forEach(inp => {
+    if (inp.value) {
+      inp.value = formatDisplayDate(inp.value);
+    }
+    attachCalendarPicker(inp);
+  });
+}
+
 function toggleTableSort(tableKey, col) {
   if (tableSortState[tableKey].col === col) {
     tableSortState[tableKey].asc = !tableSortState[tableKey].asc;
@@ -50,6 +207,13 @@ function sortGenericRecords(list, col, asc) {
     valA = String(valA).trim();
     valB = String(valB).trim();
 
+    // Check if chronological date
+    const timeA = parseDateTimestamp(valA);
+    const timeB = parseDateTimestamp(valB);
+    if (timeA > 0 && timeB > 0 && (valA.includes('-') || valA.includes('/') || valB.includes('-') || valB.includes('/'))) {
+      return asc ? timeA - timeB : timeB - timeA;
+    }
+
     // Check if numeric (including currency like "Rs. 1,520.00" or numbers)
     const cleanA = valA.replace(/[^0-9.-]+/g, '');
     const cleanB = valB.replace(/[^0-9.-]+/g, '');
@@ -60,13 +224,6 @@ function sortGenericRecords(list, col, asc) {
 
     if (isNumA && isNumB) {
       return asc ? numA - numB : numB - numA;
-    }
-
-    // Check if date (e.g. "03-Sep-2026")
-    const dateA = Date.parse(valA);
-    const dateB = Date.parse(valB);
-    if (!isNaN(dateA) && !isNaN(dateB) && valA.includes('-')) {
-      return asc ? dateA - dateB : dateB - dateA;
     }
 
     const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
@@ -260,9 +417,19 @@ async function loadInitialData() {
       fetch(statsUrl, { headers }).then(r => r.ok ? r.json() : {})
     ]);
 
-    operationsTasks = opsRes.tasks || [];
-    customerRecords = custRes.records || [];
-    financialRecords = finRes.records || [];
+    operationsTasks = (opsRes.tasks || []).map(t => ({
+      ...t,
+      taskedDate: formatDisplayDate(t.taskedDate),
+      completedDate: formatDisplayDate(t.completedDate)
+    }));
+    customerRecords = (custRes.records || []).map(r => ({
+      ...r,
+      'Date of Incorporation': formatDisplayDate(r['Date of Incorporation'])
+    }));
+    financialRecords = (finRes.records || []).map(r => ({
+      ...r,
+      dateOfIncorp: formatDisplayDate(r.dateOfIncorp)
+    }));
     operationsStats = statsRes || {};
 
     if (isAdmin()) {
@@ -325,6 +492,7 @@ async function switchView(viewName) {
   }
 
   if (window.lucide) lucide.createIcons();
+  initAllDatePickers(container);
 }
 
 // ================= 1. EXECUTIVE DASHBOARD (LIGHT THEME) =================
@@ -848,9 +1016,8 @@ function renderOperationsTable(tasks) {
                   <span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
                     ${t.workstream || 'Operations'}
                   </span>
-                </td>
-                <td class="py-3 px-3.5 text-slate-600 font-mono text-[11px]">${t.taskedDate || '-'}</td>
-                <td class="py-3 px-3.5 text-slate-600 font-mono text-[11px]">${t.completedDate || '-'}</td>
+                      <td class="py-3 px-3.5 text-slate-600 font-mono text-[11px]">${formatDisplayDate(t.taskedDate) || '-'}</td>
+                <td class="py-3 px-3.5 text-slate-600 font-mono text-[11px]">${formatDisplayDate(t.completedDate) || '-'}</td>
                 <td class="py-3 px-3.5">
                   <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${getStatusBadgeClass(t.status)}">
                     ${t.status || 'Pending'}
@@ -922,6 +1089,11 @@ function renderOperationsKanban(tasks) {
                   <div class="font-semibold text-xs text-slate-900 leading-snug">${t.title}</div>
                   ${t.notes ? `<p class="text-[11px] text-slate-500 leading-relaxed">${t.notes}</p>` : ''}
 
+                  <div class="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] text-slate-500 font-mono">
+                    ${t.taskedDate ? `<span class="inline-flex items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200" title="Tasked Date"><i data-lucide="calendar" class="w-3 h-3 text-slate-400"></i> ${formatDisplayDate(t.taskedDate)}</span>` : ''}
+                    ${t.completedDate ? `<span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200" title="Completed Date"><i data-lucide="check-circle-2" class="w-3 h-3 text-emerald-600"></i> ${formatDisplayDate(t.completedDate)}</span>` : ''}
+                  </div>
+
                   <div class="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
                     <span class="truncate">${t.requestedBy || 'Self'}</span>
                     <div class="flex items-center gap-1 shrink-0">
@@ -952,8 +1124,8 @@ function getPriorityBadgeClass(p) {
     case 'critical': return 'bg-red-50 text-red-700 border border-red-200';
     case 'high': return 'bg-orange-50 text-orange-700 border border-orange-200';
     case 'medium': return 'bg-amber-50 text-amber-700 border border-amber-200';
-    case 'low': return 'bg-slate-100 text-slate-600 border border-slate-200';
-    default: return 'bg-slate-100 text-slate-600 border border-slate-200';
+    case 'low': return 'bg-slate-100 text-slate-700 border border-slate-200';
+    default: return 'bg-slate-100 text-slate-700 border border-slate-200';
   }
 }
 
@@ -977,7 +1149,7 @@ async function quickUpdateTaskStatus(id, newStatus) {
       },
       body: JSON.stringify({
         status: newStatus,
-        completedDate: newStatus === 'Completed' ? new Date().toISOString().split('T')[0] : ''
+        completedDate: newStatus === 'Completed' ? getTodayFormatted() : ''
       })
     });
     if (res.ok) {
@@ -1177,6 +1349,9 @@ function renderCustomerTable(records) {
               <th onclick="handleSort('customer', 'Registration No')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
                 Registration No ${getSortHeaderIcon('customer', 'Registration No')}
               </th>
+              <th onclick="handleSort('customer', 'Date of Incorporation')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
+                Incorporation ${getSortHeaderIcon('customer', 'Date of Incorporation')}
+              </th>
               <th onclick="handleSort('customer', 'Cupboard')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
                 Cupboard ${getSortHeaderIcon('customer', 'Cupboard')}
               </th>
@@ -1200,6 +1375,7 @@ function renderCustomerTable(records) {
                   <td class="py-3 px-3.5 font-mono text-slate-400 font-medium">${r['No'] || ''}</td>
                   <td class="py-3 px-3.5 font-semibold text-slate-900">${r['Company Name'] || ''}</td>
                   <td class="py-3 px-3.5 text-slate-600 font-mono">${r['Registration No'] || '-'}</td>
+                  <td class="py-3 px-3.5 text-slate-600 font-mono text-[11px]">${formatDisplayDate(r['Date of Incorporation']) || '-'}</td>
                   <td class="py-3 px-3.5 text-slate-700 font-medium">${r['Cupboard'] || '-'}</td>
                   <td class="py-3 px-3.5">
                     <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[11px] border border-slate-200">
@@ -1410,7 +1586,10 @@ function renderFinancialTable(records) {
               <tr class="hover:bg-slate-50/80 transition">
                 <td class="py-3 px-3.5">
                   <div class="font-semibold text-slate-900">${r.entityName || 'Unnamed'}</div>
-                  <div class="text-[11px] text-slate-500 font-medium">${r.directorName ? `Director: ${r.directorName}` : (r.category || 'Corporate')}</div>
+                  <div class="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 flex-wrap">
+                    ${r.directorName ? `<span>Director: ${r.directorName}</span>` : `<span>${r.category || 'Corporate'}</span>`}
+                    ${r.dateOfIncorp ? `<span class="text-slate-300">&bull;</span><span class="text-slate-500 font-mono text-[10px]">Incorp: ${formatDisplayDate(r.dateOfIncorp)}</span>` : ''}
+                  </div>
                 </td>
                 <td class="py-3 px-3.5">
                   <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${r.category === 'Corporate' ? 'bg-blue-50 text-blue-700 border border-blue-200' : (r.category === 'Individual' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-700 border border-slate-200')}">
@@ -1651,7 +1830,7 @@ function renderUsersTable(users) {
                       <span>${u.fullName || u.username}</span>
                       ${isSelf ? '<span class="text-[9px] px-1 py-0.2 bg-emerald-100 text-emerald-800 rounded font-semibold">You</span>' : ''}
                     </div>
-                    <div class="text-[11px] text-slate-500 font-mono">@${u.username} &middot; <span class="text-slate-400">${u.email || 'No email'}</span></div>
+                    <div class="text-[11px] text-slate-500 font-mono">@${u.username} &middot; <span class="text-slate-400">${u.email || 'No email'}</span>${u.createdAt ? ` &middot; <span class="text-slate-400">Joined ${formatDisplayDate(u.createdAt)}</span>` : ''}</div>
                   </td>
                   <td class="py-3 px-3.5">
                     <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${u.role === 'director' ? 'bg-amber-50 text-amber-800 border border-amber-200' : (u.role === 'admin' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-indigo-50 text-indigo-800 border border-indigo-200')}">
@@ -1719,7 +1898,7 @@ function openAddOperationModal() {
     return;
   }
   const defaultRequester = currentUser ? currentUser.fullName : 'Muhammad Zaharan';
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayFormatted();
 
   const c = document.getElementById('modalContent');
   c.innerHTML = `
@@ -1752,11 +1931,17 @@ function openAddOperationModal() {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Tasked Date</label>
-            <input type="date" id="mOpsTaskedDate" value="${todayStr}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <div class="date-picker-wrapper">
+              <input type="text" id="mOpsTaskedDate" value="${todayStr}" data-calendar="true" placeholder="DD-MMM-YYYY" class="date-picker-input w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+              <i data-lucide="calendar" class="date-picker-icon"></i>
+            </div>
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Completed Date</label>
-            <input type="date" id="mOpsCompletedDate" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <div class="date-picker-wrapper">
+              <input type="text" id="mOpsCompletedDate" data-calendar="true" placeholder="DD-MMM-YYYY" class="date-picker-input w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+              <i data-lucide="calendar" class="date-picker-icon"></i>
+            </div>
           </div>
         </div>
 
@@ -1798,6 +1983,7 @@ function openAddOperationModal() {
     </div>
   `;
   document.getElementById('modalBackdrop').classList.remove('hidden');
+  initAllDatePickers(c);
   if (window.lucide) lucide.createIcons();
 }
 
@@ -1807,8 +1993,8 @@ async function submitAddOperation(e) {
     title: document.getElementById('mOpsTitle').value.trim(),
     requestedBy: document.getElementById('mOpsRequestedBy').value.trim() || 'Executive',
     workstream: document.getElementById('mOpsWorkstream').value.trim() || 'Office Operations',
-    taskedDate: document.getElementById('mOpsTaskedDate').value,
-    completedDate: document.getElementById('mOpsCompletedDate').value,
+    taskedDate: formatDisplayDate(document.getElementById('mOpsTaskedDate').value) || getTodayFormatted(),
+    completedDate: formatDisplayDate(document.getElementById('mOpsCompletedDate').value),
     status: document.getElementById('mOpsStatus').value,
     priority: document.getElementById('mOpsPriority').value,
     estimatedCost: document.getElementById('mOpsCost').value.trim(),
@@ -1878,11 +2064,17 @@ function openEditOperationModal(taskId) {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Tasked Date</label>
-            <input type="text" id="mEditOpsTaskedDate" value="${task.taskedDate || ''}" placeholder="YYYY-MM-DD" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <div class="date-picker-wrapper">
+              <input type="text" id="mEditOpsTaskedDate" value="${formatDisplayDate(task.taskedDate)}" data-calendar="true" placeholder="DD-MMM-YYYY" class="date-picker-input w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+              <i data-lucide="calendar" class="date-picker-icon"></i>
+            </div>
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Completed Date</label>
-            <input type="text" id="mEditOpsCompletedDate" value="${task.completedDate || ''}" placeholder="YYYY-MM-DD" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <div class="date-picker-wrapper">
+              <input type="text" id="mEditOpsCompletedDate" value="${formatDisplayDate(task.completedDate)}" data-calendar="true" placeholder="DD-MMM-YYYY" class="date-picker-input w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+              <i data-lucide="calendar" class="date-picker-icon"></i>
+            </div>
           </div>
         </div>
 
@@ -1924,6 +2116,7 @@ function openEditOperationModal(taskId) {
     </div>
   `;
   document.getElementById('modalBackdrop').classList.remove('hidden');
+  initAllDatePickers(c);
   if (window.lucide) lucide.createIcons();
 }
 
@@ -1933,8 +2126,8 @@ async function submitEditOperation(e, taskId) {
     title: document.getElementById('mEditOpsTitle').value.trim(),
     requestedBy: document.getElementById('mEditOpsReq').value.trim(),
     workstream: document.getElementById('mEditOpsWorkstream').value.trim(),
-    taskedDate: document.getElementById('mEditOpsTaskedDate').value.trim(),
-    completedDate: document.getElementById('mEditOpsCompletedDate').value.trim(),
+    taskedDate: formatDisplayDate(document.getElementById('mEditOpsTaskedDate').value),
+    completedDate: formatDisplayDate(document.getElementById('mEditOpsCompletedDate').value),
     priority: document.getElementById('mEditOpsPriority').value,
     status: document.getElementById('mEditOpsStatus').value,
     estimatedCost: document.getElementById('mEditOpsCost').value.trim(),
@@ -2007,9 +2200,18 @@ function openDualOnboardModal() {
           <input type="text" id="mDualCompName" required placeholder="e.g. Ceylon Prime Holdings (Pvt) Ltd" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
         </div>
 
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Company Registration Number</label>
-          <input type="text" id="mDualRegNo" placeholder="e.g. PV 00298172" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Company Registration Number</label>
+            <input type="text" id="mDualRegNo" placeholder="e.g. PV 00298172" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Date of Incorporation</label>
+            <div class="date-picker-wrapper">
+              <input type="text" id="mDualIncorp" data-calendar="true" placeholder="DD-MMM-YYYY" class="date-picker-input w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+              <i data-lucide="calendar" class="date-picker-icon"></i>
+            </div>
+          </div>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
@@ -2035,6 +2237,7 @@ function openDualOnboardModal() {
     </div>
   `;
   document.getElementById('modalBackdrop').classList.remove('hidden');
+  initAllDatePickers(c);
   if (window.lucide) lucide.createIcons();
 }
 
@@ -2043,6 +2246,7 @@ async function submitDualOnboarding(e) {
   const payload = {
     CompanyName: document.getElementById('mDualCompName').value.trim(),
     RegistrationNo: document.getElementById('mDualRegNo').value.trim(),
+    DateOfIncorporation: formatDisplayDate(document.getElementById('mDualIncorp').value),
     Cupboard: document.getElementById('mDualCupboard').value,
     BoxNo: document.getElementById('mDualBox').value.trim()
   };
@@ -2112,7 +2316,10 @@ function openEditCustomerModal(no) {
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Date of Incorporation</label>
-            <input type="text" id="mEditCustIncorp" value="${r['Date of Incorporation'] || ''}" placeholder="e.g. 2021-08-15" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <div class="date-picker-wrapper">
+              <input type="text" id="mEditCustIncorp" value="${formatDisplayDate(r['Date of Incorporation'])}" data-calendar="true" placeholder="DD-MMM-YYYY" class="date-picker-input w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+              <i data-lucide="calendar" class="date-picker-icon"></i>
+            </div>
           </div>
         </div>
 
@@ -2151,6 +2358,7 @@ function openEditCustomerModal(no) {
     </div>
   `;
   document.getElementById('modalBackdrop').classList.remove('hidden');
+  initAllDatePickers(c);
   if (window.lucide) lucide.createIcons();
 }
 
@@ -2164,7 +2372,7 @@ async function submitEditCustomer(e, no) {
     'Box No': document.getElementById('mEditCustBox').value.trim(),
     Type: document.getElementById('mEditCustType').value,
     Category: document.getElementById('mEditCustCategory').value.trim() || 'Customer Files',
-    'Date of Incorporation': document.getElementById('mEditCustIncorp').value.trim()
+    'Date of Incorporation': formatDisplayDate(document.getElementById('mEditCustIncorp').value)
   };
 
   try {
@@ -2252,6 +2460,20 @@ function openAddFinancialModal() {
           <input type="text" id="mFinName" required placeholder="e.g. Lanka Prime Logistics Ltd" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
         </div>
 
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Registration No</label>
+            <input type="text" id="mFinRegNo" placeholder="e.g. PV 11488" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Date of Incorp</label>
+            <div class="date-picker-wrapper">
+              <input type="text" id="mFinDateIncorp" data-calendar="true" placeholder="DD-MMM-YYYY" class="date-picker-input w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+              <i data-lucide="calendar" class="date-picker-icon"></i>
+            </div>
+          </div>
+        </div>
+
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Tax ID Number (TIN)</label>
@@ -2298,6 +2520,7 @@ function openAddFinancialModal() {
     </div>
   `;
   document.getElementById('modalBackdrop').classList.remove('hidden');
+  initAllDatePickers(c);
   if (window.lucide) lucide.createIcons();
 }
 
@@ -2305,6 +2528,8 @@ async function submitAddFinancial(e) {
   e.preventDefault();
   const payload = {
     entityName: document.getElementById('mFinName').value.trim(),
+    regNo: document.getElementById('mFinRegNo') ? document.getElementById('mFinRegNo').value.trim() : '',
+    dateOfIncorp: formatDisplayDate(document.getElementById('mFinDateIncorp')?.value),
     tinNo: document.getElementById('mFinTin').value.trim(),
     economicCode: document.getElementById('mFinEcon').value.trim(),
     irdPin: document.getElementById('mFinIrdPin').value.trim(),
@@ -2386,7 +2611,10 @@ function openEditFinancialModal(id) {
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Date of Incorp</label>
-            <input type="text" id="mEditFinDateIncorp" value="${r.dateOfIncorp || ''}" placeholder="e.g. 2018-05-10" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <div class="date-picker-wrapper">
+              <input type="text" id="mEditFinDateIncorp" value="${formatDisplayDate(r.dateOfIncorp)}" data-calendar="true" placeholder="DD-MMM-YYYY" class="date-picker-input w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+              <i data-lucide="calendar" class="date-picker-icon"></i>
+            </div>
           </div>
         </div>
 
@@ -2478,6 +2706,7 @@ function openEditFinancialModal(id) {
     </div>
   `;
   document.getElementById('modalBackdrop').classList.remove('hidden');
+  initAllDatePickers(c);
   if (window.lucide) lucide.createIcons();
 }
 
@@ -2487,7 +2716,7 @@ async function submitEditFinancial(e, id) {
     entityName: document.getElementById('mEditFinName').value.trim(),
     category: document.getElementById('mEditFinCategory').value,
     regNo: document.getElementById('mEditFinRegNo').value.trim(),
-    dateOfIncorp: document.getElementById('mEditFinDateIncorp').value.trim(),
+    dateOfIncorp: formatDisplayDate(document.getElementById('mEditFinDateIncorp').value),
     tinNo: document.getElementById('mEditFinTin').value.trim(),
     economicCode: document.getElementById('mEditFinEcon').value.trim(),
     irdPin: document.getElementById('mEditFinIrdPin').value.trim(),
@@ -2780,7 +3009,10 @@ function openFilingChecklistModal(recordId) {
             </div>
             <div>
               <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Completion Date</label>
-              <input type="date" id="mChkDraftDate" value="${chk.stages.draftAccounts.date || ''}" ${!isEditor ? 'disabled' : ''} class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+              <div class="date-picker-wrapper">
+                <input type="text" id="mChkDraftDate" value="${formatDisplayDate(chk.stages.draftAccounts.date)}" data-calendar="true" placeholder="DD-MMM-YYYY" ${!isEditor ? 'disabled' : ''} class="date-picker-input w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+                <i data-lucide="calendar" class="date-picker-icon"></i>
+              </div>
             </div>
             <div>
               <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Prepared By / Notes</label>
@@ -2803,7 +3035,10 @@ function openFilingChecklistModal(recordId) {
             </div>
             <div>
               <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Audit Sign-Off Date</label>
-              <input type="date" id="mChkAuditDate" value="${chk.stages.audit.date || ''}" ${!isEditor ? 'disabled' : ''} class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+              <div class="date-picker-wrapper">
+                <input type="text" id="mChkAuditDate" value="${formatDisplayDate(chk.stages.audit.date)}" data-calendar="true" placeholder="DD-MMM-YYYY" ${!isEditor ? 'disabled' : ''} class="date-picker-input w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+                <i data-lucide="calendar" class="date-picker-icon"></i>
+              </div>
             </div>
             <div>
               <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Auditor / Firm</label>
@@ -2825,7 +3060,10 @@ function openFilingChecklistModal(recordId) {
             </div>
             <div>
               <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Tax Computation Date</label>
-              <input type="date" id="mChkTaxDate" value="${chk.stages.taxation.date || ''}" ${!isEditor ? 'disabled' : ''} class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+              <div class="date-picker-wrapper">
+                <input type="text" id="mChkTaxDate" value="${formatDisplayDate(chk.stages.taxation.date)}" data-calendar="true" placeholder="DD-MMM-YYYY" ${!isEditor ? 'disabled' : ''} class="date-picker-input w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+                <i data-lucide="calendar" class="date-picker-icon"></i>
+              </div>
             </div>
             <div>
               <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Tax Type / Scheme</label>
@@ -2848,7 +3086,10 @@ function openFilingChecklistModal(recordId) {
             </div>
             <div>
               <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">IRD Submission Date</label>
-              <input type="date" id="mChkIrdDate" value="${chk.stages.irdSubmission.date || ''}" ${!isEditor ? 'disabled' : ''} class="w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+              <div class="date-picker-wrapper">
+                <input type="text" id="mChkIrdDate" value="${formatDisplayDate(chk.stages.irdSubmission.date)}" data-calendar="true" placeholder="DD-MMM-YYYY" ${!isEditor ? 'disabled' : ''} class="date-picker-input w-full text-xs px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-emerald-500">
+                <i data-lucide="calendar" class="date-picker-icon"></i>
+              </div>
             </div>
             <div>
               <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">RAMIS DIN / Ref No</label>
@@ -2907,7 +3148,10 @@ function openFilingChecklistModal(recordId) {
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 border-t border-slate-100/80">
                   <div>
                     <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Date</label>
-                    <input type="date" id="date_${it.key}" value="${itemData.date || ''}" ${!isEditor ? 'disabled' : ''} class="w-full text-[11px] px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-500">
+                    <div class="date-picker-wrapper">
+                      <input type="text" id="date_${it.key}" value="${formatDisplayDate(itemData.date)}" data-calendar="true" placeholder="DD-MMM-YYYY" ${!isEditor ? 'disabled' : ''} class="date-picker-input w-full text-[11px] px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-500">
+                      <i data-lucide="calendar" class="date-picker-icon"></i>
+                    </div>
                   </div>
                   <div>
                     <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Reference / Notes</label>
@@ -2966,6 +3210,7 @@ function openFilingChecklistModal(recordId) {
   `;
 
   document.getElementById('modalBackdrop').classList.remove('hidden');
+  initAllDatePickers(modalContent);
   if (window.lucide) lucide.createIcons();
 }
 
@@ -3088,16 +3333,16 @@ function handleAutoGenerateSummary(recordId) {
   const year = document.getElementById('chkAssessmentYear')?.value || '2024/2025';
   
   const draftStatus = document.getElementById('mChkDraftStatus')?.value || 'Pending';
-  const draftDate = document.getElementById('mChkDraftDate')?.value || '';
+  const draftDate = formatDisplayDate(document.getElementById('mChkDraftDate')?.value);
   
   const auditStatus = document.getElementById('mChkAuditStatus')?.value || 'Pending';
-  const auditDate = document.getElementById('mChkAuditDate')?.value || '';
+  const auditDate = formatDisplayDate(document.getElementById('mChkAuditDate')?.value);
   
   const taxStatus = document.getElementById('mChkTaxStatus')?.value || 'Pending';
-  const taxDate = document.getElementById('mChkTaxDate')?.value || '';
+  const taxDate = formatDisplayDate(document.getElementById('mChkTaxDate')?.value);
   
   const irdStatus = document.getElementById('mChkIrdStatus')?.value || 'Pending';
-  const irdDate = document.getElementById('mChkIrdDate')?.value || '';
+  const irdDate = formatDisplayDate(document.getElementById('mChkIrdDate')?.value);
   const irdRef = document.getElementById('mChkIrdRef')?.value || '';
 
   const completedItems = [];
@@ -3150,7 +3395,7 @@ async function submitFilingChecklist(recordId) {
     items[it.key] = {
       checked: chk ? chk.checked : false,
       status: stat ? stat.value : 'Pending',
-      date: dt ? dt.value.trim() : '',
+      date: dt ? formatDisplayDate(dt.value) : '',
       notes: nt ? nt.value.trim() : ''
     };
   });
@@ -3158,22 +3403,22 @@ async function submitFilingChecklist(recordId) {
   const stages = {
     draftAccounts: {
       status: document.getElementById('mChkDraftStatus')?.value || 'Pending',
-      date: document.getElementById('mChkDraftDate')?.value || '',
+      date: formatDisplayDate(document.getElementById('mChkDraftDate')?.value),
       notes: document.getElementById('mChkDraftNotes')?.value.trim() || ''
     },
     audit: {
       status: document.getElementById('mChkAuditStatus')?.value || 'Pending',
-      date: document.getElementById('mChkAuditDate')?.value || '',
+      date: formatDisplayDate(document.getElementById('mChkAuditDate')?.value),
       auditor: document.getElementById('mChkAuditAuditor')?.value.trim() || ''
     },
     taxation: {
       status: document.getElementById('mChkTaxStatus')?.value || 'Pending',
-      date: document.getElementById('mChkTaxDate')?.value || '',
+      date: formatDisplayDate(document.getElementById('mChkTaxDate')?.value),
       taxType: document.getElementById('mChkTaxType')?.value.trim() || ''
     },
     irdSubmission: {
       status: document.getElementById('mChkIrdStatus')?.value || 'Pending',
-      date: document.getElementById('mChkIrdDate')?.value || '',
+      date: formatDisplayDate(document.getElementById('mChkIrdDate')?.value),
       refNo: document.getElementById('mChkIrdRef')?.value.trim() || ''
     }
   };
@@ -3383,7 +3628,7 @@ function openEditUserModal(userId) {
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
         <div>
           <h3 class="font-display font-bold text-base text-slate-900">Manage Account & Permissions</h3>
-          <p class="text-[11px] text-slate-500 font-mono">@${target.username} &middot; ID: ${target.id}</p>
+          <p class="text-[11px] text-slate-500 font-mono">@${target.username} &middot; ID: ${target.id}${target.createdAt ? ` &middot; Member since ${formatDisplayDate(target.createdAt)}` : ''}</p>
         </div>
         <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
