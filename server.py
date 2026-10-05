@@ -841,6 +841,12 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             self.serve_static_file(file_path)
             return
 
+        # Direct file in public dir (e.g. /flatpickr.min.js, /styles.css, /app.js)
+        direct_file = os.path.join(PUBLIC_DIR, path.lstrip("/"))
+        if os.path.isfile(direct_file):
+            self.serve_static_file(direct_file)
+            return
+
         # Fallback for SPA routing
         fallback = os.path.join(PUBLIC_DIR, "index.html")
         if os.path.exists(fallback):
