@@ -278,6 +278,28 @@
     </div>
   </div>
 
+  <!-- STICKY / FLOATING BOTTOM HORIZONTAL SCROLLBAR -->
+  <div id="stickyBottomScrollbar" class="sticky-bottom-scrollbar-container hidden" role="region" aria-label="Horizontal table scrollbar">
+    <div class="sticky-bottom-scrollbar-shell">
+      <button type="button" id="stickyScrollLeftBtn" class="sticky-scrollbar-nudge-btn" title="Scroll left (or Shift + Wheel)" aria-label="Scroll left">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
+        </svg>
+      </button>
+      <div id="stickyScrollTrack" class="sticky-scrollbar-track" tabindex="0" role="scrollbar" aria-label="Horizontal scrollbar track">
+        <div id="stickyScrollContent" class="sticky-scrollbar-content"></div>
+      </div>
+      <button type="button" id="stickyScrollRightBtn" class="sticky-scrollbar-nudge-btn" title="Scroll right (or Shift + Wheel)" aria-label="Scroll right">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+      <div id="stickyScrollBadge" class="sticky-scrollbar-badge">
+        <span id="stickyScrollPercent">0%</span>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= MODALS CONTAINER ================= -->
   <div id="modalBackdrop"
     class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">

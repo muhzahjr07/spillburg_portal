@@ -241,11 +241,230 @@ function handleSort(tableKey, col) {
     handleFinancialFilter();
   } else if (tableKey === 'users') {
     handleUsersFilter();
+// ================= STICKY / FLOATING BOTTOM HORIZONTAL SCROLLBAR CONTROLLER =================
+let stickyScrollbarEl = null;
+let stickyScrollTrackEl = null;
+let stickyScrollContentEl = null;
+let stickyScrollPercentEl = null;
+let stickyScrollLeftBtn = null;
+let stickyScrollRightBtn = null;
+let activeScrollTableContainer = null;
+let isSyncingStickyScroll = false;
+let stickyScrollRafId = null;
+
+function initStickyBottomScrollbar() {
+  stickyScrollbarEl = document.getElementById('stickyBottomScrollbar');
+  if (!stickyScrollbarEl) return;
+
+  stickyScrollTrackEl = document.getElementById('stickyScrollTrack');
+  stickyScrollContentEl = document.getElementById('stickyScrollContent');
+  stickyScrollPercentEl = document.getElementById('stickyScrollPercent');
+  stickyScrollLeftBtn = document.getElementById('stickyScrollLeftBtn');
+  stickyScrollRightBtn = document.getElementById('stickyScrollRightBtn');
+
+  // Synchronize scroll from floating scrollbar -> active table
+  if (stickyScrollTrackEl) {
+    stickyScrollTrackEl.addEventListener('scroll', () => {
+      if (isSyncingStickyScroll || !activeScrollTableContainer) return;
+      isSyncingStickyScroll = true;
+      activeScrollTableContainer.scrollLeft = stickyScrollTrackEl.scrollLeft;
+      updateStickyPercent();
+      requestAnimationFrame(() => { isSyncingStickyScroll = false; });
+    }, { passive: true });
+
+    // Handle mousewheel on floating scrollbar (convert vertical wheel to horizontal scroll)
+    stickyScrollTrackEl.addEventListener('wheel', (e) => {
+      if (!activeScrollTableContainer) return;
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        activeScrollTableContainer.scrollLeft += e.deltaY;
+      }
+    }, { passive: false });
+  }
+
+  // Smooth nudge buttons
+  if (stickyScrollLeftBtn) {
+    stickyScrollLeftBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!activeScrollTableContainer) return;
+      activeScrollTableContainer.scrollBy({ left: -300, behavior: 'smooth' });
+    });
+  }
+
+  if (stickyScrollRightBtn) {
+    stickyScrollRightBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!activeScrollTableContainer) return;
+      activeScrollTableContainer.scrollBy({ left: 300, behavior: 'smooth' });
+    });
+  }
+
+  // Listeners for window scroll, resize, and #mainContent scroll
+  window.addEventListener('scroll', scheduleStickyScrollbarUpdate, { passive: true });
+  window.addEventListener('resize', scheduleStickyScrollbarUpdate, { passive: true });
+
+  const mainContent = document.getElementById('mainContent');
+  if (mainContent) {
+    mainContent.addEventListener('scroll', scheduleStickyScrollbarUpdate, { passive: true });
+
+    // Observer to re-calculate whenever table DOM contents change or new views render
+    if (window.MutationObserver) {
+      const observer = new MutationObserver(() => {
+        scheduleStickyScrollbarUpdate();
+      });
+      observer.observe(mainContent, { childList: true, subtree: true });
+    }
+  }
+
+  scheduleStickyScrollbarUpdate();
+}
+
+function scheduleStickyScrollbarUpdate() {
+  if (stickyScrollRafId) cancelAnimationFrame(stickyScrollRafId);
+  stickyScrollRafId = requestAnimationFrame(updateStickyScrollbar);
+}
+
+function updateStickyPercent() {
+  if (!activeScrollTableContainer) return;
+  const maxScroll = activeScrollTableContainer.scrollWidth - activeScrollTableContainer.clientWidth;
+  const currentScroll = activeScrollTableContainer.scrollLeft;
+
+  if (stickyScrollPercentEl) {
+    if (maxScroll <= 0) {
+      stickyScrollPercentEl.textContent = '0%';
+    } else {
+      const pct = Math.min(100, Math.max(0, Math.round((currentScroll / maxScroll) * 100)));
+      stickyScrollPercentEl.textContent = `${pct}%`;
+    }
+  }
+
+  if (stickyScrollLeftBtn) {
+    const atLeft = currentScroll <= 2;
+    stickyScrollLeftBtn.style.opacity = atLeft ? '0.4' : '1';
+    stickyScrollLeftBtn.style.pointerEvents = atLeft ? 'none' : 'auto';
+  }
+  if (stickyScrollRightBtn) {
+    const atRight = currentScroll >= maxScroll - 2;
+    stickyScrollRightBtn.style.opacity = atRight ? '0.4' : '1';
+    stickyScrollRightBtn.style.pointerEvents = atRight ? 'none' : 'auto';
+  }
+}
+
+function updateStickyScrollbar() {
+  if (!stickyScrollbarEl) return;
+
+  // 1. Hide if not in portal workspace (e.g. login screen)
+  const portalWorkspace = document.getElementById('portalWorkspace');
+  if (!portalWorkspace || portalWorkspace.classList.contains('hidden')) {
+    hideStickyScrollbar();
+    return;
+  }
+
+  // 2. Hide if modal or photo lightbox is open
+  const modalBackdrop = document.getElementById('modalBackdrop');
+  const photoLightbox = document.getElementById('photoLightbox');
+  if ((modalBackdrop && !modalBackdrop.classList.contains('hidden')) ||
+      (photoLightbox && !photoLightbox.classList.contains('hidden'))) {
+    hideStickyScrollbar();
+    return;
+  }
+
+  // 3. Find candidate table containers with horizontal scroll
+  const containers = Array.from(document.querySelectorAll('.sticky-scrollable-table, .overflow-x-auto'))
+    .filter(el => {
+      return el.querySelector('table') && el.offsetParent !== null && el.clientWidth > 0;
+    });
+
+  if (!containers.length) {
+    hideStickyScrollbar();
+    return;
+  }
+
+  const vHeight = window.innerHeight;
+  let targetContainer = null;
+  let targetRect = null;
+
+  for (const c of containers) {
+    // Has meaningful horizontal overflow (> 4px)
+    if (c.scrollWidth <= c.clientWidth + 4) continue;
+
+    const r = c.getBoundingClientRect();
+    // Conditions for sticky floating scrollbar:
+    // a. The top of the table has started entering the viewport (r.top < vHeight - 40)
+    // b. The bottom of the table is currently off-screen below the viewport (r.bottom > vHeight)
+    // c. The table is still partially visible (not scrolled past the top: r.bottom > 80)
+    if (r.top < vHeight - 40 && r.bottom > vHeight && r.bottom > 80) {
+      targetContainer = c;
+      targetRect = r;
+      break;
+    }
+  }
+
+  if (!targetContainer) {
+    hideStickyScrollbar();
+    return;
+  }
+
+  // 4. Bind listeners to active table
+  if (activeScrollTableContainer !== targetContainer) {
+    if (activeScrollTableContainer) {
+      activeScrollTableContainer.removeEventListener('scroll', handleTableScroll);
+    }
+    activeScrollTableContainer = targetContainer;
+    activeScrollTableContainer.addEventListener('scroll', handleTableScroll, { passive: true });
+  }
+
+  // 5. Update track inner width
+  if (stickyScrollContentEl) {
+    stickyScrollContentEl.style.width = `${targetContainer.scrollWidth}px`;
+  }
+
+  // 6. Synchronize current scroll position
+  if (stickyScrollTrackEl && !isSyncingStickyScroll) {
+    isSyncingStickyScroll = true;
+    stickyScrollTrackEl.scrollLeft = targetContainer.scrollLeft;
+    isSyncingStickyScroll = false;
+  }
+  updateStickyPercent();
+
+  // 7. Calculate position and width matching the active table
+  const pad = 12;
+  const left = Math.max(pad, targetRect.left + pad);
+  const maxWidth = targetRect.width - (2 * pad);
+  const width = Math.max(180, Math.min(maxWidth, window.innerWidth - left - pad));
+
+  stickyScrollbarEl.style.left = `${left}px`;
+  stickyScrollbarEl.style.width = `${width}px`;
+
+  // Responsive bottom placement (clear mobile bottom nav if screen < 768px)
+  const isMobile = window.innerWidth < 768;
+  stickyScrollbarEl.style.bottom = isMobile ? '76px' : '12px';
+
+  // 8. Make visible
+  stickyScrollbarEl.classList.remove('hidden');
+}
+
+function handleTableScroll() {
+  if (isSyncingStickyScroll || !activeScrollTableContainer || !stickyScrollTrackEl) return;
+  isSyncingStickyScroll = true;
+  stickyScrollTrackEl.scrollLeft = activeScrollTableContainer.scrollLeft;
+  updateStickyPercent();
+  requestAnimationFrame(() => { isSyncingStickyScroll = false; });
+}
+
+function hideStickyScrollbar() {
+  if (stickyScrollbarEl && !stickyScrollbarEl.classList.contains('hidden')) {
+    stickyScrollbarEl.classList.add('hidden');
+  }
+  if (activeScrollTableContainer) {
+    activeScrollTableContainer.removeEventListener('scroll', handleTableScroll);
+    activeScrollTableContainer = null;
   }
 }
 
 // Initialize on DOM Ready
 document.addEventListener('DOMContentLoaded', async () => {
+  initStickyBottomScrollbar();
   if (authToken) {
     const ok = await checkAuth();
     if (ok) {
@@ -270,6 +489,8 @@ function showPortalWorkspace() {
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('portalWorkspace').classList.remove('hidden');
   updateUserUI();
+  initStickyBottomScrollbar();
+  scheduleStickyScrollbarUpdate();
   if (window.lucide) lucide.createIcons();
 }
 
@@ -493,6 +714,7 @@ async function switchView(viewName) {
 
   if (window.lucide) lucide.createIcons();
   initAllDatePickers(container);
+  scheduleStickyScrollbarUpdate();
 }
 
 // ================= 1. EXECUTIVE DASHBOARD (LIGHT THEME) =================
@@ -966,7 +1188,7 @@ function renderOperationsTable(tasks) {
 
   return `
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto sticky-scrollable-table" data-sticky-scroll="true">
         <table class="w-full text-left text-xs whitespace-nowrap">
           <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
             <tr>
@@ -1336,7 +1558,7 @@ function renderCustomerTable(records) {
 
   return `
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto sticky-scrollable-table" data-sticky-scroll="true">
         <table class="w-full text-left text-xs whitespace-nowrap">
           <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
             <tr>
@@ -1551,7 +1773,7 @@ function renderFinancialTable(records) {
 
   return `
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto sticky-scrollable-table" data-sticky-scroll="true">
         <table class="w-full text-left text-xs whitespace-nowrap">
           <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
             <tr>
@@ -1680,12 +1902,14 @@ function openPhotoLightbox(photoFile, caption) {
     <span class="text-slate-400 font-mono text-[11px] block mt-0.5">${photoFile}</span>
   `;
   modal.classList.remove('hidden');
+  hideStickyScrollbar();
   if (window.lucide) lucide.createIcons();
 }
 
 function closePhotoLightbox() {
   const modal = document.getElementById('photoLightbox');
   modal.classList.add('hidden');
+  scheduleStickyScrollbarUpdate();
 }
 
 // ================= 5. ACCESS CONTROL CENTER (LIGHT THEME) =================
@@ -1799,7 +2023,7 @@ function renderUsersTable(users) {
 
   return `
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto sticky-scrollable-table" data-sticky-scroll="true">
         <table class="w-full text-left text-xs whitespace-nowrap">
           <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
             <tr>
@@ -1890,6 +2114,7 @@ function renderUsersTable(users) {
 function closeModal() {
   const b = document.getElementById('modalBackdrop');
   b.classList.add('hidden');
+  scheduleStickyScrollbarUpdate();
 }
 
 function openAddOperationModal() {

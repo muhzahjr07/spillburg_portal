@@ -364,3 +364,118 @@ span.flatpickr-weekday {
   color: #047857;
 }
 
+/* ================= STICKY / FLOATING BOTTOM HORIZONTAL SCROLLBAR ================= */
+.sticky-bottom-scrollbar-container {
+  position: fixed;
+  z-index: 45;
+  pointer-events: none;
+  transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), 
+              transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              visibility 0.22s;
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+
+.sticky-bottom-scrollbar-container.hidden {
+  opacity: 0 !important;
+  transform: translateY(14px) !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+.sticky-bottom-scrollbar-shell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 
+              0 8px 10px -6px rgba(15, 23, 42, 0.08),
+              0 0 0 1px rgba(5, 150, 105, 0.12);
+  border-radius: 9999px;
+  padding: 5px 10px;
+  pointer-events: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sticky-scrollbar-nudge-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.sticky-scrollbar-nudge-btn:hover {
+  background: #059669;
+  color: #ffffff;
+  border-color: #059669;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25);
+  transform: scale(1.05);
+}
+
+.sticky-scrollbar-nudge-btn:active {
+  transform: scale(0.95);
+}
+
+.sticky-scrollbar-track {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 14px;
+  min-width: 80px;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f1f5f9;
+  cursor: pointer;
+}
+
+.sticky-scrollbar-track::-webkit-scrollbar {
+  height: 10px;
+}
+
+.sticky-scrollbar-track::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+
+.sticky-scrollbar-track::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 9999px;
+  border: 2px solid #f1f5f9;
+  transition: background 0.15s ease;
+}
+
+.sticky-scrollbar-track::-webkit-scrollbar-thumb:hover {
+  background: #059669;
+}
+
+.sticky-scrollbar-content {
+  height: 1px;
+}
+
+.sticky-scrollbar-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  user-select: none;
+}
+
+
