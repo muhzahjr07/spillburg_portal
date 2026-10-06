@@ -41,6 +41,7 @@ USERS = []
 OPERATIONS = []
 FINANCIAL_RECORDS = []
 CUSTOMER_RECORDS = []
+PAYROLL_RECORDS = {}
 
 # Canonical Default Users Format (Preserved baseline - do NOT wipe or alter on portal updates)
 DEFAULT_USERS = [
@@ -251,7 +252,161 @@ def init_data():
     # Initialize customer records from Access DB bridge
     sync_customer_records_from_access()
     print(f"[INIT] Active Cust DB: {CUSTOMER_DB_PATH}")
-    print(f"[INIT] Active portal ready with {len(USERS)} users, {len(OPERATIONS)} operations tasks, {len(FINANCIAL_RECORDS)} financial files, {len(CUSTOMER_RECORDS)} customer file records.")
+
+    # Initialize payroll records
+    global PAYROLL_RECORDS
+    PAYROLL_RECORDS = load_json_file("payroll_records.json", {})
+    print(f"[INIT] Active portal ready with {len(USERS)} users, {len(OPERATIONS)} operations tasks, {len(FINANCIAL_RECORDS)} financial files, {len(CUSTOMER_RECORDS)} customer file records, {len(PAYROLL_RECORDS.get('periods', []))} payroll cycles.")
+
+def save_payroll_records():
+    global PAYROLL_RECORDS
+    save_json_file("payroll_records.json", PAYROLL_RECORDS)
+
+def calculate_apit_tax(gross_lkr):
+    g = float(gross_lkr or 0.0)
+    if g <= 150000.0:
+        return 0.0
+    elif g <= 191666.67:
+        return round((g - 150000.0) * 0.06)
+    elif g <= 233333.33:
+        return round(g * 0.12 - 11500.0)
+    elif g <= 275000.0:
+        return round(g * 0.18 - 25500.0)
+    elif g <= 316666.67:
+        return round(g * 0.24 - 42000.0)
+    elif g <= 358333.33:
+        return round(g * 0.30 - 61000.0)
+    else:
+        return round(g * 0.36 - 94000.0)
+
+def compute_employee_payroll(emp, exchange_rate):
+    gbp_salary = float(emp.get('gbpSalary') or 0.0)
+    earned_gbp = float(emp.get('earnedGbp') if emp.get('earnedGbp') is not None else gbp_salary)
+    
+    epf12_gbp = round(earned_gbp * 0.12)
+    etf3_gbp = round(earned_gbp * 0.03)
+    total_gbp = round(earned_gbp + epf12_gbp + etf3_gbp, 2)
+    
+    rate = float(exchange_rate or 440.0)
+    lkr_gross = round(earned_gbp * rate)
+    special_allowance = float(emp.get('specialAllowance') or 0.0)
+    total_gross_lkr = lkr_gross + special_allowance
+    
+    no_pay_late = float(emp.get('noPayLate') or 0.0)
+    net_total_gross = total_gross_lkr - no_pay_late
+    
+    epf8_lkr = round(lkr_gross * 0.08)
+    epf12_lkr = round(lkr_gross * 0.12)
+    etf3_lkr = round(lkr_gross * 0.03)
+    
+    if emp.get('apit') is not None and str(emp.get('apit')).strip() != '':
+        apit = float(emp.get('apit'))
+    else:
+        apit = float(calculate_apit_tax(lkr_gross))
+        
+    advance = float(emp.get('advance') or 0.0)
+    loan = float(emp.get('loan') or 0.0)
+    
+    total_deductions = epf8_lkr + apit + advance + loan
+    net_salary_lkr = round(net_total_gross - total_deductions)
+    
+    return {
+        **emp,
+        'gbpSalary': gbp_salary,
+        'earnedGbp': earned_gbp,
+        'epf12Gbp': epf12_gbp,
+        'etf3Gbp': etf3_gbp,
+        'totalGbp': total_gbp,
+        'lkrGross': lkr_gross,
+        'specialAllowance': special_allowance,
+        'totalGrossLkr': total_gross_lkr,
+        'noPayLate': no_pay_late,
+        'netTotalGross': net_total_gross,
+        'epf8Lkr': epf8_lkr,
+        'epf12Lkr': epf12_lkr,
+        'etf3Lkr': etf3_lkr,
+        'apit': apit,
+        'advance': advance,
+        'loan': loan,
+        'totalDeductions': total_deductions,
+        'netSalaryLkr': net_salary_lkr
+    }
+
+def enrich_payroll_period(period):
+    rate = float(period.get('exchangeRate', 440.0))
+    employees = period.get('employees', [])
+    computed_emps = []
+    
+    sum_gbp_salary = 0.0
+    sum_earned_gbp = 0.0
+    sum_epf12_gbp = 0.0
+    sum_etf3_gbp = 0.0
+    sum_total_gbp = 0.0
+    sum_lkr_gross = 0.0
+    sum_epf8_lkr = 0.0
+    sum_epf12_lkr = 0.0
+    sum_etf3_lkr = 0.0
+    sum_apit_lkr = 0.0
+    sum_deductions_lkr = 0.0
+    sum_net_salary_lkr = 0.0
+    
+    for emp in employees:
+        c = compute_employee_payroll(emp, rate)
+        computed_emps.append(c)
+        sum_gbp_salary += c['gbpSalary']
+        sum_earned_gbp += c['earnedGbp']
+        sum_epf12_gbp += c['epf12Gbp']
+        sum_etf3_gbp += c['etf3Gbp']
+        sum_total_gbp += c['totalGbp']
+        sum_lkr_gross += c['lkrGross']
+        sum_epf8_lkr += c['epf8Lkr']
+        sum_epf12_lkr += c['epf12Lkr']
+        sum_etf3_lkr += c['etf3Lkr']
+        sum_apit_lkr += c['apit']
+        sum_deductions_lkr += c['totalDeductions']
+        sum_net_salary_lkr += c['netSalaryLkr']
+        
+    enriched = copy.deepcopy(period)
+    enriched['employees'] = computed_emps
+    enriched['totals'] = {
+        'totalEmployees': len(computed_emps),
+        'sumGbpSalary': round(sum_gbp_salary, 2),
+        'sumEarnedGbp': round(sum_earned_gbp, 2),
+        'sumEpf12Gbp': round(sum_epf12_gbp, 2),
+        'sumEtf3Gbp': round(sum_etf3_gbp, 2),
+        'sumTotalGbp': round(sum_total_gbp, 2),
+        'sumLkrGross': round(sum_lkr_gross, 2),
+        'sumEpf8Lkr': round(sum_epf8_lkr, 2),
+        'sumEpf12Lkr': round(sum_epf12_lkr, 2),
+        'sumEtf3Lkr': round(sum_etf3_lkr, 2),
+        'sumApitLkr': round(sum_apit_lkr, 2),
+        'sumDeductionsLkr': round(sum_deductions_lkr, 2),
+        'sumNetSalaryLkr': round(sum_net_salary_lkr, 2)
+    }
+    return enriched
+
+def generate_payroll_csv(enriched_period):
+    month = enriched_period.get("month", "Period")
+    rate = enriched_period.get("exchangeRate", 440.0)
+    employees = enriched_period.get("employees", [])
+    totals = enriched_period.get("totals", {})
+
+    lines = []
+    lines.append(f'SALARY SHEET (IN GBP ) - {month.upper()}')
+    lines.append('No,Employee Name,POSITION,GBP Salary,Column1,Column2,EPF (12% ),ETF(3% ),AMOUNT,BANK ACCOUNT NO,TIN NO,IDNO,Date of Joined')
+    for e in employees:
+        bank_str = f"{e.get('bankAccountNo','')}({e.get('bankCode','')})" if e.get('bankCode') else str(e.get('bankAccountNo',''))
+        lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("epf12Gbp",0)},{e.get("etf3Gbp",0)},{e.get("totalGbp",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
+    lines.append(f',,,{totals.get("sumGbpSalary",0)},,{totals.get("sumEarnedGbp",0)},{totals.get("sumEpf12Gbp",0)},{totals.get("sumEtf3Gbp",0)},{totals.get("sumTotalGbp",0)},,,,')
+    lines.append('')
+    lines.append(f'Checked by: {enriched_period.get("checkedBy","")},Accountant,,,Authorized by: {enriched_period.get("authorizedSignatory","")},{enriched_period.get("authorizedCompany","")}')
+    lines.append('')
+    lines.append(f'SALARY SHEET (IN GBP ) - {month.upper().replace(" ", "")}. @{rate}')
+    lines.append('No,Employee Name,POSITION,GBP Salary,Column1,Column2,LKR,EPF 8%,EPF12%,ETF 3%,APIT,Column3,TOTAL')
+    for e in employees:
+        lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("lkrGross",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},,{e.get("netSalaryLkr",0)}')
+    lines.append(f',,,{totals.get("sumGbpSalary",0)},,{totals.get("sumEarnedGbp",0)},{totals.get("sumLkrGross",0)},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},,{totals.get("sumNetSalaryLkr",0)}')
+    return '\n'.join(lines)
 
 def init_sqlite_db():
     os.makedirs(os.path.dirname(SQLITE_CUSTOMER_DB), exist_ok=True)
@@ -584,6 +739,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         
         user_perms = user.get("permissions", {})
         mod_perm = user_perms.get(module, "none")
+        if module == "payroll" and mod_perm == "none":
+            mod_perm = user_perms.get("financial_files", user_perms.get("operations", "viewer"))
         
         if required_level == "viewer":
             if mod_perm in ["viewer", "editor", "full"]:
@@ -859,6 +1016,104 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             })
             return
 
+        # 6.5. API: Payroll Management
+        elif path == "/api/payroll":
+            user = self.require_permission("payroll", "viewer")
+            if not user: return
+
+            active_id = PAYROLL_RECORDS.get("activePeriodId", "")
+            periods_list = []
+            active_period_enriched = None
+            
+            for p in PAYROLL_RECORDS.get("periods", []):
+                enriched = enrich_payroll_period(p)
+                periods_list.append({
+                    "id": p.get("id"),
+                    "companyId": p.get("companyId"),
+                    "month": p.get("month"),
+                    "monthCode": p.get("monthCode"),
+                    "yearPeriod": p.get("yearPeriod"),
+                    "exchangeRate": p.get("exchangeRate"),
+                    "status": p.get("status"),
+                    "employeeCount": len(p.get("employees", [])),
+                    "totalNetRemittance": enriched.get("totals", {}).get("sumNetSalaryLkr", 0)
+                })
+                if p.get("id") == active_id:
+                    active_period_enriched = enriched
+            
+            if not active_period_enriched and PAYROLL_RECORDS.get("periods"):
+                active_period_enriched = enrich_payroll_period(PAYROLL_RECORDS["periods"][0])
+
+            self.send_json({
+                "companies": PAYROLL_RECORDS.get("companies", []),
+                "periods": periods_list,
+                "activePeriod": active_period_enriched
+            })
+            return
+
+        elif path == "/api/payroll/period":
+            user = self.require_permission("payroll", "viewer")
+            if not user: return
+
+            pid = query.get("id", [""])[0] or PAYROLL_RECORDS.get("activePeriodId", "")
+            target_period = None
+            for p in PAYROLL_RECORDS.get("periods", []):
+                if p.get("id") == pid:
+                    target_period = p
+                    break
+            
+            if not target_period:
+                self.send_json({"error": "Payroll period not found"}, 404)
+                return
+
+            self.send_json({"period": enrich_payroll_period(target_period)})
+            return
+
+        elif path == "/api/payroll/export-csv":
+            user = self.require_permission("payroll", "viewer")
+            if not user: return
+
+            pid = query.get("id", [""])[0] or PAYROLL_RECORDS.get("activePeriodId", "")
+            target_period = None
+            for p in PAYROLL_RECORDS.get("periods", []):
+                if p.get("id") == pid:
+                    target_period = p
+                    break
+            
+            if not target_period:
+                self.send_json({"error": "Payroll period not found"}, 404)
+                return
+
+            enriched = enrich_payroll_period(target_period)
+            csv_content = generate_payroll_csv(enriched)
+            body = csv_content.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", f"attachment; filename=\"Payroll_{enriched.get('monthCode', 'Period')}.csv\"")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        elif path == "/api/payroll/export-xlsx":
+            user = self.require_permission("payroll", "viewer")
+            if not user: return
+
+            master_xlsx = os.path.join(BASE_DIR, "payroll", "APADAMI -SALARY SHEET -SEP 2026.xlsx")
+            if os.path.exists(master_xlsx):
+                with open(master_xlsx, "rb") as xf:
+                    xbytes = xf.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                self.send_header("Content-Disposition", "attachment; filename=\"APADMI_Salary_Sheet_SEP_2026.xlsx\"")
+                self.send_header("Content-Length", str(len(xbytes)))
+                self.end_headers()
+                self.wfile.write(xbytes)
+                return
+            else:
+                self.send_json({"error": "Template file not found"}, 404)
+                return
+
         # 7. Static file serving (SPA)
         if path == "/" or path == "/index.html":
             file_path = os.path.join(PUBLIC_DIR, "index.html")
@@ -919,6 +1174,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
+        query = urllib.parse.parse_qs(parsed.query)
         body = self.parse_body()
 
         # 1. Register (Public registration disabled - moved to Admin Panel)
@@ -1156,11 +1412,133 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             self.send_json(res)
             return
 
+        # 9. Payroll: Create Period
+        elif path == "/api/payroll/period":
+            user = self.require_permission("payroll", "editor")
+            if not user: return
+
+            clone_from_id = body.get("cloneFromId")
+            month = body.get("month", "New Month")
+            month_code = body.get("monthCode", "Month")
+            year_period = body.get("yearPeriod", "2026-2027")
+            exchange_rate = float(body.get("exchangeRate", 440.0))
+            letter_date = body.get("letterDate", time.strftime("%d.%m.%Y"))
+            company_id = body.get("companyId", "comp_apadmi")
+
+            new_period_id = f"period_{uuid.uuid4().hex[:6]}"
+            base_employees = []
+            if clone_from_id:
+                for p in PAYROLL_RECORDS.get("periods", []):
+                    if p.get("id") == clone_from_id:
+                        for e in p.get("employees", []):
+                            emp_copy = copy.deepcopy(e)
+                            emp_copy["id"] = f"emp_{uuid.uuid4().hex[:6]}"
+                            base_employees.append(emp_copy)
+                        break
+
+            new_period = {
+                "id": new_period_id,
+                "companyId": company_id,
+                "month": month,
+                "monthCode": month_code,
+                "yearPeriod": year_period,
+                "letterDate": letter_date,
+                "exchangeRate": exchange_rate,
+                "baseCurrency": "GBP",
+                "localCurrency": "LKR",
+                "status": "Draft",
+                "checkedBy": body.get("checkedBy", "Hemanthi Basnayake"),
+                "checkedTitle": body.get("checkedTitle", "Accountant"),
+                "authorizedSignatory": body.get("authorizedSignatory", "Shaameel Mohideen"),
+                "authorizedCompany": body.get("authorizedCompany", "Spillburg Holdings (pvt)Ltd"),
+                "bankName": body.get("bankName", "Nations Trust Bank PLC"),
+                "bankBranch": body.get("bankBranch", "Borella Branch"),
+                "bankAddress": body.get("bankAddress", "67 D.S. Senanayake Mawatha,\nColombo 08."),
+                "debitAccountNo": body.get("debitAccountNo", "1001 5000 7554"),
+                "debitAccountName": body.get("debitAccountName", "Spillburg Holdings (Private) Limited"),
+                "employees": base_employees
+            }
+            PAYROLL_RECORDS.setdefault("periods", []).append(new_period)
+            PAYROLL_RECORDS["activePeriodId"] = new_period_id
+            save_payroll_records()
+            self.send_json({"success": True, "period": enrich_payroll_period(new_period)})
+            return
+
+        # 10. Payroll: Add Employee to Period
+        elif path == "/api/payroll/employee":
+            user = self.require_permission("payroll", "editor")
+            if not user: return
+
+            period_id = body.get("periodId") or PAYROLL_RECORDS.get("activePeriodId")
+            target_period = None
+            for p in PAYROLL_RECORDS.get("periods", []):
+                if p.get("id") == period_id:
+                    target_period = p
+                    break
+            
+            if not target_period:
+                self.send_json({"error": "Period not found"}, 404)
+                return
+
+            emps = target_period.setdefault("employees", [])
+            new_no = max([e.get("no", 0) for e in emps] or [0]) + 1
+            new_emp = {
+                "id": f"emp_{uuid.uuid4().hex[:6]}",
+                "no": new_no,
+                "epfNo": body.get("epfNo", f"{new_no:02d}"),
+                "name": body.get("name", "New Employee").strip(),
+                "shortName": body.get("shortName", body.get("name", "")).strip(),
+                "position": body.get("position", "Software Engineer").strip(),
+                "gbpSalary": float(body.get("gbpSalary", 1000.0)),
+                "workDays": body.get("workDays", ""),
+                "earnedGbp": float(body.get("earnedGbp", body.get("gbpSalary", 1000.0))),
+                "bankAccountNo": body.get("bankAccountNo", ""),
+                "bankCode": body.get("bankCode", ""),
+                "bankBranch": body.get("bankBranch", ""),
+                "tinNo": body.get("tinNo", ""),
+                "idNo": body.get("idNo", ""),
+                "dateJoined": body.get("dateJoined", time.strftime("%d/%m/%Y")),
+                "specialAllowance": float(body.get("specialAllowance", 0.0)),
+                "noPayLate": float(body.get("noPayLate", 0.0)),
+                "advance": float(body.get("advance", 0.0)),
+                "loan": float(body.get("loan", 0.0)),
+                "apit": float(body["apit"]) if "apit" in body and body["apit"] is not None else None
+            }
+            emps.append(new_emp)
+            save_payroll_records()
+            self.send_json({"success": True, "employee": compute_employee_payroll(new_emp, target_period.get("exchangeRate", 440.0)), "period": enrich_payroll_period(target_period)})
+            return
+
+        # 11. Payroll: Add or Update Managed Company
+        elif path == "/api/payroll/company":
+            user = self.require_permission("payroll", "editor")
+            if not user: return
+
+            comp_id = body.get("id", f"comp_{uuid.uuid4().hex[:6]}")
+            comps = PAYROLL_RECORDS.setdefault("companies", [])
+            target_comp = None
+            for c in comps:
+                if c.get("id") == comp_id:
+                    target_comp = c
+                    break
+            if not target_comp:
+                target_comp = {"id": comp_id}
+                comps.append(target_comp)
+            
+            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod"]:
+                if k in body:
+                    target_comp[k] = body[k]
+            
+            save_payroll_records()
+            self.send_json({"success": True, "company": target_comp})
+            return
+
         self.send_json({"error": "Endpoint not found"}, 404)
 
     def do_PUT(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
+        query = urllib.parse.parse_qs(parsed.query)
         body = self.parse_body()
 
         # 1. Users: Update role & permissions (Admin & Director)
@@ -1274,12 +1652,106 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"success": False, "error": res.get("error", "Access bridge update failed")}, 500)
             return
 
+        # 5. Payroll: Update Period (e.g. Exchange Rate, Letter Date, Signatories, Bank Details, Status)
+        elif path.startswith("/api/payroll/period"):
+            user = self.require_permission("payroll", "editor")
+            if not user: return
+
+            pid = query.get("id", [""])[0] or body.get("id") or PAYROLL_RECORDS.get("activePeriodId")
+            target_period = None
+            for p in PAYROLL_RECORDS.get("periods", []):
+                if p.get("id") == pid:
+                    target_period = p
+                    break
+            
+            if not target_period:
+                self.send_json({"error": "Period not found"}, 404)
+                return
+
+            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName"]:
+                if k in body:
+                    if k == "exchangeRate":
+                        target_period[k] = float(body[k])
+                    else:
+                        target_period[k] = body[k]
+
+            if body.get("setActive"):
+                PAYROLL_RECORDS["activePeriodId"] = pid
+
+            save_payroll_records()
+            self.send_json({"success": True, "period": enrich_payroll_period(target_period)})
+            return
+
+        # 6. Payroll: Update Employee
+        elif path.startswith("/api/payroll/employee"):
+            user = self.require_permission("payroll", "editor")
+            if not user: return
+
+            emp_id = query.get("id", [""])[0] or body.get("id")
+            period_id = query.get("periodId", [""])[0] or body.get("periodId") or PAYROLL_RECORDS.get("activePeriodId")
+            
+            target_period = None
+            target_emp = None
+            for p in PAYROLL_RECORDS.get("periods", []):
+                if not period_id or p.get("id") == period_id:
+                    for e in p.get("employees", []):
+                        if e.get("id") == emp_id:
+                            target_emp = e
+                            target_period = p
+                            break
+                    if target_emp: break
+
+            if not target_emp or not target_period:
+                self.send_json({"error": "Employee or period not found"}, 404)
+                return
+
+            for k in ["no", "epfNo", "name", "shortName", "position", "gbpSalary", "workDays", "earnedGbp", "bankAccountNo", "bankCode", "bankBranch", "tinNo", "idNo", "dateJoined", "specialAllowance", "noPayLate", "advance", "loan", "apit"]:
+                if k in body:
+                    if k in ["gbpSalary", "earnedGbp", "specialAllowance", "noPayLate", "advance", "loan"]:
+                        target_emp[k] = float(body[k]) if body[k] is not None else 0.0
+                    elif k == "apit":
+                        target_emp[k] = float(body[k]) if (body[k] is not None and str(body[k]).strip() != '') else None
+                    elif k == "no":
+                        target_emp[k] = int(body[k])
+                    else:
+                        target_emp[k] = body[k]
+
+            save_payroll_records()
+            self.send_json({"success": True, "employee": compute_employee_payroll(target_emp, target_period.get("exchangeRate", 440.0)), "period": enrich_payroll_period(target_period)})
+            return
+
+        # 7. Payroll: Update Company
+        elif path.startswith("/api/payroll/company"):
+            user = self.require_permission("payroll", "editor")
+            if not user: return
+
+            comp_id = query.get("id", [""])[0] or body.get("id")
+            comps = PAYROLL_RECORDS.setdefault("companies", [])
+            target_comp = None
+            for c in comps:
+                if c.get("id") == comp_id:
+                    target_comp = c
+                    break
+
+            if not target_comp:
+                self.send_json({"error": "Company not found"}, 404)
+                return
+
+            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod"]:
+                if k in body:
+                    target_comp[k] = body[k]
+
+            save_payroll_records()
+            self.send_json({"success": True, "company": target_comp})
+            return
+
         self.send_json({"error": "Endpoint not found"}, 404)
 
     def do_DELETE(self):
         global USERS, OPERATIONS, FINANCIAL_RECORDS
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
+        query = urllib.parse.parse_qs(parsed.query)
 
         # 1. Users: Delete (Admin & Director)
         if path.startswith("/api/users/"):
@@ -1347,6 +1819,53 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json(res)
             else:
                 self.send_json({"success": False, "error": res.get("error", "Access bridge delete failed")}, 500)
+            return
+
+        # 5. Payroll: Delete Employee
+        elif path.startswith("/api/payroll/employee"):
+            user = self.require_permission("payroll", "editor")
+            if not user: return
+
+            emp_id = query.get("id", [""])[0] or path.replace("/api/payroll/employee/", "")
+            period_id = query.get("periodId", [""])[0] or PAYROLL_RECORDS.get("activePeriodId")
+
+            target_period = None
+            for p in PAYROLL_RECORDS.get("periods", []):
+                if not period_id or p.get("id") == period_id:
+                    target_period = p
+                    break
+
+            if not target_period:
+                self.send_json({"error": "Period not found"}, 404)
+                return
+
+            before_len = len(target_period.get("employees", []))
+            target_period["employees"] = [e for e in target_period.get("employees", []) if e.get("id") != emp_id]
+            if len(target_period["employees"]) == before_len:
+                self.send_json({"error": "Employee not found"}, 404)
+                return
+
+            save_payroll_records()
+            self.send_json({"success": True, "period": enrich_payroll_period(target_period)})
+            return
+
+        # 6. Payroll: Delete Period
+        elif path.startswith("/api/payroll/period"):
+            user = self.require_permission("payroll", "editor")
+            if not user: return
+
+            pid = query.get("id", [""])[0] or path.replace("/api/payroll/period/", "")
+            periods = PAYROLL_RECORDS.get("periods", [])
+            if len(periods) <= 1:
+                self.send_json({"error": "Cannot delete the only remaining payroll period"}, 400)
+                return
+
+            PAYROLL_RECORDS["periods"] = [p for p in periods if p.get("id") != pid]
+            if PAYROLL_RECORDS.get("activePeriodId") == pid:
+                PAYROLL_RECORDS["activePeriodId"] = PAYROLL_RECORDS["periods"][0]["id"]
+
+            save_payroll_records()
+            self.send_json({"success": True, "activePeriodId": PAYROLL_RECORDS["activePeriodId"]})
             return
 
         self.send_json({"error": "Endpoint not found"}, 404)

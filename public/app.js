@@ -15,6 +15,12 @@ let customerViewMode = 'table'; // 'table' or 'boxes'
 let operationsViewMode = 'table'; // 'table' or 'kanban'
 let operationsUserFilter = 'me'; // 'me', 'all', or specific userId
 
+// Payroll & Remittance State
+let payrollData = null;
+let activePayrollPeriod = null;
+let currentPayrollSubTab = 'sheet'; // 'sheet', 'letter', 'slips', 'staff'
+let activePayslipEmployeeId = null;
+
 // Universal Table Sorting State
 const tableSortState = {
   operations: { col: 'no', asc: true },
@@ -648,14 +654,20 @@ function updateUserUI() {
 function canEdit(module) {
   if (!currentUser) return false;
   if (['director', 'admin'].includes(currentUser.role)) return true;
-  const perm = currentUser.permissions?.[module];
+  let perm = currentUser.permissions?.[module];
+  if (!perm && module === 'payroll') {
+    perm = currentUser.permissions?.financial_files || currentUser.permissions?.operations || 'viewer';
+  }
   return perm === 'editor' || perm === 'full';
 }
 
 function canView(module) {
   if (!currentUser) return false;
   if (['director', 'admin'].includes(currentUser.role)) return true;
-  const perm = currentUser.permissions?.[module];
+  let perm = currentUser.permissions?.[module];
+  if (!perm && module === 'payroll') {
+    perm = currentUser.permissions?.financial_files || currentUser.permissions?.operations || 'viewer';
+  }
   return ['viewer', 'editor', 'full'].includes(perm);
 }
 
@@ -708,6 +720,20 @@ async function loadInitialData() {
     document.getElementById('navOpsCount').textContent = operationsTasks.length;
     document.getElementById('navCustomerCount').textContent = customerRecords.length;
     document.getElementById('navFinCount').textContent = financialRecords.length;
+
+    try {
+      const payRes = await fetch('/api/payroll', { headers });
+      if (payRes.ok) {
+        payrollData = await payRes.json();
+        activePayrollPeriod = payrollData.activePeriod || null;
+        const countEl = document.getElementById('navPayrollCount');
+        if (countEl && activePayrollPeriod) {
+          countEl.textContent = activePayrollPeriod.employees?.length || 0;
+        }
+      }
+    } catch (payErr) {
+      console.warn('Failed to load payroll data:', payErr);
+    }
   } catch (e) {
     console.error('Initial data load failed:', e);
   }
@@ -741,6 +767,9 @@ async function switchView(viewName) {
       break;
     case 'financial-files':
       renderFinancialFiles(container);
+      break;
+    case 'payroll':
+      await renderPayroll(container);
       break;
     case 'access-control':
       await renderAccessControl(container);
@@ -2150,6 +2179,1735 @@ function renderUsersTable(users) {
       </div>
     </div>
   `;
+}
+
+
+// ================= 6. AUTOMATED PAYROLL & REMITTANCE SYSTEM =================
+
+// Currency & Text Formatters
+function formatGBP(val) {
+  return '£ ' + Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatLKR(val) {
+  return Number(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatLKRCurrency(val) {
+  return 'LKR ' + formatLKR(val);
+}
+
+function numberToWordsRupees(num) {
+  const n = Math.round(Number(num) || 0);
+  if (n === 0) return 'Rupees Zero Only';
+
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  function convertHundreds(val) {
+    let str = '';
+    if (val >= 100) {
+      str += ones[Math.floor(val / 100)] + ' Hundred ';
+      val %= 100;
+    }
+    if (val >= 20) {
+      str += tens[Math.floor(val / 10)] + ' ';
+      val %= 10;
+    }
+    if (val > 0) {
+      str += ones[val] + ' ';
+    }
+    return str.trim();
+  }
+
+  let words = '';
+  let rem = n;
+
+  if (rem >= 1000000000) {
+    words += convertHundreds(Math.floor(rem / 1000000000)) + ' Billion ';
+    rem %= 1000000000;
+  }
+  if (rem >= 1000000) {
+    words += convertHundreds(Math.floor(rem / 1000000)) + ' Million ';
+    rem %= 1000000;
+  }
+  if (rem >= 1000) {
+    words += convertHundreds(Math.floor(rem / 1000)) + ' Thousand ';
+    rem %= 1000;
+  }
+  if (rem > 0) {
+    words += convertHundreds(rem) + ' ';
+  }
+
+  return 'Rupees ' + words.trim() + ' Only';
+}
+
+function switchPayrollSubTab(tab) {
+  currentPayrollSubTab = tab;
+  const container = document.getElementById('mainContent');
+  if (container) {
+    renderPayroll(container);
+  }
+}
+
+async function handlePayrollPeriodChange(periodId) {
+  try {
+    const res = await fetch(`/api/payroll/period?id=${encodeURIComponent(periodId)}`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      activePayrollPeriod = data.period;
+      if (payrollData) {
+        payrollData.activePeriod = activePayrollPeriod;
+      }
+      const countEl = document.getElementById('navPayrollCount');
+      if (countEl && activePayrollPeriod) {
+        countEl.textContent = activePayrollPeriod.employees?.length || 0;
+      }
+      const container = document.getElementById('mainContent');
+      if (container) renderPayroll(container);
+    } else {
+      alert('Failed to switch payroll period');
+    }
+  } catch (err) {
+    alert('Error switching period: ' + err.message);
+  }
+}
+
+function handlePayslipEmployeeFilter(empId) {
+  activePayslipEmployeeId = empId;
+  const container = document.getElementById('mainContent');
+  if (container) renderPayroll(container);
+}
+
+async function renderPayroll(container) {
+  if (!payrollData || !activePayrollPeriod) {
+    container.innerHTML = `
+      <div class="flex items-center justify-center p-16">
+        <div class="flex flex-col items-center gap-3 text-slate-500">
+          <i data-lucide="loader" class="w-8 h-8 animate-spin text-teal-600"></i>
+          <span class="text-sm font-medium">Loading automated payroll system...</span>
+        </div>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    try {
+      const res = await fetch('/api/payroll', { headers: { 'Authorization': `Bearer ${authToken}` } });
+      if (res.ok) {
+        payrollData = await res.json();
+        activePayrollPeriod = payrollData.activePeriod || null;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  if (!payrollData || !activePayrollPeriod) {
+    container.innerHTML = `
+      <div class="p-8 text-center text-slate-500 bg-white rounded-2xl border border-slate-200">
+        <p class="font-medium text-slate-700">No payroll periods found.</p>
+        <button onclick="openNewPayrollPeriodModal()" class="mt-4 px-4 py-2 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700">Create Initial Payroll Period</button>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  const period = activePayrollPeriod;
+  const company = (payrollData.companies || []).find(c => c.id === period.companyId) || (payrollData.companies || [])[0] || {};
+  const totals = period.totals || {};
+  const employees = period.employees || [];
+  const periods = payrollData.periods || [];
+
+  container.innerHTML = `
+    <div class="space-y-6 fade-in">
+      <!-- Top Title & Executive Summary Header -->
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+        <div>
+          <div class="flex items-center gap-3">
+            <span class="p-2 bg-teal-50 text-teal-700 rounded-xl border border-teal-200">
+              <i data-lucide="banknote" class="w-6 h-6"></i>
+            </span>
+            <div>
+              <h1 class="text-2xl font-bold font-display text-slate-900 tracking-tight flex items-center gap-2">
+                Payroll & Bank Remittance Center
+                <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">Automated</span>
+              </h1>
+              <p class="text-xs text-slate-500 mt-0.5">
+                Dual-currency compensation management (${period.baseCurrency || 'GBP'} & ${period.localCurrency || 'LKR'}), statutory EPF/ETF & APIT deductions, Nations Trust Bank remittance letters & payslip vouchers.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Period Selector & Action Bar -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Active Period Dropdown -->
+          <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs">
+            <i data-lucide="calendar" class="w-4 h-4 text-slate-500"></i>
+            <span class="text-slate-500 font-medium">Period:</span>
+            <select onchange="handlePayrollPeriodChange(this.value)" class="font-semibold text-slate-800 bg-transparent focus:outline-none cursor-pointer">
+              ${periods.map(p => `
+                <option value="${p.id}" ${p.id === period.id ? 'selected' : ''}>
+                  ${p.month} (${p.status || 'Active'}) - ${p.employeeCount || 0} staff
+                </option>
+              `).join('')}
+            </select>
+          </div>
+
+          <!-- Live Exchange Rate Badge & Quick Edit -->
+          <button onclick="openEditExchangeRateModal()" class="flex items-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-900 px-3 py-1.5 rounded-xl border border-amber-200 shadow-sm text-xs font-semibold transition" title="Click to adjust exchange rate">
+            <i data-lucide="coins" class="w-4 h-4 text-amber-600"></i>
+            <span>1 GBP = LKR ${period.exchangeRate ? Number(period.exchangeRate).toFixed(2) : '440.00'}</span>
+            ${canEdit('payroll') ? '<i data-lucide="edit-2" class="w-3 h-3 text-amber-700 ml-0.5"></i>' : ''}
+          </button>
+
+          ${canEdit('payroll') ? `
+            <button onclick="openAddPayrollEmployeeModal()" class="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-1.5 rounded-xl shadow-sm text-xs font-semibold transition">
+              <i data-lucide="user-plus" class="w-4 h-4"></i>
+              <span>Add Staff</span>
+            </button>
+            <button onclick="openNewPayrollPeriodModal()" class="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-semibold transition">
+              <i data-lucide="calendar-plus" class="w-4 h-4 text-teal-600"></i>
+              <span>New Month</span>
+            </button>
+          ` : ''}
+
+          <!-- Export & Print Actions -->
+          <div class="flex items-center gap-1.5">
+            <a href="/api/payroll/export-xlsx?id=${encodeURIComponent(period.id)}" target="_blank" download class="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-semibold transition" title="Download Excel Spreadsheet">
+              <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
+              <span class="hidden sm:inline">Excel</span>
+            </a>
+            <a href="/api/payroll/export-csv?id=${encodeURIComponent(period.id)}" target="_blank" download class="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-semibold transition" title="Download CSV Data">
+              <i data-lucide="download" class="w-4 h-4 text-blue-600"></i>
+              <span class="hidden sm:inline">CSV</span>
+            </a>
+            <button onclick="printCurrentPayrollView()" class="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-xl shadow-sm text-xs font-semibold transition" title="Print Current Document">
+              <i data-lucide="printer" class="w-4 h-4 text-slate-300"></i>
+              <span>Print</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick KPI Metric Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <!-- Metric 1: Total Net Remittance -->
+        <div class="glass-card p-4 rounded-xl border-l-4 border-teal-500">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <span class="font-medium">Total Bank Remittance</span>
+            <i data-lucide="send" class="w-4 h-4 text-teal-600"></i>
+          </div>
+          <div class="text-xl font-bold font-display text-slate-900">
+            LKR ${formatLKR(totals.sumNetSalaryLkr)}
+          </div>
+          <div class="text-[11px] text-teal-700 mt-0.5 font-medium flex items-center gap-1">
+            <span>To credit ${employees.length} employee bank accounts</span>
+          </div>
+        </div>
+
+        <!-- Metric 2: Gross Compensation Base -->
+        <div class="glass-card p-4 rounded-xl border-l-4 border-blue-500">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <span class="font-medium">Gross Base Earnings</span>
+            <i data-lucide="pound-sterling" class="w-4 h-4 text-blue-600"></i>
+          </div>
+          <div class="text-xl font-bold font-display text-slate-900">
+            ${formatGBP(totals.sumEarnedGbp)}
+          </div>
+          <div class="text-[11px] text-blue-700 mt-0.5 font-medium">
+            LKR ${formatLKR(totals.sumLkrGross)} gross equivalent
+          </div>
+        </div>
+
+        <!-- Metric 3: Total Deductions & APIT -->
+        <div class="glass-card p-4 rounded-xl border-l-4 border-amber-500">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <span class="font-medium">Statutory Tax & Deductions</span>
+            <i data-lucide="receipt" class="w-4 h-4 text-amber-600"></i>
+          </div>
+          <div class="text-xl font-bold font-display text-slate-900">
+            LKR ${formatLKR(totals.sumDeductionsLkr)}
+          </div>
+          <div class="text-[11px] text-amber-700 mt-0.5 font-medium">
+            EPF 8%: LKR ${formatLKR(totals.sumEpf8Lkr)} · APIT: LKR ${formatLKR(totals.sumApitLkr)}
+          </div>
+        </div>
+
+        <!-- Metric 4: Employer EPF 12% & ETF 3% Contribution -->
+        <div class="glass-card p-4 rounded-xl border-l-4 border-purple-500">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <span class="font-medium">Company Contributions</span>
+            <i data-lucide="shield" class="w-4 h-4 text-purple-600"></i>
+          </div>
+          <div class="text-xl font-bold font-display text-slate-900">
+            LKR ${formatLKR((totals.sumEpf12Lkr || 0) + (totals.sumEtf3Lkr || 0))}
+          </div>
+          <div class="text-[11px] text-purple-700 mt-0.5 font-medium">
+            EPF 12%: LKR ${formatLKR(totals.sumEpf12Lkr)} · ETF 3%: LKR ${formatLKR(totals.sumEtf3Lkr)}
+          </div>
+        </div>
+      </div>
+
+      <!-- Sub-Tab Navigation Bar -->
+      <div class="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold w-fit no-print">
+        <button onclick="switchPayrollSubTab('sheet')" class="px-4 py-2 rounded-lg transition flex items-center gap-2 ${currentPayrollSubTab === 'sheet' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
+          <i data-lucide="table" class="w-4 h-4"></i>
+          <span>Dual Salary Sheet</span>
+        </button>
+        <button onclick="switchPayrollSubTab('letter')" class="px-4 py-2 rounded-lg transition flex items-center gap-2 ${currentPayrollSubTab === 'letter' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
+          <i data-lucide="landmark" class="w-4 h-4"></i>
+          <span>Bank Request Letter</span>
+        </button>
+        <button onclick="switchPayrollSubTab('slips')" class="px-4 py-2 rounded-lg transition flex items-center gap-2 ${currentPayrollSubTab === 'slips' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
+          <i data-lucide="file-text" class="w-4 h-4"></i>
+          <span>Staff Payslip Vouchers</span>
+        </button>
+        <button onclick="switchPayrollSubTab('settings')" class="px-4 py-2 rounded-lg transition flex items-center gap-2 ${currentPayrollSubTab === 'settings' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          <span>Company & Bank Settings</span>
+        </button>
+      </div>
+
+      <!-- Sub-Tab Content -->
+      <div id="payrollSubTabContainer">
+        ${renderPayrollSubTabContent(period, company, totals, employees)}
+      </div>
+    </div>
+  `;
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function renderPayrollSubTabContent(period, company, totals, employees) {
+  switch (currentPayrollSubTab) {
+    case 'letter':
+      return renderPayrollBankLetterView(period, company, totals, employees);
+    case 'slips':
+      return renderPayrollPayslipsView(period, company, totals, employees);
+    case 'settings':
+      return renderPayrollSettingsView(period, company);
+    case 'sheet':
+    default:
+      return renderPayrollSalarySheetView(period, company, totals, employees);
+  }
+}
+
+function renderPayrollSalarySheetView(period, company, totals, employees) {
+  return `
+    <div class="space-y-8">
+      <!-- Table 1: SALARY SHEET (IN GBP) - MONTH -->
+      <div class="glass-card overflow-hidden rounded-2xl border border-slate-200">
+        <div class="px-6 py-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="font-display font-bold text-base text-slate-900 uppercase tracking-wide">
+              SALARY SHEET (IN GBP) - ${(period.month || '').toUpperCase()}
+            </h3>
+            <p class="text-xs text-slate-500 font-mono mt-0.5">
+              ${company.name || 'APADMI SL (PRIVATE) LIMITED'} · Staff Base Compensation, EPF 12% & ETF 3% in GBP
+            </p>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <button onclick="printPayrollDocument('sheet')" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5">
+              <i data-lucide="printer" class="w-3.5 h-3.5 text-slate-500"></i>
+              <span>Print Sheet (Landscape)</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="excel-payroll-table w-full text-left text-xs">
+            <thead>
+              <tr class="table-header-gbp">
+                <th class="w-10 text-center">No</th>
+                <th>Employee Name</th>
+                <th>POSITION</th>
+                <th class="text-right">GBP Salary</th>
+                <th class="text-center">Column1</th>
+                <th class="text-right">Column2 (Earned)</th>
+                <th class="text-right">EPF (12%)</th>
+                <th class="text-right">ETF(3%)</th>
+                <th class="text-right font-bold">AMOUNT</th>
+                <th>BANK ACCOUNT NO</th>
+                <th>TIN NO</th>
+                <th>IDNO</th>
+                <th>Date of Joined</th>
+                ${canEdit('payroll') ? '<th class="text-center no-print">Actions</th>' : ''}
+              </tr>
+            </thead>
+            <tbody>
+              ${employees.map(emp => `
+                <tr>
+                  <td class="text-center font-mono font-medium">${emp.no}</td>
+                  <td class="font-semibold text-slate-900">
+                    ${emp.name}
+                    ${emp.shortName && emp.shortName !== emp.name ? `<div class="text-[10px] text-slate-500 font-normal">(${emp.shortName})</div>` : ''}
+                  </td>
+                  <td class="text-slate-600 font-mono text-[11px]">${emp.position || '-'}</td>
+                  <td class="text-right font-mono">${formatLKR(emp.gbpSalary)}</td>
+                  <td class="text-center text-slate-500 font-mono">${emp.workDays || ''}</td>
+                  <td class="text-right font-mono font-medium">${formatLKR(emp.earnedGbp)}</td>
+                  <td class="text-right font-mono text-slate-600">${formatLKR(emp.epf12Gbp)}</td>
+                  <td class="text-right font-mono text-slate-600">${formatLKR(emp.etf3Gbp)}</td>
+                  <td class="text-right font-mono font-bold text-slate-900">${formatLKR(emp.totalGbp)}</td>
+                  <td class="font-mono text-[11px] text-slate-700">
+                    ${emp.bankAccountNo}${emp.bankCode ? `(${emp.bankCode})` : ''}
+                    ${emp.bankBranch ? `<div class="text-[10px] text-slate-400 font-sans">${emp.bankBranch}</div>` : ''}
+                  </td>
+                  <td class="font-mono text-[11px] text-slate-600">${emp.tinNo || '-'}</td>
+                  <td class="font-mono text-[11px] text-slate-600">${emp.idNo || '-'}</td>
+                  <td class="font-mono text-[11px] text-slate-600">${emp.dateJoined || '-'}</td>
+                  ${canEdit('payroll') ? `
+                    <td class="text-center no-print whitespace-nowrap">
+                      <div class="flex items-center justify-center gap-1">
+                        <button onclick="openEditPayrollEmployeeModal('${emp.id}')" class="p-1 hover:bg-slate-100 text-slate-600 hover:text-teal-700 rounded transition" title="Edit Staff Details">
+                          <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="deletePayrollEmployee('${emp.id}', '${encodeURIComponent(emp.name)}')" class="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition" title="Delete Staff Member">
+                          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                      </div>
+                    </td>
+                  ` : ''}
+                </tr>
+              `).join('')}
+              <tr class="totals-row font-bold font-mono">
+                <td colspan="3" class="text-right font-sans font-bold">TOTALS:</td>
+                <td class="text-right">${formatLKR(totals.sumGbpSalary)}</td>
+                <td></td>
+                <td class="text-right">${formatLKR(totals.sumEarnedGbp)}</td>
+                <td class="text-right">${formatLKR(totals.sumEpf12Gbp)}</td>
+                <td class="text-right">${formatLKR(totals.sumEtf3Gbp)}</td>
+                <td class="text-right font-black text-blue-900">${formatLKR(totals.sumTotalGbp)}</td>
+                <td colspan="${canEdit('payroll') ? 5 : 4}"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Sign-off Block Below Table 1 -->
+        <div class="excel-signoff-row">
+          <div>
+            <span class="text-slate-500 font-medium">Checked by:</span>
+            <span class="font-semibold text-slate-800 ml-1">${period.checkedBy || company.checkedBy || 'Hemanthi Basnayake'}</span>
+            <span class="text-slate-500 ml-1">(${period.checkedTitle || company.checkedTitle || 'Accountant'})</span>
+          </div>
+          <div>
+            <span class="text-slate-500 font-medium">Authorized by:</span>
+            <span class="font-semibold text-slate-800 ml-1">${period.authorizedSignatory || company.authorizedSignatory || 'Shaameel Mohideen'}</span>
+            <span class="text-slate-500 ml-1">(${period.authorizedCompany || company.authorizedCompany || 'Spillburg Holdings (pvt)Ltd'})</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table 2: SALARY SHEET (IN GBP) - MONTH. @RATE -->
+      <div class="glass-card overflow-hidden rounded-2xl border border-slate-200">
+        <div class="px-6 py-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="font-display font-bold text-base text-slate-900 uppercase tracking-wide">
+              SALARY SHEET (IN GBP) - ${(period.month || '').toUpperCase()}. @${period.exchangeRate ? Number(period.exchangeRate).toFixed(0) : '440'}
+            </h3>
+            <p class="text-xs text-slate-500 font-mono mt-0.5">
+              Local Currency LKR Conversion, EPF 8%, EPF 12%, ETF 3%, APIT Tax Deductions & Net Bank Remittance
+            </p>
+          </div>
+          <div class="text-xs font-mono bg-teal-50 text-teal-800 px-3 py-1 rounded-lg border border-teal-200 font-semibold">
+            Rate: 1 GBP = Rs. ${period.exchangeRate ? Number(period.exchangeRate).toFixed(2) : '440.00'}
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="excel-payroll-table w-full text-left text-xs">
+            <thead>
+              <tr class="table-header-lkr">
+                <th class="w-10 text-center">No</th>
+                <th>Employee Name</th>
+                <th>POSITION</th>
+                <th class="text-right">GBP Salary</th>
+                <th class="text-center">Column1</th>
+                <th class="text-right">Column2</th>
+                <th class="text-right">LKR (Gross)</th>
+                <th class="text-right">EPF 8%</th>
+                <th class="text-right">EPF 12%</th>
+                <th class="text-right">ETF 3%</th>
+                <th class="text-right">APIT</th>
+                <th class="text-right">Column3</th>
+                <th class="text-right font-bold text-emerald-950">TOTAL (Net LKR)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${employees.map(emp => `
+                <tr>
+                  <td class="text-center font-mono font-medium">${emp.no}</td>
+                  <td class="font-semibold text-slate-900">${emp.name}</td>
+                  <td class="text-slate-600 font-mono text-[11px]">${emp.position || '-'}</td>
+                  <td class="text-right font-mono">${formatLKR(emp.gbpSalary)}</td>
+                  <td class="text-center text-slate-500 font-mono">${emp.workDays || ''}</td>
+                  <td class="text-right font-mono">${formatLKR(emp.earnedGbp)}</td>
+                  <td class="text-right font-mono font-medium">${formatLKR(emp.lkrGross)}</td>
+                  <td class="text-right font-mono text-slate-600">${formatLKR(emp.epf8Lkr)}</td>
+                  <td class="text-right font-mono text-slate-600">${formatLKR(emp.epf12Lkr)}</td>
+                  <td class="text-right font-mono text-slate-600">${formatLKR(emp.etf3Lkr)}</td>
+                  <td class="text-right font-mono text-amber-700">${emp.apit ? formatLKR(emp.apit) : '0'}</td>
+                  <td class="text-right font-mono text-slate-500">${emp.totalDeductionsLkr ? formatLKR(emp.totalDeductionsLkr - (emp.epf8Lkr || 0) - (emp.apit || 0)) : ''}</td>
+                  <td class="text-right font-mono font-bold text-emerald-900 bg-emerald-50/50">${formatLKR(emp.netSalaryLkr)}</td>
+                </tr>
+              `).join('')}
+              <tr class="totals-row font-bold font-mono">
+                <td colspan="3" class="text-right font-sans font-bold">TOTALS:</td>
+                <td class="text-right">${formatLKR(totals.sumGbpSalary)}</td>
+                <td></td>
+                <td class="text-right">${formatLKR(totals.sumEarnedGbp)}</td>
+                <td class="text-right">${formatLKR(totals.sumLkrGross)}</td>
+                <td class="text-right">${formatLKR(totals.sumEpf8Lkr)}</td>
+                <td class="text-right">${formatLKR(totals.sumEpf12Lkr)}</td>
+                <td class="text-right">${formatLKR(totals.sumEtf3Lkr)}</td>
+                <td class="text-right text-amber-900">${formatLKR(totals.sumApitLkr)}</td>
+                <td></td>
+                <td class="text-right font-black text-emerald-950 bg-emerald-100">${formatLKR(totals.sumNetSalaryLkr)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPayrollBankLetterView(period, company, totals, employees) {
+  return `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between no-print">
+        <div class="text-xs text-slate-500">
+          Previewing bank request remittance letter to <strong class="text-slate-800">${period.bankName || 'Nations Trust Bank PLC'}</strong> on official letterhead.
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="printPayrollDocument('letter')" class="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl shadow-sm text-xs font-semibold transition">
+            <i data-lucide="printer" class="w-4 h-4 text-slate-300"></i>
+            <span>Print Official Letter</span>
+          </button>
+          ${canEdit('payroll') ? `
+            <button onclick="openPayrollSettingsModal()" class="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-xl border border-slate-200 shadow-sm text-xs font-semibold transition">
+              <i data-lucide="edit" class="w-4 h-4 text-slate-500"></i>
+              <span>Edit Bank & Signatory</span>
+            </button>
+          ` : ''}
+        </div>
+      </div>
+
+      <!-- The Document Container on Official Letterhead -->
+      <div class="bank-letter-container">
+        <div class="bank-letter-sheet">
+          <div class="space-y-4">
+            <!-- Date -->
+            <div class="text-right font-medium text-xs text-slate-800">
+              ${period.letterDate || '30.09.2026'}
+            </div>
+
+            <!-- Addressee -->
+            <div class="text-xs leading-relaxed text-slate-900">
+              The Manager,<br>
+              ${period.bankName || 'Nations Trust Bank PLC'},<br>
+              ${period.bankBranch || 'Borella Branch'},<br>
+              ${(period.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.').replace(/\n/g, '<br>')}
+            </div>
+
+            <!-- Salutation -->
+            <div class="text-xs pt-1 font-semibold text-slate-900">
+              Dear Sir,
+            </div>
+
+            <!-- Subject -->
+            <div class="text-xs font-bold uppercase tracking-wide underline text-slate-950 pt-1">
+              SALARY FOR STAFF MEMBERS OF ${company.name || 'APADMI SL (PRIVATE) LIMITED'}
+            </div>
+
+            <!-- Body Paragraph -->
+            <div class="text-xs leading-relaxed text-slate-800 text-justify pt-1">
+              Please debit our account number <strong>${period.debitAccountNo || company.debitAccountNo || '1001 5000 7554'}</strong> in the name of <strong>${period.debitAccountName || company.debitAccountName || 'Spillburg Holdings (Private) Limited'}</strong> and credit the following accounts as per the details given below.
+            </div>
+
+            <!-- Remittance Table -->
+            <table class="w-full text-left">
+              <thead>
+                <tr>
+                  <th class="w-32">Account Number</th>
+                  <th>Name</th>
+                  <th class="w-28">ID No</th>
+                  <th>Bank Name & Branch</th>
+                  <th class="text-right w-28">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${employees.map(emp => `
+                  <tr>
+                    <td class="font-mono text-[11px]">${emp.bankAccountNo}</td>
+                    <td class="font-medium">${emp.name}</td>
+                    <td class="font-mono text-[11px]">${emp.idNo || '-'}</td>
+                    <td class="text-[11px]">${emp.bankBranch || (emp.bankCode ? `${emp.bankCode} Bank` : '')}</td>
+                    <td class="text-right font-mono font-medium">${formatLKR(emp.netSalaryLkr)}</td>
+                  </tr>
+                `).join('')}
+                <tr class="letter-total-row">
+                  <td colspan="4" class="font-bold text-right pr-4">Total:</td>
+                  <td class="text-right font-mono font-bold double-underline">
+                    ${formatLKR(totals.sumNetSalaryLkr)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Amount In Words -->
+            <div class="text-xs italic font-medium text-slate-900 pt-1">
+              (${numberToWordsRupees(totals.sumNetSalaryLkr)})
+            </div>
+
+            <!-- Sign-Off Block -->
+            <div class="pt-6 space-y-1 text-xs">
+              <div>Thanking you,</div>
+              <div>Yours faithfully,</div>
+              <div class="font-bold pt-1 uppercase tracking-wide text-slate-950">${period.authorizedCompany || company.authorizedCompany || 'SPILLBURG HOLDINGS (PVT) LIMITED'}</div>
+              <div class="pt-12">
+                <div class="font-bold text-slate-950">${period.authorizedSignatory || company.authorizedSignatory || 'Shaameel Mohideen'}</div>
+                <div class="text-slate-600 font-medium">${company.authorizedTitle || 'Director - Operations & Development'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPayrollPayslipsView(period, company, totals, employees) {
+  const displayedEmployees = (activePayslipEmployeeId && activePayslipEmployeeId !== 'all')
+    ? employees.filter(e => e.id === activePayslipEmployeeId)
+    : employees;
+
+  return `
+    <div class="space-y-6">
+      <!-- Toolbar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-slate-600">Select Employee:</span>
+          <select onchange="handlePayslipEmployeeFilter(this.value)" class="text-xs bg-white border border-slate-200 px-3 py-1.5 rounded-xl font-semibold text-slate-800 shadow-sm focus:outline-none cursor-pointer">
+            <option value="all">All Employees (${employees.length})</option>
+            ${employees.map(e => `
+              <option value="${e.id}" ${activePayslipEmployeeId === e.id ? 'selected' : ''}>
+                ${e.no}. ${e.shortName || e.name} (${e.position || 'Staff'})
+              </option>
+            `).join('')}
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="printPayrollDocument('slip', activePayslipEmployeeId)" class="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>Print Displayed Voucher(s)</span>
+          </button>
+          <button onclick="printPayrollDocument('all-slips')" class="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition">
+            <i data-lucide="layers" class="w-4 h-4 text-slate-300"></i>
+            <span>Print All Payslips (Batch)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Slips Display Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 justify-center">
+        ${displayedEmployees.map(emp => `
+          <div class="payslip-voucher p-5 rounded shadow-sm">
+            <div class="text-center font-bold text-sm tracking-wide uppercase text-slate-950 pb-1">
+              ${company.name || 'APADMI SL (PRIVATE) LIMITED'}
+            </div>
+            <div class="text-center text-xs font-semibold text-slate-600 pb-3 border-b border-slate-300">
+              Monthly Payroll ${period.yearPeriod || '2026-2027'}
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs py-2 border-b border-slate-300 font-medium">
+              <div><span class="text-slate-500">EPF NO :</span> <strong>${emp.epfNo || emp.no}</strong></div>
+              <div class="text-right"><span class="text-slate-500">Month :</span> <strong>${period.month}</strong></div>
+              <div class="col-span-2 pt-1"><span class="text-slate-500">Name :</span> <strong class="uppercase">${emp.name}</strong></div>
+            </div>
+
+            <table class="my-2">
+              <thead>
+                <tr class="bg-slate-100">
+                  <th class="text-left font-bold">Earnings & Deductions</th>
+                  <th class="text-right font-bold w-32">LKR</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Basic Pay (GBP ${formatLKR(emp.earnedGbp)})</td>
+                  <td class="text-right font-mono font-medium">${formatLKR(emp.lkrGross)}</td>
+                </tr>
+                <tr>
+                  <td>Special Allowance</td>
+                  <td class="text-right font-mono">${formatLKR(emp.specialAllowance || 0)}</td>
+                </tr>
+                <tr class="font-semibold bg-slate-50">
+                  <td>Total (Gross)</td>
+                  <td class="text-right font-mono">${formatLKR(emp.lkrGross + (emp.specialAllowance || 0))}</td>
+                </tr>
+                <tr>
+                  <td>(-) No Pay/Late</td>
+                  <td class="text-right font-mono">${emp.noPayLate ? formatLKR(emp.noPayLate) : '-'}</td>
+                </tr>
+                <tr class="font-semibold bg-slate-50">
+                  <td>Net total (Gross Pay)</td>
+                  <td class="text-right font-mono">${formatLKR(emp.netTotalGross || emp.lkrGross)}</td>
+                </tr>
+                <tr>
+                  <td>(-) EPF 8%</td>
+                  <td class="text-right font-mono">${formatLKR(emp.epf8Lkr)}</td>
+                </tr>
+                <tr>
+                  <td>(-) Advance</td>
+                  <td class="text-right font-mono">${emp.advance ? formatLKR(emp.advance) : '0'}</td>
+                </tr>
+                <tr>
+                  <td>(-) Loan</td>
+                  <td class="text-right font-mono">${emp.loan ? formatLKR(emp.loan) : '0'}</td>
+                </tr>
+                <tr>
+                  <td>(-) APIT</td>
+                  <td class="text-right font-mono">${emp.apit ? formatLKR(emp.apit) : '0'}</td>
+                </tr>
+                <tr class="font-semibold bg-slate-100">
+                  <td>Total Deduction</td>
+                  <td class="text-right font-mono">${formatLKR(emp.totalDeductionsLkr)}</td>
+                </tr>
+                <tr class="font-bold text-sm bg-emerald-50 text-emerald-950">
+                  <td>Balance Pay (Net)</td>
+                  <td class="text-right font-mono">${formatLKR(emp.netSalaryLkr)}</td>
+                </tr>
+                <tr class="text-slate-500 text-[10.5px]">
+                  <td>Company EPF 12% Contribution</td>
+                  <td class="text-right font-mono">${formatLKR(emp.epf12Lkr)}</td>
+                </tr>
+                <tr class="text-slate-500 text-[10.5px]">
+                  <td>Company ETF 3% Contribution</td>
+                  <td class="text-right font-mono">${formatLKR(emp.etf3Lkr)}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Sign and Spillburg Office Footer -->
+            <div class="pt-6 space-y-1 text-[11px] text-center border-t border-slate-300">
+              <div class="pb-2 text-slate-400">......................................................................<br><span class="text-slate-600 font-semibold">Signature</span></div>
+              <div class="font-bold text-slate-800">Spillburg Holdings (Pvt) Ltd</div>
+              <div class="text-[10px] text-slate-500">Office 14, Basement Level · Cinnamon Lakeside Hotel · Colombo 02</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderPayrollSettingsView(period, company) {
+  return `
+    <div class="glass-card p-6 rounded-2xl border border-slate-200 space-y-6 max-w-4xl">
+      <div class="border-b border-slate-200 pb-3 flex items-center justify-between">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Company & Bank Remittance Configuration</h3>
+          <p class="text-xs text-slate-500">Bank debit account details, registered address, and official signatories.</p>
+        </div>
+      </div>
+
+      <form onsubmit="handleSavePayrollSettings(event)" class="space-y-4 text-xs">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Company Legal Name</label>
+            <input type="text" id="cfgCompName" value="${company.name || 'APADMI SL (PRIVATE) LIMITED'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+          </div>
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Company Registration No</label>
+            <input type="text" id="cfgCompReg" value="${company.registrationNo || 'PV 00281234'}" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Debit Bank Name</label>
+            <input type="text" id="cfgBankName" value="${period.bankName || company.bankName || 'Nations Trust Bank PLC'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+          </div>
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Bank Branch</label>
+            <input type="text" id="cfgBankBranch" value="${period.bankBranch || company.bankBranch || 'Borella Branch'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+          </div>
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Debit Account No</label>
+            <input type="text" id="cfgDebitAccount" value="${period.debitAccountNo || company.debitAccountNo || '1001 5000 7554'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Debit Account Name</label>
+            <input type="text" id="cfgDebitAccountName" value="${period.debitAccountName || company.debitAccountName || 'Spillburg Holdings (Private) Limited'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+          </div>
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Letter Date</label>
+            <input type="text" id="cfgLetterDate" value="${period.letterDate || '30.09.2026'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Bank Physical Address</label>
+            <textarea id="cfgBankAddress" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-xl">${period.bankAddress || company.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.'}</textarea>
+          </div>
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Company Registered Office</label>
+            <textarea id="cfgCompAddress" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-xl">${company.address || 'Level 12, West Tower, World Trade Center, Colombo 01, Sri Lanka'}</textarea>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-200">
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Authorized Signatory Name</label>
+            <input type="text" id="cfgAuthSignatory" value="${period.authorizedSignatory || company.authorizedSignatory || 'Shaameel Mohideen'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+          </div>
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Signatory Title & Company</label>
+            <input type="text" id="cfgAuthCompany" value="${period.authorizedCompany || company.authorizedCompany || 'Spillburg Holdings (pvt)Ltd'}" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Checked By (Verifier)</label>
+            <input type="text" id="cfgCheckedBy" value="${period.checkedBy || company.checkedBy || 'Hemanthi Basnayake'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+          </div>
+          <div>
+            <label class="block text-slate-700 font-semibold mb-1">Verifier Title</label>
+            <input type="text" id="cfgCheckedTitle" value="${period.checkedTitle || company.checkedTitle || 'Accountant'}" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+          </div>
+        </div>
+
+        ${canEdit('payroll') ? `
+          <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+            <button type="submit" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold shadow-sm transition">
+              Save Configuration
+            </button>
+          </div>
+        ` : ''}
+      </form>
+    </div>
+  `;
+}
+
+async function handleSavePayrollSettings(e) {
+  e.preventDefault();
+  if (!canEdit('payroll')) return;
+  const period = activePayrollPeriod;
+  if (!period) return;
+  const company = (payrollData.companies || []).find(c => c.id === period.companyId) || (payrollData.companies || [])[0] || {};
+
+  const periodPayload = {
+    id: period.id,
+    bankName: document.getElementById('cfgBankName').value.trim(),
+    bankBranch: document.getElementById('cfgBankBranch').value.trim(),
+    bankAddress: document.getElementById('cfgBankAddress').value.trim(),
+    debitAccountNo: document.getElementById('cfgDebitAccount').value.trim(),
+    debitAccountName: document.getElementById('cfgDebitAccountName').value.trim(),
+    letterDate: document.getElementById('cfgLetterDate').value.trim(),
+    authorizedSignatory: document.getElementById('cfgAuthSignatory').value.trim(),
+    authorizedCompany: document.getElementById('cfgAuthCompany').value.trim(),
+    checkedBy: document.getElementById('cfgCheckedBy').value.trim(),
+    checkedTitle: document.getElementById('cfgCheckedTitle').value.trim()
+  };
+
+  const compPayload = {
+    id: company.id || 'comp_apadmi',
+    name: document.getElementById('cfgCompName').value.trim(),
+    registrationNo: document.getElementById('cfgCompReg').value.trim(),
+    address: document.getElementById('cfgCompAddress').value.trim(),
+    bankName: periodPayload.bankName,
+    bankBranch: periodPayload.bankBranch,
+    bankAddress: periodPayload.bankAddress,
+    debitAccountNo: periodPayload.debitAccountNo,
+    debitAccountName: periodPayload.debitAccountName,
+    authorizedSignatory: periodPayload.authorizedSignatory,
+    authorizedCompany: periodPayload.authorizedCompany,
+    checkedBy: periodPayload.checkedBy,
+    checkedTitle: periodPayload.checkedTitle
+  };
+
+  try {
+    const [pRes, cRes] = await Promise.all([
+      fetch('/api/payroll/period', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify(periodPayload)
+      }),
+      fetch('/api/payroll/company', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify(compPayload)
+      })
+    ]);
+
+    if (pRes.ok && cRes.ok) {
+      const pData = await pRes.json();
+      activePayrollPeriod = pData.period;
+      if (payrollData) payrollData.activePeriod = activePayrollPeriod;
+      alert('Payroll and bank settings updated successfully.');
+      const container = document.getElementById('mainContent');
+      if (container) renderPayroll(container);
+    } else {
+      alert('Failed to save settings');
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+function printCurrentPayrollView() {
+  if (currentPayrollSubTab === 'letter') {
+    printPayrollDocument('letter');
+  } else if (currentPayrollSubTab === 'slips') {
+    printPayrollDocument('slip', activePayslipEmployeeId);
+  } else {
+    printPayrollDocument('sheet');
+  }
+}
+
+function printPayrollDocument(type, empId) {
+  const period = activePayrollPeriod;
+  if (!period) return;
+  const company = (payrollData.companies || []).find(c => c.id === period.companyId) || (payrollData.companies || [])[0] || {};
+  const employees = period.employees || [];
+  const totals = period.totals || {};
+
+  const printWin = window.open('', '_blank', 'width=1100,height=800');
+  if (!printWin) {
+    alert('Please allow popups to generate print view.');
+    return;
+  }
+
+  let title = 'Spillburg Portal Document';
+  let bodyHtml = '';
+  let orientation = 'portrait';
+
+  if (type === 'letter') {
+    title = `Bank_Remittance_Letter_${period.monthCode || 'Sep-26'}`;
+    orientation = 'portrait';
+    bodyHtml = `
+      <div style="min-height: 1080px; padding: 140px 58px 120px 58px; background-image: url('/public/spillburg_letterhead.jpg'); background-size: 100% 100%; background-repeat: no-repeat; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.45; color: #111;">
+        <div style="text-align: right; font-size: 12px; margin-bottom: 16px;">${period.letterDate || '30.09.2026'}</div>
+        <div style="font-size: 12px; margin-bottom: 14px;">
+          The Manager,<br>
+          ${period.bankName || 'Nations Trust Bank PLC'},<br>
+          ${period.bankBranch || 'Borella Branch'},<br>
+          ${(period.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.').replace(/\n/g, '<br>')}
+        </div>
+        <div style="font-size: 12px; font-weight: bold; margin-bottom: 10px;">Dear Sir,</div>
+        <div style="font-size: 12px; font-weight: bold; text-decoration: underline; text-transform: uppercase; margin-bottom: 12px;">
+          SALARY FOR STAFF MEMBERS OF ${company.name || 'APADMI SL (PRIVATE) LIMITED'}
+        </div>
+        <div style="font-size: 12px; text-align: justify; margin-bottom: 14px;">
+          Please debit our account number <strong>${period.debitAccountNo || company.debitAccountNo || '1001 5000 7554'}</strong> in the name of <strong>${period.debitAccountName || company.debitAccountName || 'Spillburg Holdings (Private) Limited'}</strong> and credit the following accounts as per the details given below.
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 12px;">
+          <thead>
+            <tr>
+              <th style="border-bottom: 1px solid #000; padding: 4px 6px; text-align: left;">Account Number</th>
+              <th style="border-bottom: 1px solid #000; padding: 4px 6px; text-align: left;">Name</th>
+              <th style="border-bottom: 1px solid #000; padding: 4px 6px; text-align: left;">ID No</th>
+              <th style="border-bottom: 1px solid #000; padding: 4px 6px; text-align: left;">Bank Name & Branch</th>
+              <th style="border-bottom: 1px solid #000; padding: 4px 6px; text-align: right;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${employees.map(e => `
+              <tr>
+                <td style="padding: 3px 6px;">${e.bankAccountNo}</td>
+                <td style="padding: 3px 6px;">${e.name}</td>
+                <td style="padding: 3px 6px;">${e.idNo || '-'}</td>
+                <td style="padding: 3px 6px;">${e.bankBranch || (e.bankCode ? `${e.bankCode} Bank` : '')}</td>
+                <td style="padding: 3px 6px; text-align: right; font-variant-numeric: tabular-nums;">${formatLKR(e.netSalaryLkr)}</td>
+              </tr>
+            `).join('')}
+            <tr style="border-top: 1px solid #000; font-weight: bold;">
+              <td colspan="4" style="padding: 6px; text-align: right;">Total:</td>
+              <td style="padding: 6px; text-align: right; border-bottom: 3px double #000; font-variant-numeric: tabular-nums;">${formatLKR(totals.sumNetSalaryLkr)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="font-size: 11.5px; font-style: italic; margin-bottom: 24px;">
+          (${numberToWordsRupees(totals.sumNetSalaryLkr)})
+        </div>
+        <div style="font-size: 12px; margin-top: 20px;">
+          <div>Thanking you,</div>
+          <div>Yours faithfully,</div>
+          <div style="font-weight: bold; margin-top: 6px; text-transform: uppercase;">${period.authorizedCompany || company.authorizedCompany || 'SPILLBURG HOLDINGS (PVT) LIMITED'}</div>
+          <div style="margin-top: 50px;">
+            <div style="font-weight: bold;">${period.authorizedSignatory || company.authorizedSignatory || 'Shaameel Mohideen'}</div>
+            <div style="color: #444;">${company.authorizedTitle || 'Director - Operations & Development'}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (type === 'sheet') {
+    title = `Salary_Sheet_${period.monthCode || 'Sep-26'}`;
+    orientation = 'landscape';
+    bodyHtml = `
+      <div style="padding: 20px; font-family: Arial, Calibri, sans-serif; font-size: 10.5px;">
+        <h2 style="font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 8px;">
+          SALARY SHEET (IN GBP) - ${(period.month || '').toUpperCase()}
+        </h2>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+          <thead>
+            <tr style="background: #2563eb; color: #fff; font-size: 10px;">
+              <th style="border: 1px solid #cbd5e1; padding: 4px;">No</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">Employee Name</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">POSITION</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">GBP Salary</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px;">Column1</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">Column2</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">EPF (12%)</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">ETF(3%)</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">AMOUNT</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">BANK ACCOUNT NO</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">TIN NO</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">IDNO</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">Date of Joined</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${employees.map(e => `
+              <tr>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: center;">${e.no}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-weight: bold;">${e.name}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;">${e.position || ''}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.gbpSalary)}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: center;">${e.workDays || ''}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.earnedGbp)}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.epf12Gbp)}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.etf3Gbp)}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right; font-weight: bold;">${formatLKR(e.totalGbp)}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;">${e.bankAccountNo}${e.bankCode ? `(${e.bankCode})` : ''}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;">${e.tinNo || ''}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;">${e.idNo || ''}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;">${e.dateJoined || ''}</td>
+              </tr>
+            `).join('')}
+            <tr style="background: #dbeafe; font-weight: bold;">
+              <td colspan="3" style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">TOTALS:</td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumGbpSalary)}</td>
+              <td style="border: 1px solid #3b82f6;"></td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEarnedGbp)}</td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEpf12Gbp)}</td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEtf3Gbp)}</td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumTotalGbp)}</td>
+              <td colspan="4" style="border: 1px solid #3b82f6;"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="display: flex; justify-content: space-between; margin: 10px 0 20px 0; font-size: 11px;">
+          <div>Checked by: <strong>${period.checkedBy || company.checkedBy || 'Hemanthi Basnayake'}</strong> (${period.checkedTitle || company.checkedTitle || 'Accountant'})</div>
+          <div>Authorized by: <strong>${period.authorizedSignatory || company.authorizedSignatory || 'Shaameel Mohideen'}</strong> (${period.authorizedCompany || company.authorizedCompany || 'Spillburg Holdings (pvt)Ltd'})</div>
+        </div>
+
+        <h2 style="font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 8px;">
+          SALARY SHEET (IN GBP) - ${(period.month || '').toUpperCase()}. @${period.exchangeRate ? Number(period.exchangeRate).toFixed(0) : '440'}
+        </h2>
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: #1e3a8a; color: #fff; font-size: 10px;">
+              <th style="border: 1px solid #cbd5e1; padding: 4px;">No</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">Employee Name</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">POSITION</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">GBP Salary</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px;">Column1</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">Column2</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">LKR (Gross)</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">EPF 8%</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">EPF 12%</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">ETF 3%</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">APIT</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">Column3</th>
+              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${employees.map(e => `
+              <tr>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: center;">${e.no}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-weight: bold;">${e.name}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;">${e.position || ''}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.gbpSalary)}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: center;">${e.workDays || ''}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.earnedGbp)}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.lkrGross)}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.epf8Lkr)}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.epf12Lkr)}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.etf3Lkr)}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${e.apit ? formatLKR(e.apit) : '0'}</td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;"></td>
+                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right; font-weight: bold; background: #f0fdf4;">${formatLKR(e.netSalaryLkr)}</td>
+              </tr>
+            `).join('')}
+            <tr style="background: #dbeafe; font-weight: bold;">
+              <td colspan="3" style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">TOTALS:</td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumGbpSalary)}</td>
+              <td style="border: 1px solid #3b82f6;"></td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEarnedGbp)}</td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumLkrGross)}</td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEpf8Lkr)}</td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEpf12Lkr)}</td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEtf3Lkr)}</td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumApitLkr)}</td>
+              <td style="border: 1px solid #3b82f6;"></td>
+              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right; background: #bbf7d0;">${formatLKR(totals.sumNetSalaryLkr)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  } else {
+    // Payslips ('slip' or 'all-slips')
+    title = `Staff_Payslips_${period.monthCode || 'Sep-26'}`;
+    orientation = 'portrait';
+    const targetEmps = (type === 'slip' && empId && empId !== 'all') ? employees.filter(e => e.id === empId) : employees;
+    bodyHtml = `
+      <div style="padding: 10px; font-family: Arial, Calibri, sans-serif;">
+        ${targetEmps.map(emp => `
+          <div style="page-break-after: always; max-width: 440px; margin: 20px auto; border: 2px solid #000; padding: 16px; font-size: 11px;">
+            <div style="text-align: center; font-weight: bold; font-size: 13px; text-transform: uppercase;">${company.name || 'APADMI SL (PRIVATE) LIMITED'}</div>
+            <div style="text-align: center; font-size: 11px; margin-bottom: 8px;">Monthly Payroll ${period.yearPeriod || '2026-2027'}</div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin-bottom: 6px;">
+              <div>EPF NO : <strong>${emp.epfNo || emp.no}</strong></div>
+              <div>Month : <strong>${period.month}</strong></div>
+            </div>
+            <div style="margin-bottom: 8px;">Name : <strong>${emp.name}</strong></div>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
+              <thead>
+                <tr style="background: #f1f5f9;">
+                  <th style="border: 1px solid #000; padding: 3px 6px; text-align: left;">Earnings & Deductions</th>
+                  <th style="border: 1px solid #000; padding: 3px 6px; text-align: right;">LKR</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td style="border: 1px solid #000; padding: 3px 6px;">Basic Pay (GBP ${formatLKR(emp.earnedGbp)})</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${formatLKR(emp.lkrGross)}</td></tr>
+                <tr><td style="border: 1px solid #000; padding: 3px 6px;">Special Allowance</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${formatLKR(emp.specialAllowance || 0)}</td></tr>
+                <tr style="font-weight: bold;"><td style="border: 1px solid #000; padding: 3px 6px;">Total (Gross)</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${formatLKR(emp.lkrGross + (emp.specialAllowance || 0))}</td></tr>
+                <tr><td style="border: 1px solid #000; padding: 3px 6px;">(-) No Pay/Late</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${emp.noPayLate ? formatLKR(emp.noPayLate) : '0'}</td></tr>
+                <tr style="font-weight: bold;"><td style="border: 1px solid #000; padding: 3px 6px;">Net total (Gross Pay)</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${formatLKR(emp.netTotalGross || emp.lkrGross)}</td></tr>
+                <tr><td style="border: 1px solid #000; padding: 3px 6px;">(-) EPF 8%</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${formatLKR(emp.epf8Lkr)}</td></tr>
+                <tr><td style="border: 1px solid #000; padding: 3px 6px;">(-) Advance</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${emp.advance ? formatLKR(emp.advance) : '0'}</td></tr>
+                <tr><td style="border: 1px solid #000; padding: 3px 6px;">(-) Loan</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${emp.loan ? formatLKR(emp.loan) : '0'}</td></tr>
+                <tr><td style="border: 1px solid #000; padding: 3px 6px;">(-) APIT</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${emp.apit ? formatLKR(emp.apit) : '0'}</td></tr>
+                <tr style="font-weight: bold; background: #f8fafc;"><td style="border: 1px solid #000; padding: 3px 6px;">Total Deduction</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${formatLKR(emp.totalDeductionsLkr)}</td></tr>
+                <tr style="font-weight: bold; font-size: 12px; background: #ecfdf5;"><td style="border: 1px solid #000; padding: 4px 6px;">Balance Pay</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${formatLKR(emp.netSalaryLkr)}</td></tr>
+                <tr style="color: #444;"><td style="border: 1px solid #000; padding: 2px 6px; font-size: 10px;">EPF 12%</td><td style="border: 1px solid #000; padding: 2px 6px; text-align: right; font-size: 10px;">${formatLKR(emp.epf12Lkr)}</td></tr>
+                <tr style="color: #444;"><td style="border: 1px solid #000; padding: 2px 6px; font-size: 10px;">ETF 3%</td><td style="border: 1px solid #000; padding: 2px 6px; text-align: right; font-size: 10px;">${formatLKR(emp.etf3Lkr)}</td></tr>
+              </tbody>
+            </table>
+            <div style="text-align: center; margin-top: 18px; font-size: 10px;">
+              <div style="margin-bottom: 8px;">......................................................................<br><strong>Signature</strong></div>
+              <div style="font-weight: bold;">Spillburg Holdings (Pvt)ltd</div>
+              <div style="color: #666;">Office 14, Basement Level · Cinnamon Lake side Hotel - Colombo 02</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  printWin.document.open();
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          @page {
+            size: ${orientation};
+            margin: 0;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+            background: #fff;
+            color: #000;
+          }
+        </style>
+      </head>
+      <body>
+        ${bodyHtml}
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+            }, 300);
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  printWin.document.close();
+}
+
+// Modals: Add / Edit Staff, New Period, Edit Rate, Edit Settings
+function openAddPayrollEmployeeModal() {
+  if (!canEdit('payroll')) {
+    alert('You have Viewer access only.');
+    return;
+  }
+  const period = activePayrollPeriod;
+  if (!period) return;
+  const nextNo = (period.employees || []).length + 1;
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Add Staff Member</h3>
+          <p class="text-[11px] text-slate-500">Add employee to ${period.month} payroll cycle.</p>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleAddPayrollEmployee(event)" class="space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">No #</label>
+            <input type="number" id="payEmpNo" value="${nextNo}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">EPF No</label>
+            <input type="text" id="payEmpEpfNo" value="${String(nextNo).padStart(2, '0')}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Joined Date</label>
+            <input type="text" id="payEmpJoined" placeholder="DD/MM/YYYY" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Full Legal Name</label>
+            <input type="text" id="payEmpName" required placeholder="e.g. MS PIRIYATHARSHINI SENTHIL KUMARAN" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Position / Title</label>
+            <input type="text" id="payEmpPosition" required placeholder="e.g. SENIOR SOFTWARE ENGINEER" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Monthly GBP Salary (£)</label>
+            <input type="number" step="0.01" id="payEmpGbp" required placeholder="e.g. 1939.00" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Work Days / Note</label>
+            <input type="text" id="payEmpWorkDays" placeholder="Leave blank or e.g. 17 D" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Earned GBP (£)</label>
+            <input type="number" step="0.01" id="payEmpEarnedGbp" placeholder="Leave blank to match salary" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Bank Account No</label>
+            <input type="text" id="payEmpAccount" required placeholder="e.g. 8005702912" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Bank Code</label>
+            <input type="text" id="payEmpBankCode" placeholder="e.g. COMM, HNB, NTB" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Bank Branch</label>
+            <input type="text" id="payEmpBranch" placeholder="e.g. Commercial Bank KATUBADDA" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">NIC / Passport (ID No)</label>
+            <input type="text" id="payEmpIdNo" placeholder="e.g. 198485700230" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">TIN Number</label>
+            <input type="text" id="payEmpTinNo" placeholder="e.g. 123494520" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">APIT Tax (LKR)</label>
+            <input type="number" step="0.01" id="payEmpApit" placeholder="Leave empty for auto tax" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+            <span class="text-[10px] text-slate-400">Leave blank for Sri Lanka APIT table calculation</span>
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Special Allowance (LKR)</label>
+            <input type="number" step="0.01" id="payEmpAllowance" value="0" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">No Pay / Deductions (LKR)</label>
+            <input type="number" step="0.01" id="payEmpNoPay" value="0" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 font-medium">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium">Add Staff Member</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function handleAddPayrollEmployee(e) {
+  e.preventDefault();
+  const period = activePayrollPeriod;
+  if (!period) return;
+
+  const earnedGbpVal = document.getElementById('payEmpEarnedGbp').value;
+  const apitVal = document.getElementById('payEmpApit').value;
+
+  const payload = {
+    periodId: period.id,
+    no: parseInt(document.getElementById('payEmpNo').value, 10),
+    epfNo: document.getElementById('payEmpEpfNo').value.trim(),
+    name: document.getElementById('payEmpName').value.trim(),
+    position: document.getElementById('payEmpPosition').value.trim(),
+    gbpSalary: parseFloat(document.getElementById('payEmpGbp').value) || 0,
+    workDays: document.getElementById('payEmpWorkDays').value.trim(),
+    earnedGbp: earnedGbpVal ? parseFloat(earnedGbpVal) : null,
+    bankAccountNo: document.getElementById('payEmpAccount').value.trim(),
+    bankCode: document.getElementById('payEmpBankCode').value.trim(),
+    bankBranch: document.getElementById('payEmpBranch').value.trim(),
+    idNo: document.getElementById('payEmpIdNo').value.trim(),
+    tinNo: document.getElementById('payEmpTinNo').value.trim(),
+    dateJoined: document.getElementById('payEmpJoined').value.trim(),
+    apit: apitVal ? parseFloat(apitVal) : null,
+    specialAllowance: parseFloat(document.getElementById('payEmpAllowance').value) || 0,
+    noPayLate: parseFloat(document.getElementById('payEmpNoPay').value) || 0
+  };
+
+  try {
+    const res = await fetch('/api/payroll/employee', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      activePayrollPeriod = data.period;
+      if (payrollData) payrollData.activePeriod = activePayrollPeriod;
+      closeModal();
+      const container = document.getElementById('mainContent');
+      if (container) renderPayroll(container);
+    } else {
+      const err = await res.json();
+      alert('Failed to add employee: ' + (err.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+function openEditPayrollEmployeeModal(empId) {
+  if (!canEdit('payroll')) return;
+  const period = activePayrollPeriod;
+  if (!period) return;
+  const emp = (period.employees || []).find(e => e.id === empId);
+  if (!emp) return;
+
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Edit Staff Member</h3>
+          <p class="text-[11px] text-slate-500">${emp.name} · Update salary, bank or deductions</p>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleEditPayrollEmployee(event, '${emp.id}')" class="space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">No #</label>
+            <input type="number" id="editPayEmpNo" value="${emp.no}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">EPF No</label>
+            <input type="text" id="editPayEmpEpfNo" value="${emp.epfNo || ''}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Joined Date</label>
+            <input type="text" id="editPayEmpJoined" value="${emp.dateJoined || ''}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Full Legal Name</label>
+            <input type="text" id="editPayEmpName" value="${emp.name}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Position / Title</label>
+            <input type="text" id="editPayEmpPosition" value="${emp.position || ''}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Monthly GBP Salary (£)</label>
+            <input type="number" step="0.01" id="editPayEmpGbp" value="${emp.gbpSalary}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Work Days / Note</label>
+            <input type="text" id="editPayEmpWorkDays" value="${emp.workDays || ''}" placeholder="e.g. 17 D" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Earned GBP (£)</label>
+            <input type="number" step="0.01" id="editPayEmpEarnedGbp" value="${emp.earnedGbp !== undefined ? emp.earnedGbp : emp.gbpSalary}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Bank Account No</label>
+            <input type="text" id="editPayEmpAccount" value="${emp.bankAccountNo || ''}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Bank Code</label>
+            <input type="text" id="editPayEmpBankCode" value="${emp.bankCode || ''}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Bank Branch</label>
+            <input type="text" id="editPayEmpBranch" value="${emp.bankBranch || ''}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">NIC / Passport (ID No)</label>
+            <input type="text" id="editPayEmpIdNo" value="${emp.idNo || ''}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">TIN Number</label>
+            <input type="text" id="editPayEmpTinNo" value="${emp.tinNo || ''}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">APIT Tax (LKR)</label>
+            <input type="number" step="0.01" id="editPayEmpApit" value="${emp.apit !== undefined && emp.apit !== null ? emp.apit : ''}" placeholder="Auto calculated if empty" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Special Allowance (LKR)</label>
+            <input type="number" step="0.01" id="editPayEmpAllowance" value="${emp.specialAllowance || 0}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">No Pay / Deductions (LKR)</label>
+            <input type="number" step="0.01" id="editPayEmpNoPay" value="${emp.noPayLate || 0}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 font-medium">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function handleEditPayrollEmployee(e, empId) {
+  e.preventDefault();
+  const period = activePayrollPeriod;
+  if (!period) return;
+
+  const earnedGbpVal = document.getElementById('editPayEmpEarnedGbp').value;
+  const apitVal = document.getElementById('editPayEmpApit').value;
+
+  const payload = {
+    id: empId,
+    periodId: period.id,
+    no: parseInt(document.getElementById('editPayEmpNo').value, 10),
+    epfNo: document.getElementById('editPayEmpEpfNo').value.trim(),
+    name: document.getElementById('editPayEmpName').value.trim(),
+    position: document.getElementById('editPayEmpPosition').value.trim(),
+    gbpSalary: parseFloat(document.getElementById('editPayEmpGbp').value) || 0,
+    workDays: document.getElementById('editPayEmpWorkDays').value.trim(),
+    earnedGbp: earnedGbpVal !== '' ? parseFloat(earnedGbpVal) : null,
+    bankAccountNo: document.getElementById('editPayEmpAccount').value.trim(),
+    bankCode: document.getElementById('editPayEmpBankCode').value.trim(),
+    bankBranch: document.getElementById('editPayEmpBranch').value.trim(),
+    idNo: document.getElementById('editPayEmpIdNo').value.trim(),
+    tinNo: document.getElementById('editPayEmpTinNo').value.trim(),
+    dateJoined: document.getElementById('editPayEmpJoined').value.trim(),
+    apit: apitVal !== '' ? parseFloat(apitVal) : null,
+    specialAllowance: parseFloat(document.getElementById('editPayEmpAllowance').value) || 0,
+    noPayLate: parseFloat(document.getElementById('editPayEmpNoPay').value) || 0
+  };
+
+  try {
+    const res = await fetch('/api/payroll/employee', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      activePayrollPeriod = data.period;
+      if (payrollData) payrollData.activePeriod = activePayrollPeriod;
+      closeModal();
+      const container = document.getElementById('mainContent');
+      if (container) renderPayroll(container);
+    } else {
+      const err = await res.json();
+      alert('Failed to update employee: ' + (err.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+async function deletePayrollEmployee(empId, empName) {
+  if (!canEdit('payroll')) return;
+  const decoded = decodeURIComponent(empName);
+  if (!confirm(`Are you sure you want to remove "${decoded}" from this payroll period?`)) return;
+
+  try {
+    const res = await fetch(`/api/payroll/employee?id=${encodeURIComponent(empId)}&periodId=${encodeURIComponent(activePayrollPeriod.id)}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      activePayrollPeriod = data.period;
+      if (payrollData) payrollData.activePeriod = activePayrollPeriod;
+      const countEl = document.getElementById('navPayrollCount');
+      if (countEl && activePayrollPeriod) {
+        countEl.textContent = activePayrollPeriod.employees?.length || 0;
+      }
+      const container = document.getElementById('mainContent');
+      if (container) renderPayroll(container);
+    } else {
+      const err = await res.json();
+      alert('Failed to delete employee: ' + (err.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+function openNewPayrollPeriodModal() {
+  if (!canEdit('payroll')) {
+    alert('You have Viewer access only.');
+    return;
+  }
+  const period = activePayrollPeriod || {};
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Create New Payroll Period</h3>
+          <p class="text-[11px] text-slate-500">Initiate a new monthly cycle with optional staff roster cloning.</p>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleCreatePayrollPeriod(event)" class="space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Month Name</label>
+            <input type="text" id="newPeriodMonth" required placeholder="e.g. October 2026" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Month Code</label>
+            <input type="text" id="newPeriodCode" required placeholder="e.g. Oct-26" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Financial Year</label>
+            <input type="text" id="newPeriodYear" value="${period.yearPeriod || '2026-2027'}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Exchange Rate (GBP/LKR)</label>
+            <input type="number" step="0.01" id="newPeriodRate" value="${period.exchangeRate || 440.0}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block text-slate-600 font-medium mb-1">Bank Letter Date</label>
+            <input type="text" id="newPeriodDate" placeholder="DD.MM.YYYY" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+        </div>
+
+        <div class="p-3 bg-teal-50 border border-teal-200 rounded-xl flex items-start gap-2.5">
+          <input type="checkbox" id="cloneEmployeesCheck" checked class="mt-0.5 rounded text-teal-600 focus:ring-teal-500">
+          <div>
+            <label for="cloneEmployeesCheck" class="font-semibold text-slate-800 cursor-pointer">
+              Clone All Staff Members from ${period.month || 'Active Period'}
+            </label>
+            <p class="text-[11px] text-slate-600 mt-0.5">
+              Automatically copies the existing roster of ${period.employees?.length || 0} employees, their GBP salaries, and bank accounts into this new month.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 font-medium">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium">Create Period</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function handleCreatePayrollPeriod(e) {
+  e.preventDefault();
+  const period = activePayrollPeriod || {};
+  const clone = document.getElementById('cloneEmployeesCheck').checked;
+
+  const payload = {
+    month: document.getElementById('newPeriodMonth').value.trim(),
+    monthCode: document.getElementById('newPeriodCode').value.trim(),
+    yearPeriod: document.getElementById('newPeriodYear').value.trim(),
+    exchangeRate: parseFloat(document.getElementById('newPeriodRate').value) || 440.0,
+    letterDate: document.getElementById('newPeriodDate').value.trim() || undefined,
+    basePeriodId: clone ? period.id : undefined,
+    cloneEmployees: clone
+  };
+
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      activePayrollPeriod = data.period;
+      // Refresh overall payroll list
+      const rList = await fetch('/api/payroll', { headers: { 'Authorization': `Bearer ${authToken}` } });
+      if (rList.ok) payrollData = await rList.json();
+      closeModal();
+      const container = document.getElementById('mainContent');
+      if (container) renderPayroll(container);
+    } else {
+      const err = await res.json();
+      alert('Failed to create period: ' + (err.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+function openEditExchangeRateModal() {
+  if (!canEdit('payroll')) {
+    alert('You have Viewer access only.');
+    return;
+  }
+  const period = activePayrollPeriod;
+  if (!period) return;
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Adjust Exchange Rate</h3>
+          <p class="text-[11px] text-slate-500">${period.month} · Live currency conversion rate</p>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form onsubmit="handleUpdateExchangeRate(event)" class="space-y-4">
+        <div>
+          <label class="block text-slate-700 font-semibold mb-1">Exchange Rate (1 GBP in LKR)</label>
+          <div class="relative">
+            <span class="absolute left-3 top-2.5 text-slate-400 font-mono">Rs.</span>
+            <input type="number" step="0.01" id="newExchangeRateInput" value="${period.exchangeRate || 440.0}" required class="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl font-mono text-base font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500">
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1.5">
+            Updating the exchange rate immediately recalculates all Gross LKR amounts, EPF 8%, EPF 12%, ETF 3%, APIT taxes, and the net bank remittance total across all documents.
+          </p>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 font-medium">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium">Recalculate & Save</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function handleUpdateExchangeRate(e) {
+  e.preventDefault();
+  const period = activePayrollPeriod;
+  if (!period) return;
+  const rate = parseFloat(document.getElementById('newExchangeRateInput').value);
+  if (!rate || rate <= 0) return;
+
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ id: period.id, exchangeRate: rate })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      activePayrollPeriod = data.period;
+      if (payrollData) payrollData.activePeriod = activePayrollPeriod;
+      closeModal();
+      const container = document.getElementById('mainContent');
+      if (container) renderPayroll(container);
+    } else {
+      alert('Failed to update exchange rate');
+    }
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+}
+
+function openPayrollSettingsModal() {
+  switchPayrollSubTab('settings');
 }
 
 // ================= MODAL CONTROLS & CRUD OPERATIONS =================
@@ -4140,3 +5898,1855 @@ function openKnowItAllModal() {
   document.getElementById('modalBackdrop').classList.remove('hidden');
   if (window.lucide) lucide.createIcons();
 }
+
+// =========================================================================
+// SPILLBURG HOLDINGS - PAYROLL & BANK REMITTANCE AUTOMATION MODULE
+// Matching Original Sheet Designs: salary_sheet.pdf, bank_request.pdf, payroll.pdf
+// =========================================================================
+
+function formatMoney(num, decimals = 2) {
+  if (num === null || num === undefined || isNaN(num)) return '-';
+  const val = Number(num);
+  return val.toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+async function renderPayroll(container) {
+  if (!payrollData || !activePayrollPeriod) {
+    try {
+      const res = await fetch('/api/payroll', {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      if (res.ok) {
+        payrollData = await res.json();
+        activePayrollPeriod = payrollData.activePeriod || null;
+      }
+    } catch (e) {
+      console.error('Error fetching payroll:', e);
+    }
+  }
+
+  if (!payrollData || !activePayrollPeriod) {
+    container.innerHTML = `
+      <div class="p-8 text-center text-slate-500 space-y-3">
+        <i data-lucide="alert-circle" class="w-10 h-10 text-amber-500 mx-auto"></i>
+        <h3 class="text-base font-bold text-slate-800">Payroll Records Not Available</h3>
+        <p class="text-xs">Unable to load payroll period data. Please verify server connection.</p>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  const p = activePayrollPeriod;
+  const totals = p.totals || {};
+  const currentComp = (payrollData.companies || []).find(c => c.id === p.companyId) || (payrollData.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+
+  container.innerHTML = `
+    <div class="space-y-6 fade-in">
+      
+      <!-- Top Header & Period Selector -->
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200 uppercase tracking-wider">
+              Corporate Payroll
+            </span>
+            <span class="text-xs text-slate-400">&bull;</span>
+            <span class="text-xs font-semibold text-slate-600">${escapeHtml(currentComp.name)}</span>
+          </div>
+          <h2 class="font-display font-bold text-xl md:text-2xl text-slate-900 tracking-tight mt-1">
+            Payroll &amp; Bank Remittance Center
+          </h2>
+          <p class="text-xs text-slate-500">
+            Automated Staff Salary Sheets (Dual GBP &amp; LKR), Official Bank Letters &amp; Employee Payslips
+          </p>
+        </div>
+
+        <!-- Period Selector & Actions -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <!-- Live Exchange Rate Badge -->
+          <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 shadow-2xs">
+            <i data-lucide="trending-up" class="w-3.5 h-3.5 text-amber-600"></i>
+            <span class="font-medium text-amber-700">1 GBP =</span>
+            <span class="font-bold text-slate-900">${formatMoney(p.exchangeRate, 2)} LKR</span>
+            <button onclick="openExchangeRateModal()" title="Adjust Exchange Rate" class="ml-1 p-1 hover:bg-amber-100 rounded text-amber-700 transition">
+              <i data-lucide="edit-2" class="w-3 h-3"></i>
+            </button>
+          </div>
+
+          <!-- Month/Period Selector -->
+          <div class="relative">
+            <select id="payrollPeriodSelect" onchange="handlePayrollPeriodChange(this.value)"
+              class="appearance-none pl-3 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30">
+              ${(payrollData.periods || []).map(per => `
+                <option value="${per.id}" ${per.id === p.id ? 'selected' : ''}>
+                  ${escapeHtml(per.month)} (${per.employeeCount || 0} Staff)
+                </option>
+              `).join('')}
+            </select>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none"></i>
+          </div>
+
+          <!-- Add Period Button -->
+          <button onclick="openNewPeriodModal()"
+            class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span>New Period</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Executive Stat Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- 1. Total Net Remittance to Bank -->
+        <div class="glass-card p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-white via-white to-emerald-50/40 relative overflow-hidden">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <span class="font-semibold uppercase tracking-wider text-[10px] text-emerald-700">Bank Remittance</span>
+            <i data-lucide="landmark" class="w-4 h-4 text-emerald-600"></i>
+          </div>
+          <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
+            Rs ${formatMoney(totals.sumNetSalaryLkr, 2)}
+          </div>
+          <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+            <span>Net Staff Pay (${p.employees?.length || 0} Members)</span>
+            <span class="font-medium text-emerald-700">${escapeHtml(p.bankBranch || 'Borella')}</span>
+          </div>
+        </div>
+
+        <!-- 2. Total Earned Base GBP -->
+        <div class="glass-card p-4 rounded-xl border border-slate-200 bg-white">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <span class="font-semibold uppercase tracking-wider text-[10px] text-blue-700">Earned Base (GBP)</span>
+            <i data-lucide="coins" class="w-4 h-4 text-blue-600"></i>
+          </div>
+          <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
+            &pound; ${formatMoney(totals.sumEarnedGbp, 2)}
+          </div>
+          <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+            <span>Total GBP Base</span>
+            <span class="font-medium text-slate-700">Contract &pound; ${formatMoney(totals.sumGbpSalary, 2)}</span>
+          </div>
+        </div>
+
+        <!-- 3. Statutory Deductions (EPF 8% + APIT) -->
+        <div class="glass-card p-4 rounded-xl border border-slate-200 bg-white">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <span class="font-semibold uppercase tracking-wider text-[10px] text-amber-700">Statutory Deductions</span>
+            <i data-lucide="receipt" class="w-4 h-4 text-amber-600"></i>
+          </div>
+          <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
+            Rs ${formatMoney(totals.sumDeductionsLkr, 2)}
+          </div>
+          <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+            <span>EPF 8%: Rs ${formatMoney(totals.sumEpf8Lkr, 0)}</span>
+            <span class="font-medium text-amber-700">APIT: Rs ${formatMoney(totals.sumApitLkr, 0)}</span>
+          </div>
+        </div>
+
+        <!-- 4. Employer Contributions (EPF 12% + ETF 3%) -->
+        <div class="glass-card p-4 rounded-xl border border-slate-200 bg-white">
+          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+            <span class="font-semibold uppercase tracking-wider text-[10px] text-indigo-700">Employer EPF/ETF</span>
+            <i data-lucide="shield-check" class="w-4 h-4 text-indigo-600"></i>
+          </div>
+          <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
+            Rs ${formatMoney((totals.sumEpf12Lkr || 0) + (totals.sumEtf3Lkr || 0), 2)}
+          </div>
+          <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+            <span>EPF 12%: Rs ${formatMoney(totals.sumEpf12Lkr, 0)}</span>
+            <span class="font-medium text-indigo-700">ETF 3%: Rs ${formatMoney(totals.sumEtf3Lkr, 0)}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs (Sub-Views) -->
+      <div class="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto tab-nav-bar">
+        <button onclick="switchPayrollSubTab('sheet')" id="paytab-sheet"
+          class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'sheet' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+          <span>Staff Payroll Sheet (Dual Table)</span>
+        </button>
+
+        <button onclick="switchPayrollSubTab('letter')" id="paytab-letter"
+          class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'letter' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+          <i data-lucide="mail" class="w-3.5 h-3.5"></i>
+          <span>Bank Request Letter (Printed to Bank)</span>
+        </button>
+
+        <button onclick="switchPayrollSubTab('slips')" id="paytab-slips"
+          class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'slips' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+          <i data-lucide="ticket" class="w-3.5 h-3.5"></i>
+          <span>Individual Payslips (Vouchers)</span>
+        </button>
+
+        <button onclick="switchPayrollSubTab('staff')" id="paytab-staff"
+          class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'staff' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+          <i data-lucide="users" class="w-3.5 h-3.5"></i>
+          <span>Staff Directory &amp; Details</span>
+        </button>
+      </div>
+
+      <!-- Active Tab Sub-View Container -->
+      <div id="payrollSubContent" class="space-y-4">
+        <!-- Injected via sub-tab handler -->
+      </div>
+
+    </div>
+  `;
+
+  renderActivePayrollSubTab();
+  if (window.lucide) lucide.createIcons();
+}
+
+function switchPayrollSubTab(tab) {
+  currentPayrollSubTab = tab;
+  ['sheet', 'letter', 'slips', 'staff'].forEach(t => {
+    const btn = document.getElementById(`paytab-${t}`);
+    if (btn) {
+      if (t === tab) {
+        btn.className = 'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition bg-teal-600 text-white shadow-sm';
+      } else {
+        btn.className = 'px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50';
+      }
+    }
+  });
+  renderActivePayrollSubTab();
+}
+
+function renderActivePayrollSubTab() {
+  const container = document.getElementById('payrollSubContent');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (currentPayrollSubTab === 'sheet') {
+    renderPayrollSheet(container);
+  } else if (currentPayrollSubTab === 'letter') {
+    renderBankRequestLetter(container);
+  } else if (currentPayrollSubTab === 'slips') {
+    renderIndividualPayslips(container);
+  } else if (currentPayrollSubTab === 'staff') {
+    renderPayrollStaffManager(container);
+  }
+  if (window.lucide) lucide.createIcons();
+  scheduleStickyScrollbarUpdate();
+}
+
+// ---------------- 1. STAFF PAYROLL SHEET (DUAL TABLE) ----------------
+function renderPayrollSheet(container) {
+  const p = activePayrollPeriod;
+  const emps = p.employees || [];
+  const totals = p.totals || {};
+
+  container.innerHTML = `
+    <div class="space-y-4 fade-in">
+      
+      <!-- Toolbar -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-slate-800">Original Master Sheet:</span>
+          <span class="text-xs text-slate-600 font-medium">${escapeHtml(p.month)} (Dual GBP &amp; LKR Tables)</span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="printMasterSalarySheet()"
+            class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            <span>Print Original Sheet (Landscape)</span>
+          </button>
+
+          <button onclick="exportPayrollExcel()"
+            class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Download Excel (.xlsx)</span>
+          </button>
+
+          <button onclick="exportPayrollCsv()"
+            class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+            <span>Export CSV</span>
+          </button>
+
+          <button onclick="openAddEmployeeModal()"
+            class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+            <span>Add Staff Member</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Excel Master Sheet Container (Matching salary_sheet.pdf exactly) -->
+      <div class="payroll-sheet-wrap overflow-x-auto">
+
+        <!-- TABLE 1: GBP SALARY SHEET -->
+        <div class="excel-header-title flex items-center justify-between">
+          <span>SALARY SHEET (IN GBP ) - ${p.month.toUpperCase()}</span>
+          <span class="text-[11px] font-normal text-slate-500">Base Currency: GBP</span>
+        </div>
+
+        <table class="excel-payroll-table">
+          <thead>
+            <tr>
+              <th style="width: 35px;">No</th>
+              <th style="text-align: left; min-width: 200px;">Employee Name</th>
+              <th style="text-align: left; min-width: 170px;">POSITION</th>
+              <th>GBP Salary</th>
+              <th>Column1</th>
+              <th>Column2</th>
+              <th>EPF (12% )</th>
+              <th>ETF(3% )</th>
+              <th>AMOUNT</th>
+              <th>BANK ACCOUNT NO</th>
+              <th>TIN NO</th>
+              <th>IDNO</th>
+              <th>Date of Joined</th>
+              <th class="no-print">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${emps.map(e => `
+              <tr>
+                <td style="text-align: center;">${e.no}</td>
+                <td style="font-weight: 600; text-align: left;">${escapeHtml(e.name)}</td>
+                <td style="text-align: left; color: #475569;">${escapeHtml(e.position)}</td>
+                <td style="text-align: right;">${formatMoney(e.gbpSalary, 2)}</td>
+                <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
+                <td style="text-align: right; font-weight: 600;">${formatMoney(e.earnedGbp, 2)}</td>
+                <td style="text-align: right;">${formatMoney(e.epf12Gbp, 0)}</td>
+                <td style="text-align: right;">${formatMoney(e.etf3Gbp, 0)}</td>
+                <td style="text-align: right; font-weight: 700; color: #1e3a8a;">${formatMoney(e.totalGbp, 2)}</td>
+                <td style="text-align: left; font-family: monospace;">${escapeHtml(e.bankAccountNo)}${e.bankCode ? `(${escapeHtml(e.bankCode)})` : ''}</td>
+                <td style="text-align: center;">${escapeHtml(e.tinNo || '-')}</td>
+                <td style="text-align: center;">${escapeHtml(e.idNo || '-')}</td>
+                <td style="text-align: center;">${escapeHtml(e.dateJoined || '-')}</td>
+                <td class="no-print" style="text-align: center;">
+                  <button onclick="openEditEmployeeModal('${e.id}')" title="Edit Staff Member" class="p-1 hover:text-teal-600 transition">
+                    <i data-lucide="edit" class="w-3 h-3"></i>
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+
+            <!-- GBP Summary Totals Row -->
+            <tr class="totals-row">
+              <td colspan="3" style="text-align: center; font-weight: bold;">TOTAL</td>
+              <td style="text-align: right;">${formatMoney(totals.sumGbpSalary, 2)}</td>
+              <td></td>
+              <td style="text-align: right;">${formatMoney(totals.sumEarnedGbp, 2)}</td>
+              <td style="text-align: right;">${formatMoney(totals.sumEpf12Gbp, 0)}</td>
+              <td style="text-align: right;">${formatMoney(totals.sumEtf3Gbp, 0)}</td>
+              <td style="text-align: right; font-size: 11.5px;">${formatMoney(totals.sumTotalGbp, 2)}</td>
+              <td colspan="5"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Sign-off Row -->
+        <div class="excel-signoff-row">
+          <div>
+            <div class="font-bold text-slate-800">Checked by: ${escapeHtml(p.checkedBy || 'Hemanthi Basnayake')}</div>
+            <div class="text-slate-500">${escapeHtml(p.checkedTitle || 'Accountant')}</div>
+          </div>
+          <div style="text-align: right;">
+            <div class="font-bold text-slate-800">Authorized by: ${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
+            <div class="text-slate-500">${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (pvt)Ltd')}</div>
+          </div>
+        </div>
+
+        <!-- TABLE 2: LKR SALARY SHEET -->
+        <div class="excel-header-title flex items-center justify-between border-t-2 border-slate-300">
+          <span>SALARY SHEET (IN GBP ) - ${p.month.toUpperCase().replace(/\s+/g, '')}. @${formatMoney(p.exchangeRate, 0)}</span>
+          <span class="text-[11px] font-normal text-slate-500">Exchange Rate: @${formatMoney(p.exchangeRate, 2)} LKR/GBP</span>
+        </div>
+
+        <table class="excel-payroll-table">
+          <thead>
+            <tr>
+              <th style="width: 35px;">No</th>
+              <th style="text-align: left; min-width: 200px;">Employee Name</th>
+              <th style="text-align: left; min-width: 170px;">POSITION</th>
+              <th>GBP Salary</th>
+              <th>Column1</th>
+              <th>Column2</th>
+              <th>LKR</th>
+              <th>EPF 8%</th>
+              <th>EPF12%</th>
+              <th>ETF 3%</th>
+              <th>APIT</th>
+              <th>Column3</th>
+              <th>TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${emps.map(e => `
+              <tr>
+                <td style="text-align: center;">${e.no}</td>
+                <td style="font-weight: 600; text-align: left;">${escapeHtml(e.name)}</td>
+                <td style="text-align: left; color: #475569;">${escapeHtml(e.position)}</td>
+                <td style="text-align: right;">${formatMoney(e.gbpSalary, 2)}</td>
+                <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
+                <td style="text-align: right;">${formatMoney(e.earnedGbp, 2)}</td>
+                <td style="text-align: right; font-weight: 600;">${formatMoney(e.lkrGross, 0)}</td>
+                <td style="text-align: right;">${formatMoney(e.epf8Lkr, 0)}</td>
+                <td style="text-align: right;">${formatMoney(e.epf12Lkr, 0)}</td>
+                <td style="text-align: right;">${formatMoney(e.etf3Lkr, 0)}</td>
+                <td style="text-align: right; color: #dc2626;">${formatMoney(e.apit, 0)}</td>
+                <td></td>
+                <td style="text-align: right; font-weight: 700; color: #047857; font-size: 11.5px;">${formatMoney(e.netSalaryLkr, 0)}</td>
+              </tr>
+            `).join('')}
+
+            <!-- LKR Summary Totals Row -->
+            <tr class="totals-row">
+              <td colspan="3" style="text-align: center; font-weight: bold;">TOTAL</td>
+              <td style="text-align: right;">${formatMoney(totals.sumGbpSalary, 2)}</td>
+              <td></td>
+              <td style="text-align: right;">${formatMoney(totals.sumEarnedGbp, 2)}</td>
+              <td style="text-align: right; font-weight: 700;">${formatMoney(totals.sumLkrGross, 0)}</td>
+              <td style="text-align: right;">${formatMoney(totals.sumEpf8Lkr, 0)}</td>
+              <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, 0)}</td>
+              <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 0)}</td>
+              <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, 0)}</td>
+              <td></td>
+              <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 800;">${formatMoney(totals.sumNetSalaryLkr, 0)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+      </div>
+
+    </div>
+  `;
+}
+
+// ---------------- 2. BANK REQUEST LETTER ----------------
+function renderBankRequestLetter(container) {
+  const p = activePayrollPeriod;
+  const emps = p.employees || [];
+  const totals = p.totals || {};
+
+  container.innerHTML = `
+    <div class="space-y-4 fade-in">
+      
+      <!-- Toolbar -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+        <div>
+          <h3 class="text-xs font-bold text-slate-800">Official Bank Remittance Presentation</h3>
+          <p class="text-[11px] text-slate-500">Letter to ${escapeHtml(p.bankName || 'Nations Trust Bank PLC')} for staff direct salary transfer</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="printBankRequestLetter()"
+            class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            <span>Print Bank Request Letter</span>
+          </button>
+
+          <button onclick="openEditBankDetailsModal()"
+            class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+            <span>Edit Letter Details</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Visual Preview of Bank Request Letter on Letterhead -->
+      <div class="bank-letter-container">
+        <div class="bank-letter-sheet">
+
+          <!-- Date -->
+          <div style="margin-bottom: 18px; font-weight: 600;">
+            ${escapeHtml(p.letterDate || '30.09.2026')}
+          </div>
+
+          <!-- Addressee -->
+          <div style="line-height: 1.35; margin-bottom: 20px;">
+            <div>The Manager</div>
+            <div style="font-weight: 500;">${escapeHtml(p.bankName || 'Nations Trust Bank PLC')},</div>
+            <div>${escapeHtml(p.bankBranch || 'Borella Branch')},</div>
+            <div>${(p.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.').split('\n').map(l => escapeHtml(l)).join('<br>')}</div>
+          </div>
+
+          <!-- Salutation -->
+          <div style="margin-bottom: 12px;">Dear Sir,</div>
+
+          <!-- Subject -->
+          <div style="margin-bottom: 16px; font-weight: 700; text-decoration: underline;">
+            SALARY FOR STAFF MEMBERS OF APADMI SL (PRIVATE) LIMITED
+          </div>
+
+          <!-- Staff Table -->
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 250px;">Name</th>
+                <th style="width: 120px;">ID Number</th>
+                <th style="width: 130px;">A/C Number</th>
+                <th style="width: 210px;">Bank/ Branch</th>
+                <th style="text-align: right; width: 110px;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${emps.map((e, idx) => `
+                <tr>
+                  <td style="font-weight: 600;">${idx + 1}.${escapeHtml(e.name)}</td>
+                  <td>${escapeHtml(e.idNo)}</td>
+                  <td style="font-family: monospace;">${escapeHtml(e.bankAccountNo)}</td>
+                  <td>${escapeHtml(e.bankBranch)}</td>
+                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.netSalaryLkr, 2)}</td>
+                </tr>
+              `).join('')}
+
+              <tr class="letter-total-row">
+                <td colspan="4" style="text-align: right; font-weight: 700; padding-right: 25px;">Total</td>
+                <td style="text-align: right;" class="double-underline">
+                  Rs ${formatMoney(totals.sumNetSalaryLkr, 2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Debit Authorization Paragraph -->
+          <div style="margin-top: 18px; line-height: 1.45; text-align: justify;">
+            Please be kind enough to remit the respective amount for above mention staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
+          </div>
+
+          <!-- Sign-off Block -->
+          <div style="margin-top: 25px;">
+            <div>Thank You,</div>
+            <div style="margin-bottom: 45px;">Yours faithfully,</div>
+            <div style="font-weight: 700; color: #1e293b;">${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
+            <div style="font-size: 11px; color: #475569;">Director &middot; Spillburg Holdings (Private) Limited</div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
+// ---------------- 3. INDIVIDUAL PAYSLIPS ----------------
+function renderIndividualPayslips(container) {
+  const p = activePayrollPeriod;
+  const emps = p.employees || [];
+  if (emps.length === 0) {
+    container.innerHTML = `<div class="p-8 text-center text-slate-500">No staff members in this period.</div>`;
+    return;
+  }
+
+  if (!activePayslipEmployeeId || !emps.find(e => e.id === activePayslipEmployeeId)) {
+    activePayslipEmployeeId = emps[0].id;
+  }
+
+  const selectedEmp = emps.find(e => e.id === activePayslipEmployeeId) || emps[0];
+
+  container.innerHTML = `
+    <div class="space-y-4 fade-in">
+      
+      <!-- Top Action Bar -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-slate-800">Select Employee:</span>
+          <select onchange="selectPayslipEmployee(this.value)"
+            class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500">
+            ${emps.map(e => `
+              <option value="${e.id}" ${e.id === selectedEmp.id ? 'selected' : ''}>
+                ${e.no}. ${escapeHtml(e.name)} (&pound;${formatMoney(e.gbpSalary, 0)})
+              </option>
+            `).join('')}
+          </select>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="printSinglePayslip('${selectedEmp.id}')"
+            class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            <span>Print This Payslip</span>
+          </button>
+
+          <button onclick="printAllPayslips()"
+            class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+            <span>Print All ${emps.length} Payslips</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Employee Selector Chips -->
+      <div class="flex items-center gap-1.5 overflow-x-auto pb-2">
+        ${emps.map(e => `
+          <button onclick="selectPayslipEmployee('${e.id}')"
+            class="px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition ${e.id === selectedEmp.id ? 'bg-teal-600 text-white font-semibold shadow-xs' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}">
+            ${e.no}. ${escapeHtml(e.shortName || e.name.split(' ')[0])}
+          </button>
+        `).join('')}
+      </div>
+
+      <!-- Payslip Voucher Card (Matching payroll.pdf layout) -->
+      <div class="p-6 bg-slate-100/70 rounded-2xl border border-slate-200 flex justify-center">
+        ${generatePayslipHtml(selectedEmp, p)}
+      </div>
+
+    </div>
+  `;
+}
+
+function selectPayslipEmployee(empId) {
+  activePayslipEmployeeId = empId;
+  const container = document.getElementById('payrollSubContent');
+  if (container) renderIndividualPayslips(container);
+  if (window.lucide) lucide.createIcons();
+}
+
+function generatePayslipHtml(emp, period) {
+  return `
+    <div class="payslip-voucher p-5 bg-white shadow-md">
+      <table>
+        <tr>
+          <td colspan="2" style="border-bottom: 2px solid #000; padding-bottom: 8px;">
+            <div style="font-weight: 800; font-size: 13px; text-transform: uppercase;">APADMI SL (PRIVATE) LIMITED</div>
+            <div style="font-size: 11px; color: #475569;">Monthly Payroll ${escapeHtml(period.yearPeriod || '2026-2027')}</div>
+            <div style="font-size: 11px; font-weight: 600; margin-top: 2px;">EPF NO :${escapeHtml(emp.epfNo || String(emp.no).padStart(2, '0'))}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="width: 40%; font-weight: bold; background: #f8fafc;">Month</td>
+          <td style="font-weight: 600; text-align: right;">${escapeHtml(period.monthCode || period.month)}</td>
+        </tr>
+        <tr>
+          <td style="font-weight: bold; background: #f8fafc; vertical-align: middle;">Name</td>
+          <td style="font-weight: 700; text-align: right; text-transform: uppercase;">
+            ${escapeHtml(emp.name)}
+          </td>
+        </tr>
+        <tr>
+          <td style="background: #f8fafc;"></td>
+          <td style="font-weight: bold; text-align: right; background: #f1f5f9;">LKR</td>
+        </tr>
+        <tr>
+          <td>Basic Pay (GBP ${formatMoney(emp.earnedGbp, 0)} @${formatMoney(period.exchangeRate, 0)})</td>
+          <td style="text-align: right;">${formatMoney(emp.lkrGross, 2)}</td>
+        </tr>
+        <tr>
+          <td>Special Allowance</td>
+          <td style="text-align: right;">${emp.specialAllowance ? formatMoney(emp.specialAllowance, 2) : '-'}</td>
+        </tr>
+        <tr style="font-weight: bold; background: #f8fafc;">
+          <td>Total (Gross)</td>
+          <td style="text-align: right;">${formatMoney(emp.totalGrossLkr, 2)}</td>
+        </tr>
+        <tr>
+          <td>(-) No Pay/Late</td>
+          <td style="text-align: right;">${emp.noPayLate ? formatMoney(emp.noPayLate, 2) : '-'}</td>
+        </tr>
+        <tr style="font-weight: 600;">
+          <td>Net total</td>
+          <td style="text-align: right;">${formatMoney(emp.netTotalGross, 2)}</td>
+        </tr>
+        <tr style="font-weight: 600;">
+          <td>Gross Pay</td>
+          <td style="text-align: right;">${formatMoney(emp.netTotalGross, 2)}</td>
+        </tr>
+        <tr>
+          <td>(-) EPF 8%</td>
+          <td style="text-align: right;">${formatMoney(emp.epf8Lkr, 2)}</td>
+        </tr>
+        <tr>
+          <td>(-) Advance</td>
+          <td style="text-align: right;">${emp.advance ? formatMoney(emp.advance, 2) : '-'}</td>
+        </tr>
+        <tr>
+          <td>(-) Loan</td>
+          <td style="text-align: right;">${emp.loan ? formatMoney(emp.loan, 2) : '-'}</td>
+        </tr>
+        <tr>
+          <td>(-) APIT</td>
+          <td style="text-align: right; color: #dc2626;">${formatMoney(emp.apit, 2)}</td>
+        </tr>
+        <tr style="font-weight: bold; background: #fef2f2;">
+          <td>Total Deduction</td>
+          <td style="text-align: right; color: #dc2626;">${formatMoney(emp.totalDeductions, 2)}</td>
+        </tr>
+        <tr style="font-weight: 800; font-size: 13px; background: #ecfdf5;">
+          <td style="color: #065f46;">Balance Pay</td>
+          <td style="text-align: right; color: #065f46;">${formatMoney(emp.netSalaryLkr, 2)}</td>
+        </tr>
+        <tr>
+          <td>EPF 12%</td>
+          <td style="text-align: right;">${formatMoney(emp.epf12Lkr, 2)}</td>
+        </tr>
+        <tr>
+          <td>ETF 3%</td>
+          <td style="text-align: right;">${formatMoney(emp.etf3Lkr, 2)}</td>
+        </tr>
+        <tr>
+          <td colspan="2" style="border-top: 2px solid #000; padding-top: 15px; font-size: 10.5px; line-height: 1.4;">
+            <div style="margin-bottom: 25px;">Signature: ....................................................</div>
+            <div style="font-weight: bold;">Spillburg Holdings (Pvt) Ltd</div>
+            <div>Office 14, Basement Level</div>
+            <div>Cinnamon Lakeside Hotel - Colombo 02</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `;
+}
+
+// ---------------- 4. STAFF DIRECTORY & DETAILS ----------------
+function renderPayrollStaffManager(container) {
+  const p = activePayrollPeriod;
+  const emps = p.employees || [];
+
+  container.innerHTML = `
+    <div class="space-y-4 fade-in">
+      
+      <!-- Toolbar -->
+      <div class="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+        <div>
+          <h3 class="text-xs font-bold text-slate-800">Managed Staff Directory</h3>
+          <p class="text-[11px] text-slate-500">Configure bank accounts, TIN numbers, national IDs &amp; contracted GBP salaries</p>
+        </div>
+
+        <button onclick="openAddEmployeeModal()"
+          class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+          <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+          <span>Add New Staff</span>
+        </button>
+      </div>
+
+      <!-- Staff Cards Table -->
+      <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+        <table class="w-full text-xs text-left">
+          <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
+            <tr>
+              <th class="p-3 w-12 text-center">No</th>
+              <th class="p-3">Staff Member</th>
+              <th class="p-3">Position</th>
+              <th class="p-3 text-right">GBP Base</th>
+              <th class="p-3">Bank Remittance Account</th>
+              <th class="p-3">TIN &amp; NIC / Passport</th>
+              <th class="p-3">Date Joined</th>
+              <th class="p-3 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            ${emps.map(e => `
+              <tr class="hover:bg-slate-50/80 transition">
+                <td class="p-3 text-center font-bold text-slate-400">${e.no}</td>
+                <td class="p-3">
+                  <div class="font-bold text-slate-900">${escapeHtml(e.name)}</div>
+                  <div class="text-[11px] text-slate-400">EPF No: ${escapeHtml(e.epfNo || e.no)}</div>
+                </td>
+                <td class="p-3 font-medium text-slate-700">${escapeHtml(e.position)}</td>
+                <td class="p-3 text-right font-bold text-slate-900">&pound; ${formatMoney(e.gbpSalary, 2)}</td>
+                <td class="p-3">
+                  <div class="font-mono font-medium text-slate-800">${escapeHtml(e.bankAccountNo)}</div>
+                  <div class="text-[11px] text-slate-500">${escapeHtml(e.bankBranch)}</div>
+                </td>
+                <td class="p-3">
+                  <div class="text-slate-800">TIN: <span class="font-mono">${escapeHtml(e.tinNo || '-')}</span></div>
+                  <div class="text-[11px] text-slate-500">ID: <span class="font-mono">${escapeHtml(e.idNo || '-')}</span></div>
+                </td>
+                <td class="p-3 text-slate-600">${escapeHtml(e.dateJoined || '-')}</td>
+                <td class="p-3 text-center">
+                  <div class="flex items-center justify-center gap-1">
+                    <button onclick="openEditEmployeeModal('${e.id}')" title="Edit Staff Member"
+                      class="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition">
+                      <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <button onclick="deleteEmployee('${e.id}')" title="Remove Staff Member"
+                      class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  `;
+}
+
+// ---------------- PERIOD SWITCHING & DATA SYNC ----------------
+async function handlePayrollPeriodChange(periodId) {
+  try {
+    const res = await fetch(`/api/payroll/period?id=${encodeURIComponent(periodId)}`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      activePayrollPeriod = data.period;
+      // Refresh count
+      const countEl = document.getElementById('navPayrollCount');
+      if (countEl && activePayrollPeriod) {
+        countEl.textContent = activePayrollPeriod.employees?.length || 0;
+      }
+      renderActivePayrollSubTab();
+      // Update header info
+      const sel = document.getElementById('payrollPeriodSelect');
+      if (sel) sel.value = periodId;
+      const mainCont = document.getElementById('mainContent');
+      if (mainCont && currentView === 'payroll') {
+        renderPayroll(mainCont);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to change payroll period:', err);
+  }
+}
+
+async function refreshPayrollData() {
+  try {
+    const res = await fetch('/api/payroll', {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (res.ok) {
+      payrollData = await res.json();
+      const curId = activePayrollPeriod ? activePayrollPeriod.id : null;
+      if (curId) {
+        const found = (payrollData.periods || []).find(p => p.id === curId);
+        if (found) {
+          const pRes = await fetch(`/api/payroll/period?id=${encodeURIComponent(curId)}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+          });
+          if (pRes.ok) {
+            const pData = await pRes.json();
+            activePayrollPeriod = pData.period;
+          }
+        } else {
+          activePayrollPeriod = payrollData.activePeriod || null;
+        }
+      } else {
+        activePayrollPeriod = payrollData.activePeriod || null;
+      }
+      const countEl = document.getElementById('navPayrollCount');
+      if (countEl && activePayrollPeriod) {
+        countEl.textContent = activePayrollPeriod.employees?.length || 0;
+      }
+      if (currentView === 'payroll') {
+        const mainCont = document.getElementById('mainContent');
+        if (mainCont) renderPayroll(mainCont);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to refresh payroll data:', e);
+  }
+}
+
+// ---------------- MODALS & ACTIONS ----------------
+
+// 1. Exchange Rate Modal
+function openExchangeRateModal() {
+  if (!activePayrollPeriod) return;
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Adjust Exchange Rate (LKR / GBP)</h3>
+          <p class="text-[11px] text-slate-500">Changes will automatically recompute gross salaries, EPF, APIT, and net remittances.</p>
+        </div>
+        <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitExchangeRate(event)" class="space-y-4">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Exchange Rate (1 GBP in LKR)</label>
+          <input type="number" id="payExchangeRateInput" step="0.01" min="1" required
+            value="${activePayrollPeriod.exchangeRate || 440.0}"
+            class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500">
+          <p class="text-[11px] text-slate-400 mt-1">Default contractual rate for Sep 2026 is 440.00 LKR</p>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold shadow-xs transition">
+            Save &amp; Recalculate
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function submitExchangeRate(e) {
+  e.preventDefault();
+  const rateVal = parseFloat(document.getElementById('payExchangeRateInput').value);
+  if (!rateVal || isNaN(rateVal)) return;
+
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        id: activePayrollPeriod.id,
+        exchangeRate: rateVal
+      })
+    });
+    if (res.ok) {
+      closeModal();
+      await refreshPayrollData();
+    } else {
+      const err = await res.json();
+      alert('Error updating exchange rate: ' + (err.error || 'Server error'));
+    }
+  } catch (err) {
+    alert('Connection error: ' + err.message);
+  }
+}
+
+// 2. Bank Details Modal
+function openEditBankDetailsModal() {
+  if (!activePayrollPeriod) return;
+  const p = activePayrollPeriod;
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Edit Bank Remittance Letter Details</h3>
+          <p class="text-[11px] text-slate-500">Official addressee, debit account, and authorized signatory presentation.</p>
+        </div>
+        <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitBankDetails(event)" class="space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Letter Date</label>
+            <input type="text" id="bankLetterDate" value="${escapeHtml(p.letterDate || '30.09.2026')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Bank Name</label>
+            <input type="text" id="bankNameInput" value="${escapeHtml(p.bankName || 'Nations Trust Bank PLC')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Bank Branch</label>
+            <input type="text" id="bankBranchInput" value="${escapeHtml(p.bankBranch || 'Borella Branch')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Debit Account Number</label>
+            <input type="text" id="bankDebitAccInput" value="${escapeHtml(p.debitAccountNo || '1001 5000 7554')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Bank Branch Address (Multi-line)</label>
+          <textarea id="bankAddressInput" rows="2" required
+            class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">${escapeHtml(p.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.')}</textarea>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Debit Account Entity Name</label>
+            <input type="text" id="bankDebitNameInput" value="${escapeHtml(p.debitAccountName || 'Spillburg Holdings (Private) Limited')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Authorized Signatory</label>
+            <input type="text" id="bankSignatoryInput" value="${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold shadow-xs transition">
+            Save Letter Details
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function submitBankDetails(e) {
+  e.preventDefault();
+  const payload = {
+    id: activePayrollPeriod.id,
+    letterDate: document.getElementById('bankLetterDate').value.trim(),
+    bankName: document.getElementById('bankNameInput').value.trim(),
+    bankBranch: document.getElementById('bankBranchInput').value.trim(),
+    bankAddress: document.getElementById('bankAddressInput').value.trim(),
+    debitAccountNo: document.getElementById('bankDebitAccInput').value.trim(),
+    debitAccountName: document.getElementById('bankDebitNameInput').value.trim(),
+    authorizedSignatory: document.getElementById('bankSignatoryInput').value.trim()
+  };
+
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      closeModal();
+      await refreshPayrollData();
+    } else {
+      const err = await res.json();
+      alert('Error updating bank details: ' + (err.error || 'Server error'));
+    }
+  } catch (err) {
+    alert('Connection error: ' + err.message);
+  }
+}
+
+// 3. New Period Modal
+function openNewPeriodModal() {
+  const c = document.getElementById('modalContent');
+  const nextMonthDefault = "October 2026";
+  const curRate = activePayrollPeriod ? activePayrollPeriod.exchangeRate : 440.0;
+
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Create New Payroll Period</h3>
+          <p class="text-[11px] text-slate-500">Initialize a new monthly salary sheet for managed company staff.</p>
+        </div>
+        <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitNewPeriod(event)" class="space-y-3">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Month &amp; Year</label>
+          <input type="text" id="newPeriodMonth" value="${nextMonthDefault}" required
+            placeholder="e.g. October 2026"
+            class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-semibold">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Exchange Rate (1 GBP in LKR)</label>
+          <input type="number" id="newPeriodRate" step="0.01" min="1" value="${curRate}" required
+            class="w-full px-3 py-2 border border-slate-200 rounded-xl font-bold">
+        </div>
+
+        <div class="p-3 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 space-y-1">
+          <label class="flex items-center gap-2 cursor-pointer font-semibold">
+            <input type="checkbox" id="newPeriodClone" checked class="rounded text-teal-600 focus:ring-teal-500">
+            <span>Copy all staff members from active period (${activePayrollPeriod?.month || 'current'})</span>
+          </label>
+          <p class="text-[11px] text-teal-700/80 pl-5">Staff member names, bank accounts, TIN, and contracted base GBP will be pre-filled automatically.</p>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold shadow-xs transition">
+            Create Period
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function submitNewPeriod(e) {
+  e.preventDefault();
+  const month = document.getElementById('newPeriodMonth').value.trim();
+  const rate = parseFloat(document.getElementById('newPeriodRate').value);
+  const clone = document.getElementById('newPeriodClone').checked;
+
+  const payload = {
+    companyId: activePayrollPeriod?.companyId || 'comp_apadmi',
+    month: month,
+    exchangeRate: rate,
+    cloneFromPeriodId: clone && activePayrollPeriod ? activePayrollPeriod.id : null
+  };
+
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      closeModal();
+      await refreshPayrollData();
+      if (data.period) {
+        await handlePayrollPeriodChange(data.period.id);
+      }
+    } else {
+      const err = await res.json();
+      alert('Error creating period: ' + (err.error || 'Server error'));
+    }
+  } catch (err) {
+    alert('Connection error: ' + err.message);
+  }
+}
+
+// 4. Employee Add/Edit Modals
+function openAddEmployeeModal() {
+  openEmployeeModal(null);
+}
+
+function openEditEmployeeModal(empId) {
+  const emp = (activePayrollPeriod?.employees || []).find(e => e.id === empId);
+  if (!emp) return;
+  openEmployeeModal(emp);
+}
+
+function openEmployeeModal(emp) {
+  const isEdit = !!emp;
+  const c = document.getElementById('modalContent');
+  const nextNo = (activePayrollPeriod?.employees?.length || 0) + 1;
+
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">${isEdit ? 'Edit Staff Member' : 'Add New Staff Member'}</h3>
+          <p class="text-[11px] text-slate-500">${escapeHtml(activePayrollPeriod?.month || '')} &bull; APADMI SL (PRIVATE) LIMITED</p>
+        </div>
+        <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitEmployee(event, '${isEdit ? emp.id : ''}')" class="space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Sheet Row No</label>
+            <input type="number" id="empNoInput" value="${isEdit ? emp.no : nextNo}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div class="md:col-span-2">
+            <label class="block font-semibold text-slate-700 mb-1">Employee Full Name</label>
+            <input type="text" id="empNameInput" value="${isEdit ? escapeHtml(emp.name) : ''}" required
+              placeholder="e.g. Wikum Jayasekara"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-semibold">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="md:col-span-2">
+            <label class="block font-semibold text-slate-700 mb-1">Designation / Position</label>
+            <input type="text" id="empPositionInput" value="${isEdit ? escapeHtml(emp.position) : ''}" required
+              placeholder="e.g. Senior Software Engineer"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Contract GBP Base</label>
+            <input type="number" id="empGbpSalaryInput" step="0.01" min="0" value="${isEdit ? emp.gbpSalary : 1000}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-bold">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Working Days (Col 1)</label>
+            <input type="text" id="empWorkDaysInput" value="${isEdit ? escapeHtml(emp.workDays || '') : ''}"
+              placeholder="e.g. 17 D or blank"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Earned GBP (Col 2)</label>
+            <input type="number" id="empEarnedGbpInput" step="0.01" min="0" value="${isEdit && emp.earnedGbp ? emp.earnedGbp : ''}"
+              placeholder="Blank = Full GBP Base"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Date Joined</label>
+            <input type="text" id="empDateJoinedInput" value="${isEdit ? escapeHtml(emp.dateJoined || '') : ''}"
+              placeholder="e.g. 01.07.2023"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Bank Account Number</label>
+            <input type="text" id="empBankAccInput" value="${isEdit ? escapeHtml(emp.bankAccountNo || '') : ''}" required
+              placeholder="e.g. 8003180429"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Bank &amp; Branch</label>
+            <input type="text" id="empBankBranchInput" value="${isEdit ? escapeHtml(emp.bankBranch || '') : ''}" required
+              placeholder="e.g. Commercial Bank - Colombo 07"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">National ID / Passport</label>
+            <input type="text" id="empIdNoInput" value="${isEdit ? escapeHtml(emp.idNo || '') : ''}"
+              placeholder="e.g. 199321400215"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">TIN Number</label>
+            <input type="text" id="empTinNoInput" value="${isEdit ? escapeHtml(emp.tinNo || '') : ''}"
+              placeholder="e.g. 210815418"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">EPF Registration No</label>
+            <input type="text" id="empEpfNoInput" value="${isEdit ? escapeHtml(emp.epfNo || '') : ''}"
+              placeholder="e.g. 01"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold shadow-xs transition">
+            ${isEdit ? 'Save Changes' : 'Add Staff'}
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function submitEmployee(e, empId) {
+  e.preventDefault();
+  const earnedInput = document.getElementById('empEarnedGbpInput').value.trim();
+  const gbpSalary = parseFloat(document.getElementById('empGbpSalaryInput').value);
+
+  const payload = {
+    periodId: activePayrollPeriod.id,
+    no: parseInt(document.getElementById('empNoInput').value, 10),
+    name: document.getElementById('empNameInput').value.trim(),
+    position: document.getElementById('empPositionInput').value.trim(),
+    gbpSalary: gbpSalary,
+    workDays: document.getElementById('empWorkDaysInput').value.trim(),
+    earnedGbp: earnedInput ? parseFloat(earnedInput) : gbpSalary,
+    bankAccountNo: document.getElementById('empBankAccInput').value.trim(),
+    bankBranch: document.getElementById('empBankBranchInput').value.trim(),
+    idNo: document.getElementById('empIdNoInput').value.trim(),
+    tinNo: document.getElementById('empTinNoInput').value.trim(),
+    dateJoined: document.getElementById('empDateJoinedInput').value.trim(),
+    epfNo: document.getElementById('empEpfNoInput').value.trim()
+  };
+
+  const isEdit = !!empId;
+  if (isEdit) payload.id = empId;
+
+  try {
+    const res = await fetch('/api/payroll/employee', {
+      method: isEdit ? 'PUT' : 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      closeModal();
+      await refreshPayrollData();
+    } else {
+      const err = await res.json();
+      alert('Error saving staff member: ' + (err.error || 'Server error'));
+    }
+  } catch (err) {
+    alert('Connection error: ' + err.message);
+  }
+}
+
+async function deleteEmployee(empId) {
+  if (!confirm('Are you sure you want to remove this staff member from the current period?')) return;
+  try {
+    const res = await fetch(`/api/payroll/employee?periodId=${encodeURIComponent(activePayrollPeriod.id)}&id=${encodeURIComponent(empId)}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (res.ok) {
+      await refreshPayrollData();
+    } else {
+      const err = await res.json();
+      alert('Error removing employee: ' + (err.error || 'Server error'));
+    }
+  } catch (err) {
+    alert('Connection error: ' + err.message);
+  }
+}
+
+// ---------------- PRINT WINDOW HANDLERS ----------------
+
+// 1. Print Master Salary Sheet (A4 Landscape)
+function printMasterSalarySheet() {
+  const p = activePayrollPeriod;
+  if (!p) return;
+  const emps = p.employees || [];
+  const totals = p.totals || {};
+
+  const printWin = window.open('', '_blank');
+  if (!printWin) {
+    alert('Please allow popups to open the print view.');
+    return;
+  }
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>SALARY SHEET - ${escapeHtml(p.month)} - APADMI SL</title>
+      <style>
+        @page {
+          size: A4 landscape;
+          margin: 6mm 8mm;
+        }
+        body {
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding: 0;
+          color: #000;
+          background: #fff;
+          font-size: 8pt;
+        }
+        .header-title {
+          font-weight: 800;
+          font-size: 10pt;
+          margin: 6px 0 3px 0;
+          text-align: left;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 8px;
+        }
+        th, td {
+          border: 1px solid #777;
+          padding: 3px 4px;
+          font-size: 7.5pt;
+        }
+        th {
+          background-color: #f1f5f9 !important;
+          font-weight: 700;
+          text-align: center;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .totals-row td {
+          font-weight: 800;
+          background-color: #f8fafc !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .signoff {
+          display: flex;
+          justify-content: space-between;
+          margin: 6px 0 10px 0;
+          font-size: 8pt;
+        }
+        .text-right { text-align: right; }
+        .text-left { text-align: left; }
+        .text-center { text-align: center; }
+        .bold { font-weight: bold; }
+      </style>
+    </head>
+    <body>
+
+      <!-- TABLE 1: GBP SALARY SHEET -->
+      <div class="header-title">SALARY SHEET (IN GBP ) - ${p.month.toUpperCase()}</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 25px;">No</th>
+            <th class="text-left" style="width: 170px;">Employee Name</th>
+            <th class="text-left" style="width: 140px;">POSITION</th>
+            <th>GBP Salary</th>
+            <th>Column1</th>
+            <th>Column2</th>
+            <th>EPF (12% )</th>
+            <th>ETF(3% )</th>
+            <th>AMOUNT</th>
+            <th>BANK ACCOUNT NO</th>
+            <th>TIN NO</th>
+            <th>IDNO</th>
+            <th>Date of Joined</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${emps.map(e => `
+            <tr>
+              <td class="text-center">${e.no}</td>
+              <td class="text-left bold">${escapeHtml(e.name)}</td>
+              <td class="text-left">${escapeHtml(e.position)}</td>
+              <td class="text-right">${formatMoney(e.gbpSalary, 2)}</td>
+              <td class="text-center bold">${escapeHtml(e.workDays || '')}</td>
+              <td class="text-right bold">${formatMoney(e.earnedGbp, 2)}</td>
+              <td class="text-right">${formatMoney(e.epf12Gbp, 0)}</td>
+              <td class="text-right">${formatMoney(e.etf3Gbp, 0)}</td>
+              <td class="text-right bold">${formatMoney(e.totalGbp, 2)}</td>
+              <td class="text-left" style="font-family: monospace;">${escapeHtml(e.bankAccountNo)}${e.bankCode ? `(${escapeHtml(e.bankCode)})` : ''}</td>
+              <td class="text-center">${escapeHtml(e.tinNo || '-')}</td>
+              <td class="text-center">${escapeHtml(e.idNo || '-')}</td>
+              <td class="text-center">${escapeHtml(e.dateJoined || '-')}</td>
+            </tr>
+          `).join('')}
+          <tr class="totals-row">
+            <td colspan="3" class="text-center bold">TOTAL</td>
+            <td class="text-right">${formatMoney(totals.sumGbpSalary, 2)}</td>
+            <td></td>
+            <td class="text-right">${formatMoney(totals.sumEarnedGbp, 2)}</td>
+            <td class="text-right">${formatMoney(totals.sumEpf12Gbp, 0)}</td>
+            <td class="text-right">${formatMoney(totals.sumEtf3Gbp, 0)}</td>
+            <td class="text-right">${formatMoney(totals.sumTotalGbp, 2)}</td>
+            <td colspan="4"></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Signoff -->
+      <div class="signoff">
+        <div>
+          <div class="bold">Checked by: ${escapeHtml(p.checkedBy || 'Hemanthi Basnayake')}</div>
+          <div>${escapeHtml(p.checkedTitle || 'Accountant')}</div>
+        </div>
+        <div class="text-right">
+          <div class="bold">Authorized by: ${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
+          <div>${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (pvt)Ltd')}</div>
+        </div>
+      </div>
+
+      <!-- TABLE 2: LKR SALARY SHEET -->
+      <div class="header-title" style="margin-top: 10px;">SALARY SHEET (IN GBP ) - ${p.month.toUpperCase().replace(/\s+/g, '')}. @${formatMoney(p.exchangeRate, 0)}</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 25px;">No</th>
+            <th class="text-left" style="width: 170px;">Employee Name</th>
+            <th class="text-left" style="width: 140px;">POSITION</th>
+            <th>GBP Salary</th>
+            <th>Column1</th>
+            <th>Column2</th>
+            <th>LKR</th>
+            <th>EPF 8%</th>
+            <th>EPF12%</th>
+            <th>ETF 3%</th>
+            <th>APIT</th>
+            <th>Column3</th>
+            <th>TOTAL</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${emps.map(e => `
+            <tr>
+              <td class="text-center">${e.no}</td>
+              <td class="text-left bold">${escapeHtml(e.name)}</td>
+              <td class="text-left">${escapeHtml(e.position)}</td>
+              <td class="text-right">${formatMoney(e.gbpSalary, 2)}</td>
+              <td class="text-center bold">${escapeHtml(e.workDays || '')}</td>
+              <td class="text-right">${formatMoney(e.earnedGbp, 2)}</td>
+              <td class="text-right bold">${formatMoney(e.lkrGross, 0)}</td>
+              <td class="text-right">${formatMoney(e.epf8Lkr, 0)}</td>
+              <td class="text-right">${formatMoney(e.epf12Lkr, 0)}</td>
+              <td class="text-right">${formatMoney(e.etf3Lkr, 0)}</td>
+              <td class="text-right">${formatMoney(e.apit, 0)}</td>
+              <td></td>
+              <td class="text-right bold">${formatMoney(e.netSalaryLkr, 0)}</td>
+            </tr>
+          `).join('')}
+          <tr class="totals-row">
+            <td colspan="3" class="text-center bold">TOTAL</td>
+            <td class="text-right">${formatMoney(totals.sumGbpSalary, 2)}</td>
+            <td></td>
+            <td class="text-right">${formatMoney(totals.sumEarnedGbp, 2)}</td>
+            <td class="text-right bold">${formatMoney(totals.sumLkrGross, 0)}</td>
+            <td class="text-right">${formatMoney(totals.sumEpf8Lkr, 0)}</td>
+            <td class="text-right">${formatMoney(totals.sumEpf12Lkr, 0)}</td>
+            <td class="text-right">${formatMoney(totals.sumEtf3Lkr, 0)}</td>
+            <td class="text-right bold">${formatMoney(totals.sumApitLkr, 0)}</td>
+            <td></td>
+            <td class="text-right bold">${formatMoney(totals.sumNetSalaryLkr, 0)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <script>
+        window.onload = function() {
+          setTimeout(function() { window.print(); }, 400);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
+}
+
+// 2. Print Official Bank Request Letter (A4 Portrait on Spillburg Letterhead)
+function printBankRequestLetter() {
+  const p = activePayrollPeriod;
+  if (!p) return;
+  const emps = p.employees || [];
+  const totals = p.totals || {};
+
+  const printWin = window.open('', '_blank');
+  if (!printWin) {
+    alert('Please allow popups to open the print view.');
+    return;
+  }
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Bank Remittance Request - ${escapeHtml(p.month)} - Spillburg Holdings</title>
+      <style>
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+        * {
+          box-sizing: border-box;
+        }
+        body {
+          font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+          margin: 0;
+          padding: 0;
+          background: #fff;
+          color: #000;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .page-container {
+          position: relative;
+          width: 210mm;
+          min-height: 297mm;
+          margin: 0 auto;
+          background-image: url('/spillburg_letterhead.jpg');
+          background-size: 210mm 297mm;
+          background-repeat: no-repeat;
+          background-position: top center;
+        }
+        .content-area {
+          padding-top: 50mm;
+          padding-left: 24mm;
+          padding-right: 24mm;
+          padding-bottom: 35mm;
+          font-size: 10.5pt;
+          line-height: 1.4;
+        }
+        .date {
+          margin-bottom: 5mm;
+          font-weight: 600;
+        }
+        .recipient {
+          margin-bottom: 5mm;
+          line-height: 1.35;
+        }
+        .salutation {
+          margin-bottom: 4mm;
+        }
+        .subject {
+          font-weight: bold;
+          text-decoration: underline;
+          margin-bottom: 5mm;
+          font-size: 10.5pt;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 5mm;
+          font-size: 9.5pt;
+        }
+        th, td {
+          border: 1px solid #222;
+          padding: 4px 6px;
+        }
+        th {
+          font-weight: bold;
+          text-align: center;
+        }
+        .total-row td {
+          font-weight: bold;
+        }
+        .double-underline {
+          text-decoration: underline;
+          text-decoration-style: double;
+        }
+        .paragraph {
+          text-align: justify;
+          margin-top: 5mm;
+          line-height: 1.45;
+          font-size: 10pt;
+        }
+        .closing {
+          margin-top: 6mm;
+          line-height: 1.3;
+        }
+        .signature-space {
+          height: 16mm;
+        }
+        .signatory-name {
+          font-weight: bold;
+          font-size: 10.5pt;
+        }
+        .signatory-title {
+          font-size: 9.5pt;
+          color: #333;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="page-container">
+        <div class="content-area">
+
+          <div class="date">${escapeHtml(p.letterDate || '30.09.2026')}</div>
+
+          <div class="recipient">
+            <div>The Manager</div>
+            <div style="font-weight: 600;">${escapeHtml(p.bankName || 'Nations Trust Bank PLC')},</div>
+            <div>${escapeHtml(p.bankBranch || 'Borella Branch')},</div>
+            <div>${(p.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.').split('\n').map(l => escapeHtml(l)).join('<br>')}</div>
+          </div>
+
+          <div class="salutation">Dear Sir,</div>
+
+          <div class="subject">SALARY FOR STAFF MEMBERS OF APADMI SL (PRIVATE) LIMITED</div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 38%; text-align: left;">Name</th>
+                <th style="width: 17%;">ID Number</th>
+                <th style="width: 17%;">A/C Number</th>
+                <th style="width: 28%;">Bank/ Branch</th>
+                <th style="width: 18%; text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${emps.map((e, idx) => `
+                <tr>
+                  <td style="font-weight: 600;">${idx + 1}.${escapeHtml(e.name)}</td>
+                  <td style="text-align: center;">${escapeHtml(e.idNo)}</td>
+                  <td style="font-family: monospace; text-align: center;">${escapeHtml(e.bankAccountNo)}</td>
+                  <td>${escapeHtml(e.bankBranch)}</td>
+                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.netSalaryLkr, 2)}</td>
+                </tr>
+              `).join('')}
+
+              <tr class="total-row">
+                <td colspan="4" style="text-align: right; padding-right: 15px;">Total</td>
+                <td style="text-align: right;" class="double-underline">
+                  Rs ${formatMoney(totals.sumNetSalaryLkr, 2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="paragraph">
+            Please be kind enough to remit the respective amount for above mention staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
+          </div>
+
+          <div class="closing">
+            <div>Thank You,</div>
+            <div style="margin-top: 3mm;">Yours faithfully,</div>
+            <div class="signature-space"></div>
+            <div class="signatory-name">${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
+            <div class="signatory-title">Director &middot; Spillburg Holdings (Private) Limited</div>
+          </div>
+
+        </div>
+      </div>
+
+      <script>
+        window.onload = function() {
+          setTimeout(function() { window.print(); }, 400);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
+}
+
+// 3. Print Single Payslip (A4 Portrait Voucher)
+function printSinglePayslip(empId) {
+  const p = activePayrollPeriod;
+  if (!p) return;
+  const emp = (p.employees || []).find(e => e.id === empId);
+  if (!emp) return;
+
+  const printWin = window.open('', '_blank');
+  if (!printWin) {
+    alert('Please allow popups to open the print view.');
+    return;
+  }
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Payslip - ${escapeHtml(emp.name)} - ${escapeHtml(p.month)}</title>
+      <style>
+        @page {
+          size: A4 portrait;
+          margin: 15mm;
+        }
+        body {
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding: 20px;
+          display: flex;
+          justify-content: center;
+          background: #fff;
+        }
+        .payslip-voucher {
+          width: 140mm;
+          border: 1px solid #111;
+          padding: 6mm;
+          font-size: 9pt;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        td {
+          padding: 3px 6px;
+          border: 1px solid #ccc;
+        }
+        .bold { font-weight: bold; }
+        .text-right { text-align: right; }
+        .header {
+          border-bottom: 2px solid #000 !important;
+          padding-bottom: 6px;
+        }
+      </style>
+    </head>
+    <body>
+      ${generatePayslipHtml(emp, p)}
+      <script>
+        window.onload = function() {
+          setTimeout(function() { window.print(); }, 400);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
+}
+
+// 4. Batch Print All 10 Payslips (Continuous A4 with Page Breaks)
+function printAllPayslips() {
+  const p = activePayrollPeriod;
+  if (!p) return;
+  const emps = p.employees || [];
+
+  const printWin = window.open('', '_blank');
+  if (!printWin) {
+    alert('Please allow popups to open the print view.');
+    return;
+  }
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>All Payslips - ${escapeHtml(p.month)} - APADMI SL</title>
+      <style>
+        @page {
+          size: A4 portrait;
+          margin: 12mm 15mm;
+        }
+        body {
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding: 0;
+          background: #fff;
+        }
+        .payslip-page {
+          page-break-after: always;
+          display: flex;
+          justify-content: center;
+          padding-top: 10mm;
+          min-height: 250mm;
+        }
+        .payslip-voucher {
+          width: 145mm;
+          border: 1.5px solid #000;
+          padding: 6mm;
+          font-size: 9pt;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        td {
+          padding: 3.5px 6px;
+          border: 1px solid #bbb;
+        }
+      </style>
+    </head>
+    <body>
+      ${emps.map(emp => `
+        <div class="payslip-page">
+          ${generatePayslipHtml(emp, p)}
+        </div>
+      `).join('')}
+      <script>
+        window.onload = function() {
+          setTimeout(function() { window.print(); }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
+}
+
+// ---------------- EXPORT HANDLERS ----------------
+function exportPayrollExcel() {
+  if (!activePayrollPeriod) return;
+  window.location.href = `/api/payroll/export-xlsx?periodId=${encodeURIComponent(activePayrollPeriod.id)}`;
+}
+
+function exportPayrollCsv() {
+  if (!activePayrollPeriod) return;
+  window.location.href = `/api/payroll/export-csv?periodId=${encodeURIComponent(activePayrollPeriod.id)}`;
+}
+

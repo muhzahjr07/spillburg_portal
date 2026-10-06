@@ -211,6 +211,14 @@
               class="text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">42</span>
           </button>
 
+          <button onclick="switchView('payroll')" id="nav-payroll"
+            class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-left text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+            <i data-lucide="banknote" class="w-4 h-4 text-teal-600"></i>
+            <span class="flex-1">Payroll & Bank Remittance</span>
+            <span id="navPayrollCount"
+              class="text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">10</span>
+          </button>
+
           <button onclick="openKnowItAllModal()" id="nav-know-it-all"
             class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-left text-slate-600 hover:bg-purple-50 hover:text-purple-700">
             <i data-lucide="brain" class="w-4 h-4 text-purple-600"></i>
@@ -266,6 +274,11 @@
           class="flex flex-col items-center text-xs text-slate-600 hover:text-emerald-600">
           <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
           <span class="text-[10px]">Financial</span>
+        </button>
+        <button onclick="switchView('payroll')"
+          class="flex flex-col items-center text-xs text-slate-600 hover:text-teal-600">
+          <i data-lucide="banknote" class="w-4 h-4"></i>
+          <span class="text-[10px]">Payroll</span>
         </button>
         <button onclick="openKnowItAllModal()"
           class="flex flex-col items-center text-xs text-slate-600 hover:text-purple-600">
