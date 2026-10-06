@@ -72,7 +72,6 @@ The portal centralizes corporate presence, operations tracking, customer file re
 |:---|:---|:---|:---|
 | **Executive Director** | `director` | `director123` | Full access across all corporate modules |
 | **System Admin** | `admin` | `admin123` | Full access + User & Role Management |
-| **Admin (Zaharan)** | `zaharan` | `admin123` | Full administrative control & tracker sync |
 | **Managing Director** | `hameez` | `spillburg123` | Executive oversight |
 | **Operations Director**| `shameel` | `spillburg123` | Operations management |
 | **Staff Member (Editor)**| `staff_editor` | `staff123` | Edit & create tasks and customer records |

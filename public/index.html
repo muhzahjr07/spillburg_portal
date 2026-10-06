@@ -94,7 +94,7 @@
           <label class="block text-xs font-semibold text-slate-700 mb-1.5">Username or Email</label>
           <div class="relative">
             <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
-            <input type="text" id="loginUsername" required placeholder="e.g. zaharan, director, admin, staff"
+            <input type="text" id="loginUsername" required placeholder="e.g. director, admin, staff"
               class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition">
           </div>
         </div>
@@ -106,7 +106,8 @@
             <input type="password" id="loginPassword" required placeholder="Enter password"
               class="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition">
             <button type="button" id="togglePasswordBtn" onclick="toggleLoginPassword()"
-              class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition p-0.5 focus:outline-none" title="Toggle password visibility">
+              class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition p-0.5 focus:outline-none"
+              title="Toggle password visibility">
               <i data-lucide="eye" id="togglePasswordIcon" class="w-4 h-4"></i>
             </button>
           </div>
@@ -121,9 +122,7 @@
 
       <!-- Account Credentials Helper -->
       <div class="pt-3 border-t border-slate-100 text-center space-y-1">
-        <div class="text-[11px] text-slate-500">
-          Default accounts: <span class="font-mono text-slate-700 font-medium">zaharan</span> &middot; <span class="font-mono text-slate-700 font-medium">director</span> &middot; <span class="font-mono text-slate-700 font-medium">admin</span> &middot; <span class="font-mono text-slate-700 font-medium">staff</span>
-        </div>
+
         <div class="text-[11px] text-slate-400">
           Need an account or permission change? Contact your System Administrator.
         </div>
@@ -216,7 +215,8 @@
             class="nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-left text-slate-600 hover:bg-purple-50 hover:text-purple-700">
             <i data-lucide="brain" class="w-4 h-4 text-purple-600"></i>
             <span class="flex-1">Know It All</span>
-            <span class="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200 font-semibold">Soon</span>
+            <span
+              class="text-[10px] bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200 font-semibold">Soon</span>
           </button>
 
           <button onclick="switchView('access-control')" id="nav-access-control"
@@ -288,17 +288,21 @@
   </div>
 
   <!-- STICKY / FLOATING BOTTOM HORIZONTAL SCROLLBAR -->
-  <div id="stickyBottomScrollbar" class="sticky-bottom-scrollbar-container hidden" role="region" aria-label="Horizontal table scrollbar">
+  <div id="stickyBottomScrollbar" class="sticky-bottom-scrollbar-container hidden" role="region"
+    aria-label="Horizontal table scrollbar">
     <div class="sticky-bottom-scrollbar-shell">
-      <button type="button" id="stickyScrollLeftBtn" class="sticky-scrollbar-nudge-btn" title="Scroll left (or Shift + Wheel)" aria-label="Scroll left">
+      <button type="button" id="stickyScrollLeftBtn" class="sticky-scrollbar-nudge-btn"
+        title="Scroll left (or Shift + Wheel)" aria-label="Scroll left">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
         </svg>
       </button>
-      <div id="stickyScrollTrack" class="sticky-scrollbar-track" tabindex="0" role="scrollbar" aria-label="Horizontal scrollbar track">
+      <div id="stickyScrollTrack" class="sticky-scrollbar-track" tabindex="0" role="scrollbar"
+        aria-label="Horizontal scrollbar track">
         <div id="stickyScrollContent" class="sticky-scrollbar-content"></div>
       </div>
-      <button type="button" id="stickyScrollRightBtn" class="sticky-scrollbar-nudge-btn" title="Scroll right (or Shift + Wheel)" aria-label="Scroll right">
+      <button type="button" id="stickyScrollRightBtn" class="sticky-scrollbar-nudge-btn"
+        title="Scroll right (or Shift + Wheel)" aria-label="Scroll right">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
         </svg>

@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Initial Production Release**:
   - Unified HTTP and REST API server written in pure Python 3 Standard Library with zero pip dependencies.
-  - Multi-role Role-Based Access Control (RBAC): Executive Director, System Admin, Muhammad Zaharan, Staff Editor, and Staff Viewer.
+  - Multi-role Role-Based Access Control (RBAC): Executive Director, System Admin, Staff Editor, and Staff Viewer.
   - Operations Tracker with task priorities, due dates, statuses, and per-user isolated workspace views.
   - Microsoft Access Database (`.accdb`) bridge via 32-bit PowerShell OLEDB 16.0 engine for customer file records.
   - Dual-record company onboarding (Original File in Cupboards 1/3 and Customer Copy in Cupboard 2).
