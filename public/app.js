@@ -822,6 +822,12 @@ function renderDashboard(container) {
   const copyCust = customerRecords.filter(r => (r.Type || '').toLowerCase().includes('copy')).length;
   const totalFin = financialRecords.length;
 
+  // Active Payroll Metrics for Dashboard Integration
+  const p = activePayrollPeriod;
+  const payTotals = p?.totals || {};
+  const payComp = (payrollData?.companies || []).find(c => c.id === p?.companyId) || (payrollData?.companies?.[0]) || { name: 'APADMI SL (PRIVATE) LIMITED', code: 'APADMI' };
+  const payEmpCount = p?.employees?.length || 0;
+
   container.innerHTML = `
     <div class="space-y-6 fade-in">
       
@@ -838,12 +844,17 @@ function renderDashboard(container) {
           <p class="text-sm md:text-base text-emerald-100/90 leading-relaxed">
             Spillburg Holdings enterprise portal integrating your personalized Operations Tracker, 
             Customer File archives (<span class="font-mono text-xs bg-black/20 px-1.5 py-0.5 rounded">Customer_Files_Active.accdb</span>), 
-            and digitized client financial tax registers.
+            digitized client tax registers, and corporate dual-currency staff payroll cycles.
           </p>
           <div class="pt-2 flex flex-wrap items-center gap-3">
             <button onclick="switchView('operations')" class="px-4 py-2 rounded-xl bg-white text-emerald-800 hover:bg-emerald-50 font-semibold text-xs md:text-sm flex items-center gap-2 transition shadow-md">
               <i data-lucide="check-square" class="w-4 h-4 text-emerald-600"></i> My Operations Tracker
             </button>
+            ${canView('payroll') ? `
+              <button onclick="switchView('payroll')" class="px-4 py-2 rounded-xl bg-white text-teal-800 hover:bg-teal-50 font-semibold text-xs md:text-sm flex items-center gap-2 transition shadow-md">
+                <i data-lucide="banknote" class="w-4 h-4 text-teal-600"></i> Corporate Payroll
+              </button>
+            ` : ''}
             <button onclick="switchView('customer-files')" class="px-4 py-2 rounded-xl bg-emerald-900/40 hover:bg-emerald-900/60 text-white border border-white/20 font-medium text-xs md:text-sm flex items-center gap-2 transition">
               <i data-lucide="folder-archive" class="w-4 h-4 text-amber-300"></i> Customer Files DB
             </button>
@@ -881,6 +892,50 @@ function renderDashboard(container) {
             <span class="text-blue-600 font-bold">${pctOps}%</span>
           </div>
         </div>
+
+        <!-- Corporate Payroll Card -->
+        ${canView('payroll') ? `
+          <div onclick="switchView('payroll')" class="glass-card p-5 bg-white border border-slate-200 hover:border-teal-400 rounded-2xl flex flex-col justify-between shadow-sm cursor-pointer transition group">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-500 group-hover:text-teal-700 transition">Corporate Payroll</span>
+              <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center border border-teal-200 group-hover:scale-110 transition-transform">
+                <i data-lucide="banknote" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="mt-4">
+              <div class="text-2xl font-display font-bold text-slate-900 truncate">
+                Rs ${formatMoney(payTotals.sumNetSalaryLkr || 5214427, 0)}
+              </div>
+              <div class="mt-1 text-xs text-slate-500 truncate flex items-center gap-1.5">
+                <span class="font-semibold text-teal-700">${escapeHtml(p?.month || 'September 2026')}</span>
+                <span>&bull;</span>
+                <span>${payEmpCount || 17} Staff</span>
+              </div>
+            </div>
+            <div class="mt-3 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-2 font-medium">
+              <span class="truncate">Rate: 1 GBP = ${formatMoney(p?.exchangeRate || 440, 0)} LKR</span>
+              <span class="text-teal-700 font-bold group-hover:underline">Open &rarr;</span>
+            </div>
+          </div>
+        ` : `
+          <!-- Customer Files Card (Fallback if no payroll perms) -->
+          <div class="glass-card p-5 bg-white border border-slate-200 rounded-2xl flex flex-col justify-between shadow-sm">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Customer Files</span>
+              <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200">
+                <i data-lucide="folder-archive" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="mt-4">
+              <div class="text-3xl font-display font-bold text-slate-900">${totalCust} <span class="text-sm font-normal text-slate-500">Active Files</span></div>
+              <div class="mt-1 text-xs text-slate-500">Across Cupboards 1, 2 & 3</div>
+            </div>
+            <div class="mt-3 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-2 font-medium">
+              <span class="text-emerald-700 font-semibold">${origCust} Originals</span>
+              <span class="text-blue-700 font-semibold">${copyCust} Copies</span>
+            </div>
+          </div>
+        `}
 
         <!-- Customer Files Card -->
         <div class="glass-card p-5 bg-white border border-slate-200 rounded-2xl flex flex-col justify-between shadow-sm">
@@ -931,32 +986,87 @@ function renderDashboard(container) {
             <div class="mt-1 text-xs text-slate-500">${currentUser ? currentUser.title : 'Team Member'}</div>
           </div>
           <div class="mt-3 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-2 font-medium">
-            <span>Editor: ${canEdit('operations') ? 'Ops' : ''} ${canEdit('customer_files') ? 'Cust' : ''} ${canEdit('financial_files') ? 'Fin' : ''}</span>
+            <span>Editor: ${canEdit('operations') ? 'Ops' : ''} ${canEdit('payroll') ? 'Pay' : ''} ${canEdit('customer_files') ? 'Cust' : ''} ${canEdit('financial_files') ? 'Fin' : ''}</span>
             <span class="text-purple-600 font-bold">${currentUser && currentUser.role === 'admin' ? 'Superuser' : 'Verified'}</span>
           </div>
         </div>
 
-        <!-- Know It All Card (To be done later) -->
-        <div class="glass-card p-5 bg-gradient-to-br from-white via-purple-50/20 to-white border border-purple-200/80 rounded-2xl flex flex-col justify-between shadow-sm hover:border-purple-300 transition">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold uppercase tracking-wider text-purple-700">Know It All</span>
-            <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-200">
-              <i data-lucide="brain" class="w-4 h-4"></i>
+      </div>
+
+      <!-- Corporate Payroll Executive Summary Widget -->
+      ${canView('payroll') ? `
+        <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 p-6 rounded-2xl text-white shadow-lg space-y-4 border border-slate-700/60 relative overflow-hidden">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="flex items-start sm:items-center gap-3.5">
+              <div class="w-11 h-11 rounded-xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 font-bold text-lg shadow-inner shrink-0">
+                <i data-lucide="landmark" class="w-6 h-6"></i>
+              </div>
+              <div>
+                <div class="flex items-center flex-wrap gap-2">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-teal-300 bg-teal-950 px-2 py-0.5 rounded border border-teal-700/60">Corporate Payroll Management</span>
+                  <span class="text-xs text-slate-300 font-semibold">${escapeHtml(payComp.name)} (${escapeHtml(payComp.code || 'CO')})</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                    Cycle: ${escapeHtml(p?.month || 'September 2026')} [${escapeHtml(p?.status || 'Finalized')}]
+                  </span>
+                </div>
+                <h3 class="text-lg font-bold font-display tracking-tight text-white mt-1">
+                  Salary Sheet &amp; Bank Remittance Overview
+                </h3>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="switchView('payroll')" class="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs flex items-center gap-1.5 transition shadow-sm">
+                <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+                <span>Open Salary Sheet</span>
+              </button>
+              <button onclick="switchView('payroll'); setTimeout(() => switchPayrollSubTab('letter'), 150);" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs flex items-center gap-1.5 transition">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 text-amber-300"></i>
+                <span>Bank Letter</span>
+              </button>
+              <button onclick="openManagePeriodsModal('${payComp.id}')" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs flex items-center gap-1.5 transition">
+                <i data-lucide="calendar-range" class="w-3.5 h-3.5 text-teal-300"></i>
+                <span>Manage Cycles</span>
+              </button>
             </div>
           </div>
-          <div class="mt-4">
-            <div class="text-2xl font-display font-bold text-slate-900">Knowledge Hub</div>
-            <div class="mt-1 text-xs text-purple-700 font-semibold flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span> To Be Done Later
+
+          <!-- Key Financial Metrics Bar -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-700/60 text-xs">
+            <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span class="text-slate-400 block text-[10px] uppercase font-semibold">Net Remittance (Bank Transfer)</span>
+              <span class="text-lg sm:text-xl font-bold font-display text-emerald-300 block mt-0.5">
+                Rs ${formatMoney(payTotals.sumNetSalaryLkr || 5214427, 2)}
+              </span>
+              <span class="text-[10px] text-slate-400">${payEmpCount || 17} Staff Members</span>
             </div>
-          </div>
-          <div class="mt-3 flex items-center justify-between text-xs text-slate-500 border-t border-purple-100 pt-2 font-medium">
-            <span class="text-[11px] text-slate-500">Corporate SOPs & AI Search</span>
-            <button onclick="openKnowItAllModal()" class="text-purple-700 font-bold hover:underline">Preview</button>
+
+            <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span class="text-slate-400 block text-[10px] uppercase font-semibold">Contracted Base (GBP)</span>
+              <span class="text-lg sm:text-xl font-bold font-display text-blue-300 block mt-0.5">
+                &pound; ${formatMoney(payTotals.sumEarnedGbp || 13874.71, 2)}
+              </span>
+              <span class="text-[10px] text-slate-400">@ 1 GBP = Rs ${formatMoney(p?.exchangeRate || 440, 2)}</span>
+            </div>
+
+            <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span class="text-slate-400 block text-[10px] uppercase font-semibold">Statutory EPF &amp; ETF</span>
+              <span class="text-lg sm:text-xl font-bold font-display text-amber-300 block mt-0.5">
+                Rs ${formatMoney((payTotals.sumEpf8Lkr || 468645.6) + (payTotals.sumEpf12Lkr || 702968.4) + (payTotals.sumEtf3Lkr || 175742.1), 2)}
+              </span>
+              <span class="text-[10px] text-slate-400">Total Statutory Liabilities</span>
+            </div>
+
+            <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+              <span class="text-slate-400 block text-[10px] uppercase font-semibold">Debit Account &amp; Branch</span>
+              <span class="font-mono text-xs font-bold text-teal-300 truncate block mt-0.5">
+                ${escapeHtml((p && p.debitAccountNo) || payComp.debitAccountNo || '1001 5000 7554')}
+              </span>
+              <span class="text-[10px] text-slate-400 truncate block">${escapeHtml((p && p.bankName) || payComp.bankName || 'Nations Trust Bank')} (${escapeHtml((p && p.bankBranch) || payComp.bankBranch || 'Borella')})</span>
+            </div>
           </div>
         </div>
-
-      </div>
+      ` : ''}
 
       <!-- Dedicated Know It All Section (In Development) -->
       <div class="bg-gradient-to-r from-purple-50 via-indigo-50/40 to-white p-5 rounded-2xl border border-purple-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -982,7 +1092,7 @@ function renderDashboard(container) {
       </div>
 
       <!-- Quick Operational Shortcuts -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         <div class="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-3">
           <div class="flex items-center gap-3">
@@ -998,6 +1108,23 @@ function renderDashboard(container) {
             Open My Tracker &rarr;
           </button>
         </div>
+
+        ${canView('payroll') ? `
+          <div class="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-3">
+            <div class="flex items-center gap-3">
+              <div class="p-2.5 rounded-xl bg-teal-50 text-teal-600 border border-teal-200">
+                <i data-lucide="banknote" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-semibold text-sm text-slate-900">Corporate Payroll</h3>
+                <p class="text-xs text-slate-500">Staff salaries, EPF/ETF &amp; bank letters</p>
+              </div>
+            </div>
+            <button onclick="switchView('payroll')" class="w-full py-2 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-semibold rounded-xl border border-teal-200 transition">
+              Open Payroll &rarr;
+            </button>
+          </div>
+        ` : ''}
 
         <div class="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-3">
           <div class="flex items-center gap-3">
@@ -4590,9 +4717,12 @@ async function renderPayroll(container) {
             <span class="text-slate-400 block text-[10px] uppercase font-semibold">Signatory:</span>
             <span class="font-medium truncate block">${escapeHtml(selectedComp.authorizedSignatory || 'Shaameel Mohideen')}</span>
           </div>
-          <div>
+          <div onclick="openManagePeriodsModal('${selectedComp.id}')" class="cursor-pointer hover:bg-slate-800/80 p-1.5 rounded-lg transition" title="Click to manage all periods for this company">
             <span class="text-slate-400 block text-[10px] uppercase font-semibold">Payroll Periods:</span>
-            <span class="font-bold text-teal-300 block">${compPeriods.length} active period${compPeriods.length === 1 ? '' : 's'}</span>
+            <span class="font-bold text-teal-300 block flex items-center gap-1">
+              <span>${compPeriods.length} active cycle${compPeriods.length === 1 ? '' : 's'}</span>
+              <i data-lucide="external-link" class="w-3 h-3 text-teal-400"></i>
+            </span>
           </div>
         </div>
       </div>
@@ -4625,16 +4755,47 @@ async function renderPayroll(container) {
             </p>
           </div>
 
-          <!-- Period Selector & Actions -->
-          <div class="flex flex-wrap items-center gap-2.5">
+          <!-- Period Selector & Actions Toolbar -->
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Period Status Badge & Quick Dropdown -->
+            <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold ${
+              p?.status === 'Finalized' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+              p?.status === 'Approved' ? 'bg-indigo-50 border-indigo-200 text-indigo-800' :
+              p?.status === 'Under Review' ? 'bg-blue-50 border-blue-200 text-blue-800' :
+              p?.status === 'Paid' ? 'bg-teal-50 border-teal-200 text-teal-800' :
+              'bg-amber-50 border-amber-200 text-amber-800'
+            }">
+              <span class="w-2 h-2 rounded-full ${
+                p?.status === 'Finalized' ? 'bg-emerald-500' :
+                p?.status === 'Approved' ? 'bg-indigo-500' :
+                p?.status === 'Under Review' ? 'bg-blue-500' :
+                p?.status === 'Paid' ? 'bg-teal-500' :
+                'bg-amber-500'
+              }"></span>
+              ${canEdit('payroll') && p ? `
+                <select onchange="handleQuickPeriodStatusChange('${p.id}', this.value)" title="Change Period Status"
+                  class="bg-transparent border-none text-xs font-bold text-slate-800 focus:outline-none cursor-pointer">
+                  <option value="Draft" ${p.status === 'Draft' ? 'selected' : ''}>Draft</option>
+                  <option value="Under Review" ${p.status === 'Under Review' ? 'selected' : ''}>Under Review</option>
+                  <option value="Approved" ${p.status === 'Approved' ? 'selected' : ''}>Approved</option>
+                  <option value="Finalized" ${p.status === 'Finalized' ? 'selected' : ''}>Finalized</option>
+                  <option value="Paid" ${p.status === 'Paid' ? 'selected' : ''}>Paid</option>
+                </select>
+              ` : `
+                <span>${escapeHtml(p?.status || 'Draft')}</span>
+              `}
+            </div>
+
             <!-- Live Exchange Rate Badge -->
             <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 shadow-2xs">
               <i data-lucide="trending-up" class="w-3.5 h-3.5 text-amber-600"></i>
               <span class="font-medium text-amber-700">1 GBP =</span>
               <span class="font-bold text-slate-900">${formatMoney(p ? p.exchangeRate : 440, 2)} LKR</span>
-              <button onclick="openExchangeRateModal()" title="Adjust Exchange Rate" class="ml-1 p-1 hover:bg-amber-100 rounded text-amber-700 transition">
-                <i data-lucide="edit-2" class="w-3 h-3"></i>
-              </button>
+              ${canEdit('payroll') ? `
+                <button onclick="openExchangeRateModal()" title="Adjust Exchange Rate" class="ml-1 p-1 hover:bg-amber-100 rounded text-amber-700 transition">
+                  <i data-lucide="edit-2" class="w-3 h-3"></i>
+                </button>
+              ` : ''}
             </div>
 
             <!-- Month/Period Selector (Filtered to this company) -->
@@ -4643,19 +4804,39 @@ async function renderPayroll(container) {
                 class="appearance-none pl-3 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 cursor-pointer">
                 ${compPeriods.map(per => `
                   <option value="${per.id}" ${p && per.id === p.id ? 'selected' : ''}>
-                    ${escapeHtml(per.month)} (${per.employeeCount || 0} Staff)
+                    ${escapeHtml(per.month)} (${per.employeeCount || 0} Staff) [${per.status || 'Draft'}]
                   </option>
                 `).join('')}
               </select>
               <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none"></i>
             </div>
 
-            <!-- Add Period Button -->
-            <button onclick="openNewPeriodModal('${selectedComp.id}')"
-              class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition">
-              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-              <span>New Period</span>
+            <!-- Manage Periods Button -->
+            <button onclick="openManagePeriodsModal('${selectedComp.id}')"
+              class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition"
+              title="Manage, edit, duplicate, or delete payroll periods">
+              <i data-lucide="calendar-range" class="w-3.5 h-3.5 text-teal-600"></i>
+              <span>Manage Periods (${compPeriods.length})</span>
             </button>
+
+            <!-- Edit Current Period Settings Button -->
+            ${canEdit('payroll') && p ? `
+              <button onclick="openEditPeriodModal('${p.id}')"
+                class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1 shadow-2xs transition"
+                title="Edit period details, month code, letter date, and bank signatories">
+                <i data-lucide="sliders" class="w-3.5 h-3.5 text-slate-600"></i>
+                <span class="hidden sm:inline">Settings</span>
+              </button>
+            ` : ''}
+
+            <!-- Add Period Button -->
+            ${canEdit('payroll') ? `
+              <button onclick="openNewPeriodModal('${selectedComp.id}')"
+                class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span>New Period</span>
+              </button>
+            ` : ''}
           </div>
         </div>
 
@@ -6001,14 +6182,378 @@ async function submitBankDetails(e) {
   }
 }
 
-// 3. New Period Modal
-function openNewPeriodModal(targetCompanyId) {
+// ---------------- PERIOD MANAGEMENT MODALS & WORKFLOWS ----------------
+
+// 1. Manage Periods Directory Modal
+function openManagePeriodsModal(targetCompanyId) {
   const compId = targetCompanyId || selectedPayrollCompanyId || activePayrollPeriod?.companyId || 'comp_apadmi';
-  const comp = (payrollData?.companies || []).find(c => c.id === compId) || { name: 'Managed Company' };
+  const comp = (payrollData?.companies || []).find(c => c.id === compId) || payrollData?.companies?.[0] || { name: 'Managed Company', code: 'CO' };
+  const allCompanies = payrollData?.companies || [];
+  const compPeriods = (payrollData?.periods || []).filter(p => p.companyId === comp.id);
+  const curPeriodId = activePayrollPeriod ? activePayrollPeriod.id : null;
   const c = document.getElementById('modalContent');
-  const nextMonthDefault = "October 2026";
+
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="font-display font-bold text-base text-slate-900">Manage Payroll Cycles &amp; Periods</h3>
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-teal-50 text-teal-700 border border-teal-200">${escapeHtml(comp.code || 'CO')}</span>
+          </div>
+          <p class="text-[11px] text-slate-500">${escapeHtml(comp.name)} &bull; ${compPeriods.length} processed cycle${compPeriods.length === 1 ? '' : 's'}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          ${canEdit('payroll') ? `
+            <button onclick="openNewPeriodModal('${comp.id}')" class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>New Period</span>
+            </button>
+          ` : ''}
+          <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Company Switcher Tabs if Multiple Companies -->
+      ${allCompanies.length > 1 ? `
+        <div class="flex items-center gap-1 p-1 bg-slate-100 rounded-xl overflow-x-auto">
+          ${allCompanies.map(cp => {
+            const isCur = cp.id === comp.id;
+            const count = (payrollData?.periods || []).filter(p => p.companyId === cp.id).length;
+            return `
+              <button onclick="openManagePeriodsModal('${cp.id}')"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${isCur ? 'bg-white text-teal-800 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'}">
+                <span>${escapeHtml(cp.name)}</span>
+                <span class="px-1.5 py-0.2 rounded-full text-[10px] ${isCur ? 'bg-teal-100 text-teal-800' : 'bg-slate-200 text-slate-600'}">${count}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      ` : ''}
+
+      <!-- Periods List -->
+      ${compPeriods.length === 0 ? `
+        <div class="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-3">
+          <p class="text-slate-500">No payroll periods currently recorded for ${escapeHtml(comp.name)}.</p>
+          ${canEdit('payroll') ? `
+            <button onclick="openNewPeriodModal('${comp.id}')" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-1.5">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>Create Initial Period</span>
+            </button>
+          ` : ''}
+        </div>
+      ` : `
+        <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+          ${compPeriods.map(per => {
+            const isCur = per.id === curPeriodId;
+            const status = per.status || 'Draft';
+            const statusClass =
+              status === 'Finalized' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+              status === 'Approved' ? 'bg-indigo-50 text-indigo-800 border-indigo-200' :
+              status === 'Under Review' ? 'bg-blue-50 text-blue-800 border-blue-200' :
+              status === 'Paid' ? 'bg-teal-50 text-teal-800 border-teal-200' :
+              'bg-amber-50 text-amber-800 border-amber-200';
+
+            return `
+              <div class="p-3.5 rounded-xl border ${isCur ? 'border-teal-500 bg-teal-50/30 ring-1 ring-teal-500/20' : 'border-slate-200 bg-white hover:border-slate-300'} transition flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
+                <!-- Left Details -->
+                <div class="space-y-1.5">
+                  <div class="flex items-center flex-wrap gap-2">
+                    <span class="font-display font-bold text-slate-900 text-sm">${escapeHtml(per.month)}</span>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-100 text-slate-700 border border-slate-200">${escapeHtml(per.monthCode || 'Period')}</span>
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600">${escapeHtml(per.yearPeriod || '2026-2027')}</span>
+                    ${isCur ? `
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-600 text-white shadow-2xs flex items-center gap-1">
+                        <i data-lucide="check-circle-2" class="w-3 h-3"></i> Active Default
+                      </span>
+                    ` : ''}
+                  </div>
+
+                  <div class="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>Staff: <b class="text-slate-800">${per.employeeCount || 0} members</b></span>
+                    <span>&bull;</span>
+                    <span>Rate: <b class="text-slate-800">1 GBP = Rs ${formatMoney(per.exchangeRate || 440, 2)}</b></span>
+                    <span>&bull;</span>
+                    <span>Net Bank Payout: <b class="text-emerald-700 font-bold">Rs ${formatMoney(per.totalNetRemittance || 0, 2)}</b></span>
+                    <span>&bull;</span>
+                    <span>Letter Date: <b class="text-slate-700">${escapeHtml(per.letterDate || 'N/A')}</b></span>
+                  </div>
+                </div>
+
+                <!-- Right Controls & Actions -->
+                <div class="flex items-center flex-wrap gap-2 self-end md:self-center shrink-0">
+                  <!-- Quick Status Dropdown / Badge -->
+                  ${canEdit('payroll') ? `
+                    <select onchange="handleQuickPeriodStatusChange('${per.id}', this.value)"
+                      class="px-2.5 py-1.5 rounded-lg text-xs font-bold border ${statusClass} cursor-pointer focus:outline-none">
+                      <option value="Draft" ${status === 'Draft' ? 'selected' : ''}>Draft</option>
+                      <option value="Under Review" ${status === 'Under Review' ? 'selected' : ''}>Under Review</option>
+                      <option value="Approved" ${status === 'Approved' ? 'selected' : ''}>Approved</option>
+                      <option value="Finalized" ${status === 'Finalized' ? 'selected' : ''}>Finalized</option>
+                      <option value="Paid" ${status === 'Paid' ? 'selected' : ''}>Paid</option>
+                    </select>
+                  ` : `
+                    <span class="px-2.5 py-1.5 rounded-lg text-xs font-bold border ${statusClass}">${escapeHtml(status)}</span>
+                  `}
+
+                  <!-- Switch To Button -->
+                  <button onclick="handlePayrollPeriodChange('${per.id}'); closeModal();"
+                    class="px-3 py-1.5 ${isCur ? 'bg-teal-700 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} rounded-lg text-xs font-semibold transition">
+                    ${isCur ? 'Currently Open' : 'Open Sheet'}
+                  </button>
+
+                  <!-- Set As Default (if not already current) -->
+                  ${!isCur && canEdit('payroll') ? `
+                    <button onclick="setPayrollPeriodAsDefault('${per.id}')" title="Set as primary default period"
+                      class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition">
+                      Set Default
+                    </button>
+                  ` : ''}
+
+                  <!-- Edit Settings Button -->
+                  ${canEdit('payroll') ? `
+                    <button onclick="openEditPeriodModal('${per.id}')" title="Edit Period Configuration & Signatories"
+                      class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition">
+                      <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <button onclick="openNewPeriodModal('${comp.id}', '${per.id}')" title="Duplicate / Clone this Period"
+                      class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition">
+                      <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                    </button>
+                  ` : ''}
+
+                  <!-- Delete Button -->
+                  ${canEdit('payroll') && compPeriods.length > 1 ? `
+                    <button onclick="deletePayrollPeriod('${per.id}', '${escapeHtml(per.month)}')" title="Delete Period"
+                      class="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `}
+
+      <!-- Modal Footer -->
+      <div class="pt-3 flex items-center justify-between border-t border-slate-100">
+        <div class="text-[11px] text-slate-400">
+          Total Cycles: <b class="text-slate-700">${compPeriods.length}</b> for ${escapeHtml(comp.name)}
+        </div>
+        <div class="flex items-center gap-2">
+          ${canEdit('payroll') ? `
+            <button onclick="openNewPeriodModal('${comp.id}')" class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>Add Period</span>
+            </button>
+          ` : ''}
+          <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-slate-600 bg-slate-100 hover:bg-slate-200 font-semibold transition">Close</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+// 2. Edit Period Modal
+function openEditPeriodModal(periodId) {
+  if (!canEdit('payroll')) {
+    alert('You have read-only access to Corporate Payroll.');
+    return;
+  }
+  const per = (payrollData?.periods || []).find(p => p.id === periodId) || activePayrollPeriod;
+  if (!per) return;
+  const comp = (payrollData?.companies || []).find(c => c.id === per.companyId) || { name: 'Company' };
+  const c = document.getElementById('modalContent');
+
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Edit Payroll Period Details</h3>
+          <p class="text-[11px] text-slate-500">${escapeHtml(per.month)} &bull; ${escapeHtml(comp.name)}</p>
+        </div>
+        <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitEditPeriod(event, '${per.id}')" class="space-y-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block font-semibold text-slate-700 mb-1">Period Month &amp; Year *</label>
+            <input type="text" id="editPeriodMonth" value="${escapeHtml(per.month || '')}" required
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Month Code *</label>
+            <input type="text" id="editPeriodMonthCode" value="${escapeHtml(per.monthCode || 'Period')}" required
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono uppercase text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Exchange Rate (1 GBP in LKR) *</label>
+            <input type="number" id="editPeriodRate" step="0.01" min="1" value="${per.exchangeRate || 440.0}" required
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Financial Year Period</label>
+            <input type="text" id="editPeriodYearPeriod" value="${escapeHtml(per.yearPeriod || '2026-2027')}" required
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Cycle Status *</label>
+            <select id="editPeriodStatus" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+              <option value="Draft" ${per.status === 'Draft' ? 'selected' : ''}>Draft</option>
+              <option value="Under Review" ${per.status === 'Under Review' ? 'selected' : ''}>Under Review</option>
+              <option value="Approved" ${per.status === 'Approved' ? 'selected' : ''}>Approved</option>
+              <option value="Finalized" ${per.status === 'Finalized' ? 'selected' : ''}>Finalized</option>
+              <option value="Paid" ${per.status === 'Paid' ? 'selected' : ''}>Paid</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Remittance Letter Date</label>
+          <input type="text" id="editPeriodLetterDate" value="${escapeHtml(per.letterDate || '30.09.2026')}" required
+            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+        </div>
+
+        <!-- Bank Letter & Signatory Overrides -->
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+          <div class="font-bold text-slate-800 flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <i data-lucide="landmark" class="w-3.5 h-3.5 text-teal-600"></i>
+              <span>Period Bank Remittance Details &amp; Signatories</span>
+            </span>
+            <span class="text-[10px] text-slate-400 font-normal">Overrides company defaults for this period</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Bank Name</label>
+              <input type="text" id="editPeriodBankName" value="${escapeHtml(per.bankName || comp.bankName || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Bank Branch</label>
+              <input type="text" id="editPeriodBankBranch" value="${escapeHtml(per.bankBranch || comp.bankBranch || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Branch Address</label>
+              <textarea id="editPeriodBankAddress" rows="2" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">${escapeHtml(per.bankAddress || comp.bankAddress || '')}</textarea>
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Debit Account Number</label>
+              <input type="text" id="editPeriodDebitAcctNo" value="${escapeHtml(per.debitAccountNo || comp.debitAccountNo || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Debit Account Entity Name</label>
+              <input type="text" id="editPeriodDebitAcctName" value="${escapeHtml(per.debitAccountName || comp.debitAccountName || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Authorized Signatory</label>
+              <input type="text" id="editPeriodSignatory" value="${escapeHtml(per.authorizedSignatory || comp.authorizedSignatory || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Prepared / Checked By</label>
+              <input type="text" id="editPeriodCheckedBy" value="${escapeHtml(per.checkedBy || comp.checkedBy || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700">
+            <input type="checkbox" id="editPeriodSetActive" ${activePayrollPeriod?.id === per.id ? 'checked' : ''} class="rounded text-teal-600 focus:ring-teal-500">
+            <span>Set as Current Active Period</span>
+          </label>
+        </div>
+
+        <div class="pt-3 flex justify-end gap-2 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-slate-600 bg-slate-100 hover:bg-slate-200 font-semibold transition">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-white bg-teal-600 hover:bg-teal-700 font-semibold transition shadow-sm">Save Period Changes</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function submitEditPeriod(e, periodId) {
+  e.preventDefault();
+  const payload = {
+    id: periodId,
+    month: document.getElementById('editPeriodMonth').value.trim(),
+    monthCode: document.getElementById('editPeriodMonthCode').value.trim().toUpperCase(),
+    exchangeRate: parseFloat(document.getElementById('editPeriodRate').value),
+    yearPeriod: document.getElementById('editPeriodYearPeriod').value.trim(),
+    status: document.getElementById('editPeriodStatus').value,
+    letterDate: document.getElementById('editPeriodLetterDate').value.trim(),
+    bankName: document.getElementById('editPeriodBankName').value.trim(),
+    bankBranch: document.getElementById('editPeriodBankBranch').value.trim(),
+    bankAddress: document.getElementById('editPeriodBankAddress').value.trim(),
+    debitAccountNo: document.getElementById('editPeriodDebitAcctNo').value.trim(),
+    debitAccountName: document.getElementById('editPeriodDebitAcctName').value.trim(),
+    authorizedSignatory: document.getElementById('editPeriodSignatory').value.trim(),
+    checkedBy: document.getElementById('editPeriodCheckedBy').value.trim(),
+    setActive: document.getElementById('editPeriodSetActive').checked
+  };
+
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeModal();
+      await refreshPayrollData();
+      if (payload.setActive) {
+        await handlePayrollPeriodChange(periodId);
+      }
+      alert(`Period "${payload.month}" updated successfully.`);
+    } else {
+      alert(data.error || 'Failed to update period');
+    }
+  } catch (err) {
+    alert('Network error updating period: ' + err.message);
+  }
+}
+
+// 3. New Period Modal (Enhanced with Staff Clone & Settings)
+function openNewPeriodModal(targetCompanyId, cloneFromId) {
+  if (!canEdit('payroll')) {
+    alert('You have read-only access to Corporate Payroll.');
+    return;
+  }
+  const compId = targetCompanyId || selectedPayrollCompanyId || activePayrollPeriod?.companyId || 'comp_apadmi';
+  const comp = (payrollData?.companies || []).find(c => c.id === compId) || { name: 'Managed Company', code: 'CO' };
+  const compPeriods = (payrollData?.periods || []).filter(p => p.companyId === compId);
+  const c = document.getElementById('modalContent');
+  
+  // Suggest next month
+  let defaultMonth = "October 2026";
+  let defaultMonthCode = "Oct-26";
+  if (compPeriods.length > 0) {
+    const lastP = compPeriods[compPeriods.length - 1];
+    if (lastP.month.toLowerCase().includes("september")) {
+      defaultMonth = "October 2026";
+      defaultMonthCode = "Oct-26";
+    } else if (lastP.month.toLowerCase().includes("october")) {
+      defaultMonth = "November 2026";
+      defaultMonthCode = "Nov-26";
+    }
+  }
+
   const curRate = activePayrollPeriod ? activePayrollPeriod.exchangeRate : 440.0;
-  const canClone = !!(activePayrollPeriod && activePayrollPeriod.employees && activePayrollPeriod.employees.length > 0);
+  const preferredCloneId = cloneFromId || (activePayrollPeriod && activePayrollPeriod.companyId === compId ? activePayrollPeriod.id : (compPeriods[0]?.id || null));
 
   c.innerHTML = `
     <div class="space-y-4 text-xs">
@@ -6022,31 +6567,74 @@ function openNewPeriodModal(targetCompanyId) {
         </button>
       </div>
 
-      <form onsubmit="submitNewPeriod(event, '${compId}')" class="space-y-3">
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Month &amp; Year *</label>
-          <input type="text" id="newPeriodMonth" value="${nextMonthDefault}" required
-            placeholder="e.g. October 2026"
-            class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-semibold">
-        </div>
-
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Exchange Rate (1 GBP in LKR) *</label>
-          <input type="number" id="newPeriodRate" step="0.01" min="1" value="${curRate}" required
-            class="w-full px-3 py-2 border border-slate-200 rounded-xl font-bold">
-        </div>
-
-        ${canClone ? `
-          <div class="p-3 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 space-y-1">
-            <label class="flex items-center gap-2 cursor-pointer font-semibold">
-              <input type="checkbox" id="newPeriodClone" checked class="rounded text-teal-600 focus:ring-teal-500">
-              <span>Copy staff roster from period (${activePayrollPeriod?.month || 'current'})</span>
-            </label>
-            <p class="text-[11px] text-teal-700/80 pl-5">Staff member names, bank accounts, TIN, and contracted base GBP will be pre-filled automatically.</p>
+      <form onsubmit="submitNewPeriod(event, '${compId}')" class="space-y-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Month &amp; Year *</label>
+            <input type="text" id="newPeriodMonth" value="${defaultMonth}" required
+              placeholder="e.g. October 2026"
+              class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-semibold">
           </div>
-        ` : `
-          <input type="hidden" id="newPeriodClone" value="0">
-        `}
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Month Code *</label>
+            <input type="text" id="newPeriodMonthCode" value="${defaultMonthCode}" required
+              placeholder="e.g. Oct-26"
+              class="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono uppercase">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Exchange Rate (1 GBP in LKR) *</label>
+            <input type="number" id="newPeriodRate" step="0.01" min="1" value="${curRate}" required
+              class="w-full px-3 py-2 border border-slate-200 rounded-xl font-bold">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Financial Year Period</label>
+            <input type="text" id="newPeriodYearPeriod" value="${escapeHtml(comp.payrollYearPeriod || '2026-2027')}" required
+              class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Remittance Letter Date</label>
+            <input type="text" id="newPeriodLetterDate" value="31.10.2026" required
+              class="w-full px-3 py-2 border border-slate-200 rounded-xl">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Initial Status</label>
+            <select id="newPeriodStatus" class="w-full px-3 py-2 border border-slate-200 rounded-xl font-semibold">
+              <option value="Draft" selected>Draft</option>
+              <option value="Under Review">Under Review</option>
+              <option value="Approved">Approved</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Clone Roster Option -->
+        <div class="p-3.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-900 space-y-2">
+          <div class="font-bold flex items-center gap-1.5 text-teal-800">
+            <i data-lucide="copy" class="w-3.5 h-3.5 text-teal-600"></i>
+            <span>Staff Roster Pre-population</span>
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-teal-800 mb-1">Copy staff roster &amp; banking records from:</label>
+            <select id="newPeriodCloneSelect" class="w-full p-2 bg-white border border-teal-300 rounded-lg text-xs font-semibold text-slate-800">
+              <option value="">-- Start with Blank Sheet (No staff) --</option>
+              ${compPeriods.map(p => `
+                <option value="${p.id}" ${p.id === preferredCloneId ? 'selected' : ''}>
+                  ${escapeHtml(p.month)} (${p.employeeCount || 0} Staff members)
+                </option>
+              `).join('')}
+            </select>
+            <p class="text-[11px] text-teal-700/80 mt-1">Staff names, bank account numbers, TIN, NIC, and contracted GBP salaries will be automatically duplicated.</p>
+          </div>
+        </div>
+
+        <div class="pt-1">
+          <label class="flex items-center gap-2 cursor-pointer font-semibold text-slate-700">
+            <input type="checkbox" id="newPeriodSetActive" checked class="rounded text-teal-600 focus:ring-teal-500">
+            <span>Set as current active period immediately</span>
+          </label>
+        </div>
 
         <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
           <button type="button" onclick="closeModal()" class="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">
@@ -6066,18 +6654,27 @@ function openNewPeriodModal(targetCompanyId) {
 async function submitNewPeriod(e, compId) {
   e.preventDefault();
   const month = document.getElementById('newPeriodMonth').value.trim();
+  const monthCode = document.getElementById('newPeriodMonthCode').value.trim().toUpperCase();
   const rate = parseFloat(document.getElementById('newPeriodRate').value);
-  const cloneEl = document.getElementById('newPeriodClone');
-  const clone = cloneEl ? (cloneEl.type === 'checkbox' ? cloneEl.checked : false) : false;
+  const yearPeriod = document.getElementById('newPeriodYearPeriod').value.trim();
+  const letterDate = document.getElementById('newPeriodLetterDate').value.trim();
+  const status = document.getElementById('newPeriodStatus').value;
+  const cloneFromId = document.getElementById('newPeriodCloneSelect').value;
+  const setActive = document.getElementById('newPeriodSetActive').checked;
 
   const targetCompId = compId || selectedPayrollCompanyId || activePayrollPeriod?.companyId || 'comp_apadmi';
 
   const payload = {
     companyId: targetCompId,
     month: month,
+    monthCode: monthCode,
     exchangeRate: rate,
-    cloneFromId: clone && activePayrollPeriod ? activePayrollPeriod.id : null,
-    cloneFromPeriodId: clone && activePayrollPeriod ? activePayrollPeriod.id : null
+    yearPeriod: yearPeriod,
+    letterDate: letterDate,
+    status: status,
+    cloneFromId: cloneFromId || null,
+    cloneFromPeriodId: cloneFromId || null,
+    setActive: setActive
   };
 
   try {
@@ -6094,9 +6691,10 @@ async function submitNewPeriod(e, compId) {
       closeModal();
       selectedPayrollCompanyId = targetCompId;
       await refreshPayrollData();
-      if (data.period) {
+      if (data.period && setActive) {
         await handlePayrollPeriodChange(data.period.id);
       }
+      alert(`Payroll period "${month}" created successfully.`);
     } else {
       const err = await res.json();
       alert('Error creating period: ' + (err.error || 'Server error'));
@@ -6106,7 +6704,85 @@ async function submitNewPeriod(e, compId) {
   }
 }
 
-// 4. Employee Add/Edit Modals
+// 4. Quick Period Status Toggle
+async function handleQuickPeriodStatusChange(periodId, newStatus) {
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ id: periodId, status: newStatus })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await refreshPayrollData();
+    } else {
+      alert(data.error || 'Failed to update period status');
+    }
+  } catch (err) {
+    alert('Network error: ' + err.message);
+  }
+}
+
+// 5. Set Period as Primary Default Active Period
+async function setPayrollPeriodAsDefault(periodId) {
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ id: periodId, setActive: true })
+    });
+    const data = await res.json();
+    if (data.success) {
+      await refreshPayrollData();
+      await handlePayrollPeriodChange(periodId);
+      closeModal();
+    } else {
+      alert(data.error || 'Failed to set default period');
+    }
+  } catch (err) {
+    alert('Network error: ' + err.message);
+  }
+}
+
+// 6. Delete Payroll Period with Safety Guard
+async function deletePayrollPeriod(periodId, periodMonth) {
+  if (!canEdit('payroll')) return;
+  const periods = payrollData?.periods || [];
+  if (periods.length <= 1) {
+    alert('Cannot delete the only remaining payroll period in the system.');
+    return;
+  }
+  if (!confirm(`Are you sure you want to delete payroll period "${periodMonth}" and all staff rows in it? This cannot be undone.`)) {
+    return;
+  }
+  try {
+    const res = await fetch(`/api/payroll/period?id=${encodeURIComponent(periodId)}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeModal();
+      await refreshPayrollData();
+      if (data.activePeriodId) {
+        await handlePayrollPeriodChange(data.activePeriodId);
+      }
+      alert(`Payroll period "${periodMonth}" deleted successfully.`);
+    } else {
+      alert(data.error || 'Failed to delete period');
+    }
+  } catch (err) {
+    alert('Network error deleting period: ' + err.message);
+  }
+}
+
+// 7. Employee Add/Edit Modals
 function openAddEmployeeModal() {
   openEmployeeModal(null);
 }

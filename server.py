@@ -1171,16 +1171,27 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             
             for p in PAYROLL_RECORDS.get("periods", []):
                 enriched = enrich_payroll_period(p)
+                p_totals = enriched.get("totals", {})
                 periods_list.append({
                     "id": p.get("id"),
                     "companyId": p.get("companyId"),
                     "month": p.get("month"),
                     "monthCode": p.get("monthCode"),
                     "yearPeriod": p.get("yearPeriod"),
+                    "letterDate": p.get("letterDate"),
                     "exchangeRate": p.get("exchangeRate"),
-                    "status": p.get("status"),
+                    "status": p.get("status", "Draft"),
+                    "isActive": (p.get("id") == active_id),
                     "employeeCount": len(p.get("employees", [])),
-                    "totalNetRemittance": enriched.get("totals", {}).get("sumNetSalaryLkr", 0)
+                    "totalNetRemittance": p_totals.get("sumNetSalaryLkr", 0),
+                    "totalGrossLkr": p_totals.get("sumGrossSalaryLkr", 0),
+                    "totalEarnedGbp": p_totals.get("sumEarnedGbp", 0),
+                    "totalDeductionsLkr": p_totals.get("sumDeductionsLkr", 0),
+                    "bankName": p.get("bankName"),
+                    "bankBranch": p.get("bankBranch"),
+                    "debitAccountNo": p.get("debitAccountNo"),
+                    "authorizedSignatory": p.get("authorizedSignatory"),
+                    "checkedBy": p.get("checkedBy")
                 })
                 if p.get("id") == active_id:
                     active_period_enriched = enriched
@@ -1627,13 +1638,21 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/payroll/period":
             user = self.require_permission("payroll", "editor")
             if not user: return
+            sync_payroll_from_disk()
 
             clone_from_id = body.get("cloneFromId") or body.get("cloneFromPeriodId")
-            month = body.get("month", "New Month")
-            month_code = body.get("monthCode", "Month")
+            month = body.get("month", "New Month").strip()
+            month_code = body.get("monthCode")
+            if not month_code:
+                parts = month.split()
+                if len(parts) >= 2 and len(parts[1]) == 4:
+                    month_code = f"{parts[0][:3].capitalize()}-{parts[1][2:]}"
+                else:
+                    month_code = month[:6]
             year_period = body.get("yearPeriod", "2026-2027")
             exchange_rate = float(body.get("exchangeRate", 440.0))
             letter_date = body.get("letterDate", time.strftime("%d.%m.%Y"))
+            status = body.get("status", "Draft")
             company_id = body.get("companyId", "comp_apadmi")
             comp = None
             for c in PAYROLL_RECORDS.get("companies", []):
@@ -1662,7 +1681,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "exchangeRate": exchange_rate,
                 "baseCurrency": "GBP",
                 "localCurrency": "LKR",
-                "status": "Draft",
+                "status": status,
                 "checkedBy": body.get("checkedBy", (comp.get("checkedBy") if comp else "Hemanthi Basnayake")),
                 "checkedTitle": body.get("checkedTitle", (comp.get("checkedTitle") if comp else "Accountant")),
                 "authorizedSignatory": body.get("authorizedSignatory", (comp.get("authorizedSignatory") if comp else "Shaameel Mohideen")),
@@ -1675,7 +1694,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "employees": base_employees
             }
             PAYROLL_RECORDS.setdefault("periods", []).append(new_period)
-            PAYROLL_RECORDS["activePeriodId"] = new_period_id
+            if body.get("setActive", True):
+                PAYROLL_RECORDS["activePeriodId"] = new_period_id
             save_payroll_records()
             self.send_json({"success": True, "period": enrich_payroll_period(new_period)})
             return
@@ -1684,6 +1704,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/payroll/employee":
             user = self.require_permission("payroll", "editor")
             if not user: return
+            sync_payroll_from_disk()
 
             period_id = body.get("periodId") or PAYROLL_RECORDS.get("activePeriodId")
             target_period = None
@@ -1729,6 +1750,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/payroll/company":
             user = self.require_permission("payroll", "editor")
             if not user: return
+            sync_payroll_from_disk()
 
             comp_id = body.get("id", f"comp_{uuid.uuid4().hex[:6]}")
             comps = PAYROLL_RECORDS.setdefault("companies", [])
@@ -1875,6 +1897,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path.startswith("/api/payroll/period"):
             user = self.require_permission("payroll", "editor")
             if not user: return
+            sync_payroll_from_disk()
 
             pid = query.get("id", [""])[0] or body.get("id") or PAYROLL_RECORDS.get("activePeriodId")
             target_period = None
@@ -1887,7 +1910,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Period not found"}, 404)
                 return
 
-            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName"]:
+            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName"]:
                 if k in body:
                     if k == "exchangeRate":
                         target_period[k] = float(body[k])
@@ -1898,13 +1921,14 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 PAYROLL_RECORDS["activePeriodId"] = pid
 
             save_payroll_records()
-            self.send_json({"success": True, "period": enrich_payroll_period(target_period)})
+            self.send_json({"success": True, "period": enrich_payroll_period(target_period), "activePeriodId": PAYROLL_RECORDS.get("activePeriodId")})
             return
 
         # 6. Payroll: Update Employee
         elif path.startswith("/api/payroll/employee"):
             user = self.require_permission("payroll", "editor")
             if not user: return
+            sync_payroll_from_disk()
 
             emp_id = query.get("id", [""])[0] or body.get("id")
             period_id = query.get("periodId", [""])[0] or body.get("periodId") or PAYROLL_RECORDS.get("activePeriodId")
@@ -1943,6 +1967,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path.startswith("/api/payroll/company"):
             user = self.require_permission("payroll", "editor")
             if not user: return
+            sync_payroll_from_disk()
 
             comp_id = query.get("id", [""])[0] or body.get("id")
             comps = PAYROLL_RECORDS.setdefault("companies", [])
@@ -2048,6 +2073,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path.startswith("/api/payroll/employee"):
             user = self.require_permission("payroll", "editor")
             if not user: return
+            sync_payroll_from_disk()
 
             emp_id = query.get("id", [""])[0] or path.replace("/api/payroll/employee/", "")
             period_id = query.get("periodId", [""])[0] or PAYROLL_RECORDS.get("activePeriodId")
@@ -2076,25 +2102,49 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path.startswith("/api/payroll/period"):
             user = self.require_permission("payroll", "editor")
             if not user: return
+            sync_payroll_from_disk()
 
-            pid = query.get("id", [""])[0] or path.replace("/api/payroll/period/", "")
+            pid = query.get("id", [""])[0] or path.replace("/api/payroll/period/", "").replace("/api/payroll/period", "")
             periods = PAYROLL_RECORDS.get("periods", [])
             if len(periods) <= 1:
-                self.send_json({"error": "Cannot delete the only remaining payroll period"}, 400)
+                self.send_json({"error": "Cannot delete the only remaining payroll period in the system."}, 400)
                 return
 
+            target = None
+            for p in periods:
+                if p.get("id") == pid:
+                    target = p
+                    break
+            
+            if not target:
+                self.send_json({"error": "Period not found"}, 404)
+                return
+
+            target_company_id = target.get("companyId")
             PAYROLL_RECORDS["periods"] = [p for p in periods if p.get("id") != pid]
+            
             if PAYROLL_RECORDS.get("activePeriodId") == pid:
-                PAYROLL_RECORDS["activePeriodId"] = PAYROLL_RECORDS["periods"][0]["id"]
+                comp_remaining = [p for p in PAYROLL_RECORDS["periods"] if p.get("companyId") == target_company_id]
+                if comp_remaining:
+                    PAYROLL_RECORDS["activePeriodId"] = comp_remaining[0]["id"]
+                elif PAYROLL_RECORDS["periods"]:
+                    PAYROLL_RECORDS["activePeriodId"] = PAYROLL_RECORDS["periods"][0]["id"]
+                else:
+                    PAYROLL_RECORDS["activePeriodId"] = None
 
             save_payroll_records()
-            self.send_json({"success": True, "activePeriodId": PAYROLL_RECORDS["activePeriodId"]})
+            self.send_json({
+                "success": True,
+                "message": f"Period '{target.get('month', pid)}' deleted.",
+                "activePeriodId": PAYROLL_RECORDS["activePeriodId"]
+            })
             return
 
         # 7. Payroll: Delete Company
         elif path.startswith("/api/payroll/company"):
             user = self.require_permission("payroll", "editor")
             if not user: return
+            sync_payroll_from_disk()
 
             cid = query.get("id", [""])[0] or path.replace("/api/payroll/company/", "")
             comps = PAYROLL_RECORDS.get("companies", [])
