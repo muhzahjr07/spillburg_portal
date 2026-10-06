@@ -11,6 +11,7 @@
       "operations": "full",
       "customer_files": "full",
       "financial_files": "full",
+      "payroll": "full",
       "user_management": "full"
     },
     "createdAt": "2026-09-01T08:00:00Z",
@@ -28,6 +29,7 @@
       "operations": "editor",
       "customer_files": "editor",
       "financial_files": "none",
+      "payroll": "none",
       "user_management": "none"
     },
     "createdAt": "2026-09-12T10:00:00Z",
@@ -45,6 +47,7 @@
       "operations": "editor",
       "customer_files": "editor",
       "financial_files": "editor",
+      "payroll": "editor",
       "user_management": "none"
     },
     "createdAt": "2026-09-10T09:30:00Z",
@@ -62,6 +65,7 @@
       "operations": "full",
       "customer_files": "full",
       "financial_files": "full",
+      "payroll": "full",
       "user_management": "full"
     },
     "createdAt": "2026-09-01T08:00:00Z",
@@ -79,6 +83,7 @@
       "operations": "full",
       "customer_files": "full",
       "financial_files": "full",
+      "payroll": "full",
       "user_management": "full"
     },
     "createdAt": "2026-09-01T08:00:00Z",
@@ -96,6 +101,7 @@
       "operations": "full",
       "customer_files": "full",
       "financial_files": "full",
+      "payroll": "full",
       "user_management": "full"
     },
     "createdAt": "2026-09-01T08:00:00Z",
@@ -113,6 +119,7 @@
       "operations": "editor",
       "customer_files": "editor",
       "financial_files": "editor",
+      "payroll": "editor",
       "user_management": "none"
     },
     "createdAt": "2026-09-15T11:00:00Z",
@@ -130,6 +137,7 @@
       "operations": "viewer",
       "customer_files": "viewer",
       "financial_files": "viewer",
+      "payroll": "none",
       "user_management": "none"
     },
     "createdAt": "2026-09-15T11:00:00Z",
@@ -147,6 +155,7 @@
       "operations": "full",
       "customer_files": "full",
       "financial_files": "full",
+      "payroll": "full",
       "user_management": "full"
     },
     "createdAt": "2026-09-01T08:00:00Z",

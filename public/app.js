@@ -18,6 +18,7 @@ let operationsUserFilter = 'me'; // 'me', 'all', or specific userId
 // Payroll & Remittance State
 let payrollData = null;
 let activePayrollPeriod = null;
+let selectedPayrollCompanyId = null;
 let currentPayrollSubTab = 'sheet'; // 'sheet', 'letter', 'slips', 'staff'
 let activePayslipEmployeeId = null;
 
@@ -648,26 +649,32 @@ function updateUserUI() {
     avatar.className = 'w-6 h-6 rounded-full bg-indigo-100 border border-indigo-300 text-indigo-800 flex items-center justify-center font-bold text-xs';
   }
 
+  // Restrict navigation buttons based on user permissions
+  const navPayroll = document.getElementById('nav-payroll');
+  if (navPayroll) {
+    if (canView('payroll')) {
+      navPayroll.classList.remove('hidden');
+    } else {
+      navPayroll.classList.add('hidden');
+    }
+  }
+
   if (window.lucide) lucide.createIcons();
 }
 
 function canEdit(module) {
   if (!currentUser) return false;
+  const perm = currentUser.permissions?.[module];
+  if (perm === 'none') return false;
   if (['director', 'admin'].includes(currentUser.role)) return true;
-  let perm = currentUser.permissions?.[module];
-  if (!perm && module === 'payroll') {
-    perm = currentUser.permissions?.financial_files || currentUser.permissions?.operations || 'viewer';
-  }
   return perm === 'editor' || perm === 'full';
 }
 
 function canView(module) {
   if (!currentUser) return false;
+  const perm = currentUser.permissions?.[module];
+  if (perm === 'none') return false;
   if (['director', 'admin'].includes(currentUser.role)) return true;
-  let perm = currentUser.permissions?.[module];
-  if (!perm && module === 'payroll') {
-    perm = currentUser.permissions?.financial_files || currentUser.permissions?.operations || 'viewer';
-  }
   return ['viewer', 'editor', 'full'].includes(perm);
 }
 
@@ -721,18 +728,20 @@ async function loadInitialData() {
     document.getElementById('navCustomerCount').textContent = customerRecords.length;
     document.getElementById('navFinCount').textContent = financialRecords.length;
 
-    try {
-      const payRes = await fetch('/api/payroll', { headers });
-      if (payRes.ok) {
-        payrollData = await payRes.json();
-        activePayrollPeriod = payrollData.activePeriod || null;
-        const countEl = document.getElementById('navPayrollCount');
-        if (countEl && activePayrollPeriod) {
-          countEl.textContent = activePayrollPeriod.employees?.length || 0;
+    if (canView('payroll')) {
+      try {
+        const payRes = await fetch('/api/payroll', { headers });
+        if (payRes.ok) {
+          payrollData = await payRes.json();
+          activePayrollPeriod = payrollData.activePeriod || null;
+          const countEl = document.getElementById('navPayrollCount');
+          if (countEl && activePayrollPeriod) {
+            countEl.textContent = activePayrollPeriod.employees?.length || 0;
+          }
         }
+      } catch (payErr) {
+        console.warn('Failed to load payroll data:', payErr);
       }
-    } catch (payErr) {
-      console.warn('Failed to load payroll data:', payErr);
     }
   } catch (e) {
     console.error('Initial data load failed:', e);
@@ -769,7 +778,20 @@ async function switchView(viewName) {
       renderFinancialFiles(container);
       break;
     case 'payroll':
-      await renderPayroll(container);
+      if (!canView('payroll')) {
+        container.innerHTML = `
+          <div class="p-12 text-center bg-white rounded-2xl border border-red-200 space-y-3 max-w-lg mx-auto my-12 shadow-sm">
+            <div class="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto">
+              <i data-lucide="lock" class="w-7 h-7"></i>
+            </div>
+            <h3 class="text-base font-bold text-slate-900">Payroll Access Restricted</h3>
+            <p class="text-xs text-slate-600 leading-relaxed">Your account does not have authorization to view or manage corporate payroll records and bank remittance files. Please contact an Administrator or Director to update your permissions.</p>
+          </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+      } else {
+        await renderPayroll(container);
+      }
       break;
     case 'access-control':
       await renderAccessControl(container);
@@ -2110,6 +2132,7 @@ function renderUsersTable(users) {
               <th class="py-3 px-3.5">Operations</th>
               <th class="py-3 px-3.5">Customer DB</th>
               <th class="py-3 px-3.5">Financial DB</th>
+              <th class="py-3 px-3.5">Payroll</th>
               <th class="py-3 px-3.5">User Mgmt</th>
               <th class="py-3 px-3.5 text-right sticky right-0 bg-slate-50 min-w-[140px]">Actions</th>
             </tr>
@@ -2146,6 +2169,11 @@ function renderUsersTable(users) {
                   <td class="py-3 px-3.5">
                     <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${['editor', 'full'].includes(u.permissions?.financial_files) || ['director', 'admin'].includes(u.role) ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}">
                       ${['director', 'admin'].includes(u.role) ? 'Full' : (u.permissions?.financial_files || 'none')}
+                    </span>
+                  </td>
+                  <td class="py-3 px-3.5">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${['editor', 'full'].includes(u.permissions?.payroll) || ['director', 'admin'].includes(u.role) ? 'bg-teal-50 text-teal-700 border border-teal-200' : (u.permissions?.payroll === 'viewer' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-rose-50 text-rose-700 border border-rose-200')}">
+                      ${['director', 'admin'].includes(u.role) ? 'Full' : (u.permissions?.payroll || 'none')}
                     </span>
                   </td>
                   <td class="py-3 px-3.5">
@@ -2243,1672 +2271,6 @@ function numberToWordsRupees(num) {
   return 'Rupees ' + words.trim() + ' Only';
 }
 
-function switchPayrollSubTab(tab) {
-  currentPayrollSubTab = tab;
-  const container = document.getElementById('mainContent');
-  if (container) {
-    renderPayroll(container);
-  }
-}
-
-async function handlePayrollPeriodChange(periodId) {
-  try {
-    const res = await fetch(`/api/payroll/period?id=${encodeURIComponent(periodId)}`, {
-      headers: { 'Authorization': `Bearer ${authToken}` }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      activePayrollPeriod = data.period;
-      if (payrollData) {
-        payrollData.activePeriod = activePayrollPeriod;
-      }
-      const countEl = document.getElementById('navPayrollCount');
-      if (countEl && activePayrollPeriod) {
-        countEl.textContent = activePayrollPeriod.employees?.length || 0;
-      }
-      const container = document.getElementById('mainContent');
-      if (container) renderPayroll(container);
-    } else {
-      alert('Failed to switch payroll period');
-    }
-  } catch (err) {
-    alert('Error switching period: ' + err.message);
-  }
-}
-
-function handlePayslipEmployeeFilter(empId) {
-  activePayslipEmployeeId = empId;
-  const container = document.getElementById('mainContent');
-  if (container) renderPayroll(container);
-}
-
-async function renderPayroll(container) {
-  if (!payrollData || !activePayrollPeriod) {
-    container.innerHTML = `
-      <div class="flex items-center justify-center p-16">
-        <div class="flex flex-col items-center gap-3 text-slate-500">
-          <i data-lucide="loader" class="w-8 h-8 animate-spin text-teal-600"></i>
-          <span class="text-sm font-medium">Loading automated payroll system...</span>
-        </div>
-      </div>
-    `;
-    if (window.lucide) lucide.createIcons();
-    try {
-      const res = await fetch('/api/payroll', { headers: { 'Authorization': `Bearer ${authToken}` } });
-      if (res.ok) {
-        payrollData = await res.json();
-        activePayrollPeriod = payrollData.activePeriod || null;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  if (!payrollData || !activePayrollPeriod) {
-    container.innerHTML = `
-      <div class="p-8 text-center text-slate-500 bg-white rounded-2xl border border-slate-200">
-        <p class="font-medium text-slate-700">No payroll periods found.</p>
-        <button onclick="openNewPayrollPeriodModal()" class="mt-4 px-4 py-2 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700">Create Initial Payroll Period</button>
-      </div>
-    `;
-    if (window.lucide) lucide.createIcons();
-    return;
-  }
-
-  const period = activePayrollPeriod;
-  const company = (payrollData.companies || []).find(c => c.id === period.companyId) || (payrollData.companies || [])[0] || {};
-  const totals = period.totals || {};
-  const employees = period.employees || [];
-  const periods = payrollData.periods || [];
-
-  container.innerHTML = `
-    <div class="space-y-6 fade-in">
-      <!-- Top Title & Executive Summary Header -->
-      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-slate-200">
-        <div>
-          <div class="flex items-center gap-3">
-            <span class="p-2 bg-teal-50 text-teal-700 rounded-xl border border-teal-200">
-              <i data-lucide="banknote" class="w-6 h-6"></i>
-            </span>
-            <div>
-              <h1 class="text-2xl font-bold font-display text-slate-900 tracking-tight flex items-center gap-2">
-                Payroll & Bank Remittance Center
-                <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">Automated</span>
-              </h1>
-              <p class="text-xs text-slate-500 mt-0.5">
-                Dual-currency compensation management (${period.baseCurrency || 'GBP'} & ${period.localCurrency || 'LKR'}), statutory EPF/ETF & APIT deductions, Nations Trust Bank remittance letters & payslip vouchers.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Period Selector & Action Bar -->
-        <div class="flex flex-wrap items-center gap-2">
-          <!-- Active Period Dropdown -->
-          <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs">
-            <i data-lucide="calendar" class="w-4 h-4 text-slate-500"></i>
-            <span class="text-slate-500 font-medium">Period:</span>
-            <select onchange="handlePayrollPeriodChange(this.value)" class="font-semibold text-slate-800 bg-transparent focus:outline-none cursor-pointer">
-              ${periods.map(p => `
-                <option value="${p.id}" ${p.id === period.id ? 'selected' : ''}>
-                  ${p.month} (${p.status || 'Active'}) - ${p.employeeCount || 0} staff
-                </option>
-              `).join('')}
-            </select>
-          </div>
-
-          <!-- Live Exchange Rate Badge & Quick Edit -->
-          <button onclick="openEditExchangeRateModal()" class="flex items-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-900 px-3 py-1.5 rounded-xl border border-amber-200 shadow-sm text-xs font-semibold transition" title="Click to adjust exchange rate">
-            <i data-lucide="coins" class="w-4 h-4 text-amber-600"></i>
-            <span>1 GBP = LKR ${period.exchangeRate ? Number(period.exchangeRate).toFixed(2) : '440.00'}</span>
-            ${canEdit('payroll') ? '<i data-lucide="edit-2" class="w-3 h-3 text-amber-700 ml-0.5"></i>' : ''}
-          </button>
-
-          ${canEdit('payroll') ? `
-            <button onclick="openAddPayrollEmployeeModal()" class="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-1.5 rounded-xl shadow-sm text-xs font-semibold transition">
-              <i data-lucide="user-plus" class="w-4 h-4"></i>
-              <span>Add Staff</span>
-            </button>
-            <button onclick="openNewPayrollPeriodModal()" class="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-semibold transition">
-              <i data-lucide="calendar-plus" class="w-4 h-4 text-teal-600"></i>
-              <span>New Month</span>
-            </button>
-          ` : ''}
-
-          <!-- Export & Print Actions -->
-          <div class="flex items-center gap-1.5">
-            <a href="/api/payroll/export-xlsx?id=${encodeURIComponent(period.id)}" target="_blank" download class="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-semibold transition" title="Download Excel Spreadsheet">
-              <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>
-              <span class="hidden sm:inline">Excel</span>
-            </a>
-            <a href="/api/payroll/export-csv?id=${encodeURIComponent(period.id)}" target="_blank" download class="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm text-xs font-semibold transition" title="Download CSV Data">
-              <i data-lucide="download" class="w-4 h-4 text-blue-600"></i>
-              <span class="hidden sm:inline">CSV</span>
-            </a>
-            <button onclick="printCurrentPayrollView()" class="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-xl shadow-sm text-xs font-semibold transition" title="Print Current Document">
-              <i data-lucide="printer" class="w-4 h-4 text-slate-300"></i>
-              <span>Print</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quick KPI Metric Cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <!-- Metric 1: Total Net Remittance -->
-        <div class="glass-card p-4 rounded-xl border-l-4 border-teal-500">
-          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
-            <span class="font-medium">Total Bank Remittance</span>
-            <i data-lucide="send" class="w-4 h-4 text-teal-600"></i>
-          </div>
-          <div class="text-xl font-bold font-display text-slate-900">
-            LKR ${formatLKR(totals.sumNetSalaryLkr)}
-          </div>
-          <div class="text-[11px] text-teal-700 mt-0.5 font-medium flex items-center gap-1">
-            <span>To credit ${employees.length} employee bank accounts</span>
-          </div>
-        </div>
-
-        <!-- Metric 2: Gross Compensation Base -->
-        <div class="glass-card p-4 rounded-xl border-l-4 border-blue-500">
-          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
-            <span class="font-medium">Gross Base Earnings</span>
-            <i data-lucide="pound-sterling" class="w-4 h-4 text-blue-600"></i>
-          </div>
-          <div class="text-xl font-bold font-display text-slate-900">
-            ${formatGBP(totals.sumEarnedGbp)}
-          </div>
-          <div class="text-[11px] text-blue-700 mt-0.5 font-medium">
-            LKR ${formatLKR(totals.sumLkrGross)} gross equivalent
-          </div>
-        </div>
-
-        <!-- Metric 3: Total Deductions & APIT -->
-        <div class="glass-card p-4 rounded-xl border-l-4 border-amber-500">
-          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
-            <span class="font-medium">Statutory Tax & Deductions</span>
-            <i data-lucide="receipt" class="w-4 h-4 text-amber-600"></i>
-          </div>
-          <div class="text-xl font-bold font-display text-slate-900">
-            LKR ${formatLKR(totals.sumDeductionsLkr)}
-          </div>
-          <div class="text-[11px] text-amber-700 mt-0.5 font-medium">
-            EPF 8%: LKR ${formatLKR(totals.sumEpf8Lkr)} · APIT: LKR ${formatLKR(totals.sumApitLkr)}
-          </div>
-        </div>
-
-        <!-- Metric 4: Employer EPF 12% & ETF 3% Contribution -->
-        <div class="glass-card p-4 rounded-xl border-l-4 border-purple-500">
-          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
-            <span class="font-medium">Company Contributions</span>
-            <i data-lucide="shield" class="w-4 h-4 text-purple-600"></i>
-          </div>
-          <div class="text-xl font-bold font-display text-slate-900">
-            LKR ${formatLKR((totals.sumEpf12Lkr || 0) + (totals.sumEtf3Lkr || 0))}
-          </div>
-          <div class="text-[11px] text-purple-700 mt-0.5 font-medium">
-            EPF 12%: LKR ${formatLKR(totals.sumEpf12Lkr)} · ETF 3%: LKR ${formatLKR(totals.sumEtf3Lkr)}
-          </div>
-        </div>
-      </div>
-
-      <!-- Sub-Tab Navigation Bar -->
-      <div class="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold w-fit no-print">
-        <button onclick="switchPayrollSubTab('sheet')" class="px-4 py-2 rounded-lg transition flex items-center gap-2 ${currentPayrollSubTab === 'sheet' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
-          <i data-lucide="table" class="w-4 h-4"></i>
-          <span>Dual Salary Sheet</span>
-        </button>
-        <button onclick="switchPayrollSubTab('letter')" class="px-4 py-2 rounded-lg transition flex items-center gap-2 ${currentPayrollSubTab === 'letter' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
-          <i data-lucide="landmark" class="w-4 h-4"></i>
-          <span>Bank Request Letter</span>
-        </button>
-        <button onclick="switchPayrollSubTab('slips')" class="px-4 py-2 rounded-lg transition flex items-center gap-2 ${currentPayrollSubTab === 'slips' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
-          <i data-lucide="file-text" class="w-4 h-4"></i>
-          <span>Staff Payslip Vouchers</span>
-        </button>
-        <button onclick="switchPayrollSubTab('settings')" class="px-4 py-2 rounded-lg transition flex items-center gap-2 ${currentPayrollSubTab === 'settings' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">
-          <i data-lucide="settings" class="w-4 h-4"></i>
-          <span>Company & Bank Settings</span>
-        </button>
-      </div>
-
-      <!-- Sub-Tab Content -->
-      <div id="payrollSubTabContainer">
-        ${renderPayrollSubTabContent(period, company, totals, employees)}
-      </div>
-    </div>
-  `;
-
-  if (window.lucide) lucide.createIcons();
-}
-
-function renderPayrollSubTabContent(period, company, totals, employees) {
-  switch (currentPayrollSubTab) {
-    case 'letter':
-      return renderPayrollBankLetterView(period, company, totals, employees);
-    case 'slips':
-      return renderPayrollPayslipsView(period, company, totals, employees);
-    case 'settings':
-      return renderPayrollSettingsView(period, company);
-    case 'sheet':
-    default:
-      return renderPayrollSalarySheetView(period, company, totals, employees);
-  }
-}
-
-function renderPayrollSalarySheetView(period, company, totals, employees) {
-  return `
-    <div class="space-y-8">
-      <!-- Table 1: SALARY SHEET (IN GBP) - MONTH -->
-      <div class="glass-card overflow-hidden rounded-2xl border border-slate-200">
-        <div class="px-6 py-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h3 class="font-display font-bold text-base text-slate-900 uppercase tracking-wide">
-              SALARY SHEET (IN GBP) - ${(period.month || '').toUpperCase()}
-            </h3>
-            <p class="text-xs text-slate-500 font-mono mt-0.5">
-              ${company.name || 'APADMI SL (PRIVATE) LIMITED'} · Staff Base Compensation, EPF 12% & ETF 3% in GBP
-            </p>
-          </div>
-          <div class="flex items-center gap-2 text-xs">
-            <button onclick="printPayrollDocument('sheet')" class="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-semibold rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5">
-              <i data-lucide="printer" class="w-3.5 h-3.5 text-slate-500"></i>
-              <span>Print Sheet (Landscape)</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="excel-payroll-table w-full text-left text-xs">
-            <thead>
-              <tr class="table-header-gbp">
-                <th class="w-10 text-center">No</th>
-                <th>Employee Name</th>
-                <th>POSITION</th>
-                <th class="text-right">GBP Salary</th>
-                <th class="text-center">Column1</th>
-                <th class="text-right">Column2 (Earned)</th>
-                <th class="text-right">EPF (12%)</th>
-                <th class="text-right">ETF(3%)</th>
-                <th class="text-right font-bold">AMOUNT</th>
-                <th>BANK ACCOUNT NO</th>
-                <th>TIN NO</th>
-                <th>IDNO</th>
-                <th>Date of Joined</th>
-                ${canEdit('payroll') ? '<th class="text-center no-print">Actions</th>' : ''}
-              </tr>
-            </thead>
-            <tbody>
-              ${employees.map(emp => `
-                <tr>
-                  <td class="text-center font-mono font-medium">${emp.no}</td>
-                  <td class="font-semibold text-slate-900">
-                    ${emp.name}
-                    ${emp.shortName && emp.shortName !== emp.name ? `<div class="text-[10px] text-slate-500 font-normal">(${emp.shortName})</div>` : ''}
-                  </td>
-                  <td class="text-slate-600 font-mono text-[11px]">${emp.position || '-'}</td>
-                  <td class="text-right font-mono">${formatLKR(emp.gbpSalary)}</td>
-                  <td class="text-center text-slate-500 font-mono">${emp.workDays || ''}</td>
-                  <td class="text-right font-mono font-medium">${formatLKR(emp.earnedGbp)}</td>
-                  <td class="text-right font-mono text-slate-600">${formatLKR(emp.epf12Gbp)}</td>
-                  <td class="text-right font-mono text-slate-600">${formatLKR(emp.etf3Gbp)}</td>
-                  <td class="text-right font-mono font-bold text-slate-900">${formatLKR(emp.totalGbp)}</td>
-                  <td class="font-mono text-[11px] text-slate-700">
-                    ${emp.bankAccountNo}${emp.bankCode ? `(${emp.bankCode})` : ''}
-                    ${emp.bankBranch ? `<div class="text-[10px] text-slate-400 font-sans">${emp.bankBranch}</div>` : ''}
-                  </td>
-                  <td class="font-mono text-[11px] text-slate-600">${emp.tinNo || '-'}</td>
-                  <td class="font-mono text-[11px] text-slate-600">${emp.idNo || '-'}</td>
-                  <td class="font-mono text-[11px] text-slate-600">${emp.dateJoined || '-'}</td>
-                  ${canEdit('payroll') ? `
-                    <td class="text-center no-print whitespace-nowrap">
-                      <div class="flex items-center justify-center gap-1">
-                        <button onclick="openEditPayrollEmployeeModal('${emp.id}')" class="p-1 hover:bg-slate-100 text-slate-600 hover:text-teal-700 rounded transition" title="Edit Staff Details">
-                          <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
-                        </button>
-                        <button onclick="deletePayrollEmployee('${emp.id}', '${encodeURIComponent(emp.name)}')" class="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded transition" title="Delete Staff Member">
-                          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                        </button>
-                      </div>
-                    </td>
-                  ` : ''}
-                </tr>
-              `).join('')}
-              <tr class="totals-row font-bold font-mono">
-                <td colspan="3" class="text-right font-sans font-bold">TOTALS:</td>
-                <td class="text-right">${formatLKR(totals.sumGbpSalary)}</td>
-                <td></td>
-                <td class="text-right">${formatLKR(totals.sumEarnedGbp)}</td>
-                <td class="text-right">${formatLKR(totals.sumEpf12Gbp)}</td>
-                <td class="text-right">${formatLKR(totals.sumEtf3Gbp)}</td>
-                <td class="text-right font-black text-blue-900">${formatLKR(totals.sumTotalGbp)}</td>
-                <td colspan="${canEdit('payroll') ? 5 : 4}"></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Sign-off Block Below Table 1 -->
-        <div class="excel-signoff-row">
-          <div>
-            <span class="text-slate-500 font-medium">Checked by:</span>
-            <span class="font-semibold text-slate-800 ml-1">${period.checkedBy || company.checkedBy || 'Hemanthi Basnayake'}</span>
-            <span class="text-slate-500 ml-1">(${period.checkedTitle || company.checkedTitle || 'Accountant'})</span>
-          </div>
-          <div>
-            <span class="text-slate-500 font-medium">Authorized by:</span>
-            <span class="font-semibold text-slate-800 ml-1">${period.authorizedSignatory || company.authorizedSignatory || 'Shaameel Mohideen'}</span>
-            <span class="text-slate-500 ml-1">(${period.authorizedCompany || company.authorizedCompany || 'Spillburg Holdings (pvt)Ltd'})</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Table 2: SALARY SHEET (IN GBP) - MONTH. @RATE -->
-      <div class="glass-card overflow-hidden rounded-2xl border border-slate-200">
-        <div class="px-6 py-4 bg-slate-50/80 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h3 class="font-display font-bold text-base text-slate-900 uppercase tracking-wide">
-              SALARY SHEET (IN GBP) - ${(period.month || '').toUpperCase()}. @${period.exchangeRate ? Number(period.exchangeRate).toFixed(0) : '440'}
-            </h3>
-            <p class="text-xs text-slate-500 font-mono mt-0.5">
-              Local Currency LKR Conversion, EPF 8%, EPF 12%, ETF 3%, APIT Tax Deductions & Net Bank Remittance
-            </p>
-          </div>
-          <div class="text-xs font-mono bg-teal-50 text-teal-800 px-3 py-1 rounded-lg border border-teal-200 font-semibold">
-            Rate: 1 GBP = Rs. ${period.exchangeRate ? Number(period.exchangeRate).toFixed(2) : '440.00'}
-          </div>
-        </div>
-
-        <div class="overflow-x-auto">
-          <table class="excel-payroll-table w-full text-left text-xs">
-            <thead>
-              <tr class="table-header-lkr">
-                <th class="w-10 text-center">No</th>
-                <th>Employee Name</th>
-                <th>POSITION</th>
-                <th class="text-right">GBP Salary</th>
-                <th class="text-center">Column1</th>
-                <th class="text-right">Column2</th>
-                <th class="text-right">LKR (Gross)</th>
-                <th class="text-right">EPF 8%</th>
-                <th class="text-right">EPF 12%</th>
-                <th class="text-right">ETF 3%</th>
-                <th class="text-right">APIT</th>
-                <th class="text-right">Column3</th>
-                <th class="text-right font-bold text-emerald-950">TOTAL (Net LKR)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${employees.map(emp => `
-                <tr>
-                  <td class="text-center font-mono font-medium">${emp.no}</td>
-                  <td class="font-semibold text-slate-900">${emp.name}</td>
-                  <td class="text-slate-600 font-mono text-[11px]">${emp.position || '-'}</td>
-                  <td class="text-right font-mono">${formatLKR(emp.gbpSalary)}</td>
-                  <td class="text-center text-slate-500 font-mono">${emp.workDays || ''}</td>
-                  <td class="text-right font-mono">${formatLKR(emp.earnedGbp)}</td>
-                  <td class="text-right font-mono font-medium">${formatLKR(emp.lkrGross)}</td>
-                  <td class="text-right font-mono text-slate-600">${formatLKR(emp.epf8Lkr)}</td>
-                  <td class="text-right font-mono text-slate-600">${formatLKR(emp.epf12Lkr)}</td>
-                  <td class="text-right font-mono text-slate-600">${formatLKR(emp.etf3Lkr)}</td>
-                  <td class="text-right font-mono text-amber-700">${emp.apit ? formatLKR(emp.apit) : '0'}</td>
-                  <td class="text-right font-mono text-slate-500">${emp.totalDeductionsLkr ? formatLKR(emp.totalDeductionsLkr - (emp.epf8Lkr || 0) - (emp.apit || 0)) : ''}</td>
-                  <td class="text-right font-mono font-bold text-emerald-900 bg-emerald-50/50">${formatLKR(emp.netSalaryLkr)}</td>
-                </tr>
-              `).join('')}
-              <tr class="totals-row font-bold font-mono">
-                <td colspan="3" class="text-right font-sans font-bold">TOTALS:</td>
-                <td class="text-right">${formatLKR(totals.sumGbpSalary)}</td>
-                <td></td>
-                <td class="text-right">${formatLKR(totals.sumEarnedGbp)}</td>
-                <td class="text-right">${formatLKR(totals.sumLkrGross)}</td>
-                <td class="text-right">${formatLKR(totals.sumEpf8Lkr)}</td>
-                <td class="text-right">${formatLKR(totals.sumEpf12Lkr)}</td>
-                <td class="text-right">${formatLKR(totals.sumEtf3Lkr)}</td>
-                <td class="text-right text-amber-900">${formatLKR(totals.sumApitLkr)}</td>
-                <td></td>
-                <td class="text-right font-black text-emerald-950 bg-emerald-100">${formatLKR(totals.sumNetSalaryLkr)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderPayrollBankLetterView(period, company, totals, employees) {
-  return `
-    <div class="space-y-4">
-      <div class="flex items-center justify-between no-print">
-        <div class="text-xs text-slate-500">
-          Previewing bank request remittance letter to <strong class="text-slate-800">${period.bankName || 'Nations Trust Bank PLC'}</strong> on official letterhead.
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="printPayrollDocument('letter')" class="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl shadow-sm text-xs font-semibold transition">
-            <i data-lucide="printer" class="w-4 h-4 text-slate-300"></i>
-            <span>Print Official Letter</span>
-          </button>
-          ${canEdit('payroll') ? `
-            <button onclick="openPayrollSettingsModal()" class="flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-xl border border-slate-200 shadow-sm text-xs font-semibold transition">
-              <i data-lucide="edit" class="w-4 h-4 text-slate-500"></i>
-              <span>Edit Bank & Signatory</span>
-            </button>
-          ` : ''}
-        </div>
-      </div>
-
-      <!-- The Document Container on Official Letterhead -->
-      <div class="bank-letter-container">
-        <div class="bank-letter-sheet">
-          <div class="space-y-4">
-            <!-- Date -->
-            <div class="text-right font-medium text-xs text-slate-800">
-              ${period.letterDate || '30.09.2026'}
-            </div>
-
-            <!-- Addressee -->
-            <div class="text-xs leading-relaxed text-slate-900">
-              The Manager,<br>
-              ${period.bankName || 'Nations Trust Bank PLC'},<br>
-              ${period.bankBranch || 'Borella Branch'},<br>
-              ${(period.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.').replace(/\n/g, '<br>')}
-            </div>
-
-            <!-- Salutation -->
-            <div class="text-xs pt-1 font-semibold text-slate-900">
-              Dear Sir,
-            </div>
-
-            <!-- Subject -->
-            <div class="text-xs font-bold uppercase tracking-wide underline text-slate-950 pt-1">
-              SALARY FOR STAFF MEMBERS OF ${company.name || 'APADMI SL (PRIVATE) LIMITED'}
-            </div>
-
-            <!-- Body Paragraph -->
-            <div class="text-xs leading-relaxed text-slate-800 text-justify pt-1">
-              Please debit our account number <strong>${period.debitAccountNo || company.debitAccountNo || '1001 5000 7554'}</strong> in the name of <strong>${period.debitAccountName || company.debitAccountName || 'Spillburg Holdings (Private) Limited'}</strong> and credit the following accounts as per the details given below.
-            </div>
-
-            <!-- Remittance Table -->
-            <table class="w-full text-left">
-              <thead>
-                <tr>
-                  <th class="w-32">Account Number</th>
-                  <th>Name</th>
-                  <th class="w-28">ID No</th>
-                  <th>Bank Name & Branch</th>
-                  <th class="text-right w-28">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${employees.map(emp => `
-                  <tr>
-                    <td class="font-mono text-[11px]">${emp.bankAccountNo}</td>
-                    <td class="font-medium">${emp.name}</td>
-                    <td class="font-mono text-[11px]">${emp.idNo || '-'}</td>
-                    <td class="text-[11px]">${emp.bankBranch || (emp.bankCode ? `${emp.bankCode} Bank` : '')}</td>
-                    <td class="text-right font-mono font-medium">${formatLKR(emp.netSalaryLkr)}</td>
-                  </tr>
-                `).join('')}
-                <tr class="letter-total-row">
-                  <td colspan="4" class="font-bold text-right pr-4">Total:</td>
-                  <td class="text-right font-mono font-bold double-underline">
-                    ${formatLKR(totals.sumNetSalaryLkr)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <!-- Amount In Words -->
-            <div class="text-xs italic font-medium text-slate-900 pt-1">
-              (${numberToWordsRupees(totals.sumNetSalaryLkr)})
-            </div>
-
-            <!-- Sign-Off Block -->
-            <div class="pt-6 space-y-1 text-xs">
-              <div>Thanking you,</div>
-              <div>Yours faithfully,</div>
-              <div class="font-bold pt-1 uppercase tracking-wide text-slate-950">${period.authorizedCompany || company.authorizedCompany || 'SPILLBURG HOLDINGS (PVT) LIMITED'}</div>
-              <div class="pt-12">
-                <div class="font-bold text-slate-950">${period.authorizedSignatory || company.authorizedSignatory || 'Shaameel Mohideen'}</div>
-                <div class="text-slate-600 font-medium">${company.authorizedTitle || 'Director - Operations & Development'}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderPayrollPayslipsView(period, company, totals, employees) {
-  const displayedEmployees = (activePayslipEmployeeId && activePayslipEmployeeId !== 'all')
-    ? employees.filter(e => e.id === activePayslipEmployeeId)
-    : employees;
-
-  return `
-    <div class="space-y-6">
-      <!-- Toolbar -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 no-print">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-medium text-slate-600">Select Employee:</span>
-          <select onchange="handlePayslipEmployeeFilter(this.value)" class="text-xs bg-white border border-slate-200 px-3 py-1.5 rounded-xl font-semibold text-slate-800 shadow-sm focus:outline-none cursor-pointer">
-            <option value="all">All Employees (${employees.length})</option>
-            ${employees.map(e => `
-              <option value="${e.id}" ${activePayslipEmployeeId === e.id ? 'selected' : ''}>
-                ${e.no}. ${e.shortName || e.name} (${e.position || 'Staff'})
-              </option>
-            `).join('')}
-          </select>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="printPayrollDocument('slip', activePayslipEmployeeId)" class="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition">
-            <i data-lucide="printer" class="w-4 h-4"></i>
-            <span>Print Displayed Voucher(s)</span>
-          </button>
-          <button onclick="printPayrollDocument('all-slips')" class="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition">
-            <i data-lucide="layers" class="w-4 h-4 text-slate-300"></i>
-            <span>Print All Payslips (Batch)</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Slips Display Grid -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 justify-center">
-        ${displayedEmployees.map(emp => `
-          <div class="payslip-voucher p-5 rounded shadow-sm">
-            <div class="text-center font-bold text-sm tracking-wide uppercase text-slate-950 pb-1">
-              ${company.name || 'APADMI SL (PRIVATE) LIMITED'}
-            </div>
-            <div class="text-center text-xs font-semibold text-slate-600 pb-3 border-b border-slate-300">
-              Monthly Payroll ${period.yearPeriod || '2026-2027'}
-            </div>
-
-            <div class="grid grid-cols-2 gap-2 text-xs py-2 border-b border-slate-300 font-medium">
-              <div><span class="text-slate-500">EPF NO :</span> <strong>${emp.epfNo || emp.no}</strong></div>
-              <div class="text-right"><span class="text-slate-500">Month :</span> <strong>${period.month}</strong></div>
-              <div class="col-span-2 pt-1"><span class="text-slate-500">Name :</span> <strong class="uppercase">${emp.name}</strong></div>
-            </div>
-
-            <table class="my-2">
-              <thead>
-                <tr class="bg-slate-100">
-                  <th class="text-left font-bold">Earnings & Deductions</th>
-                  <th class="text-right font-bold w-32">LKR</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Basic Pay (GBP ${formatLKR(emp.earnedGbp)})</td>
-                  <td class="text-right font-mono font-medium">${formatLKR(emp.lkrGross)}</td>
-                </tr>
-                <tr>
-                  <td>Special Allowance</td>
-                  <td class="text-right font-mono">${formatLKR(emp.specialAllowance || 0)}</td>
-                </tr>
-                <tr class="font-semibold bg-slate-50">
-                  <td>Total (Gross)</td>
-                  <td class="text-right font-mono">${formatLKR(emp.lkrGross + (emp.specialAllowance || 0))}</td>
-                </tr>
-                <tr>
-                  <td>(-) No Pay/Late</td>
-                  <td class="text-right font-mono">${emp.noPayLate ? formatLKR(emp.noPayLate) : '-'}</td>
-                </tr>
-                <tr class="font-semibold bg-slate-50">
-                  <td>Net total (Gross Pay)</td>
-                  <td class="text-right font-mono">${formatLKR(emp.netTotalGross || emp.lkrGross)}</td>
-                </tr>
-                <tr>
-                  <td>(-) EPF 8%</td>
-                  <td class="text-right font-mono">${formatLKR(emp.epf8Lkr)}</td>
-                </tr>
-                <tr>
-                  <td>(-) Advance</td>
-                  <td class="text-right font-mono">${emp.advance ? formatLKR(emp.advance) : '0'}</td>
-                </tr>
-                <tr>
-                  <td>(-) Loan</td>
-                  <td class="text-right font-mono">${emp.loan ? formatLKR(emp.loan) : '0'}</td>
-                </tr>
-                <tr>
-                  <td>(-) APIT</td>
-                  <td class="text-right font-mono">${emp.apit ? formatLKR(emp.apit) : '0'}</td>
-                </tr>
-                <tr class="font-semibold bg-slate-100">
-                  <td>Total Deduction</td>
-                  <td class="text-right font-mono">${formatLKR(emp.totalDeductionsLkr)}</td>
-                </tr>
-                <tr class="font-bold text-sm bg-emerald-50 text-emerald-950">
-                  <td>Balance Pay (Net)</td>
-                  <td class="text-right font-mono">${formatLKR(emp.netSalaryLkr)}</td>
-                </tr>
-                <tr class="text-slate-500 text-[10.5px]">
-                  <td>Company EPF 12% Contribution</td>
-                  <td class="text-right font-mono">${formatLKR(emp.epf12Lkr)}</td>
-                </tr>
-                <tr class="text-slate-500 text-[10.5px]">
-                  <td>Company ETF 3% Contribution</td>
-                  <td class="text-right font-mono">${formatLKR(emp.etf3Lkr)}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <!-- Sign and Spillburg Office Footer -->
-            <div class="pt-6 space-y-1 text-[11px] text-center border-t border-slate-300">
-              <div class="pb-2 text-slate-400">......................................................................<br><span class="text-slate-600 font-semibold">Signature</span></div>
-              <div class="font-bold text-slate-800">Spillburg Holdings (Pvt) Ltd</div>
-              <div class="text-[10px] text-slate-500">Office 14, Basement Level · Cinnamon Lakeside Hotel · Colombo 02</div>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `;
-}
-
-function renderPayrollSettingsView(period, company) {
-  return `
-    <div class="glass-card p-6 rounded-2xl border border-slate-200 space-y-6 max-w-4xl">
-      <div class="border-b border-slate-200 pb-3 flex items-center justify-between">
-        <div>
-          <h3 class="font-display font-bold text-base text-slate-900">Company & Bank Remittance Configuration</h3>
-          <p class="text-xs text-slate-500">Bank debit account details, registered address, and official signatories.</p>
-        </div>
-      </div>
-
-      <form onsubmit="handleSavePayrollSettings(event)" class="space-y-4 text-xs">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Company Legal Name</label>
-            <input type="text" id="cfgCompName" value="${company.name || 'APADMI SL (PRIVATE) LIMITED'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-          </div>
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Company Registration No</label>
-            <input type="text" id="cfgCompReg" value="${company.registrationNo || 'PV 00281234'}" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Debit Bank Name</label>
-            <input type="text" id="cfgBankName" value="${period.bankName || company.bankName || 'Nations Trust Bank PLC'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-          </div>
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Bank Branch</label>
-            <input type="text" id="cfgBankBranch" value="${period.bankBranch || company.bankBranch || 'Borella Branch'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-          </div>
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Debit Account No</label>
-            <input type="text" id="cfgDebitAccount" value="${period.debitAccountNo || company.debitAccountNo || '1001 5000 7554'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl font-mono">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Debit Account Name</label>
-            <input type="text" id="cfgDebitAccountName" value="${period.debitAccountName || company.debitAccountName || 'Spillburg Holdings (Private) Limited'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-          </div>
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Letter Date</label>
-            <input type="text" id="cfgLetterDate" value="${period.letterDate || '30.09.2026'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Bank Physical Address</label>
-            <textarea id="cfgBankAddress" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-xl">${period.bankAddress || company.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.'}</textarea>
-          </div>
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Company Registered Office</label>
-            <textarea id="cfgCompAddress" rows="2" class="w-full px-3 py-2 border border-slate-200 rounded-xl">${company.address || 'Level 12, West Tower, World Trade Center, Colombo 01, Sri Lanka'}</textarea>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-200">
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Authorized Signatory Name</label>
-            <input type="text" id="cfgAuthSignatory" value="${period.authorizedSignatory || company.authorizedSignatory || 'Shaameel Mohideen'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-          </div>
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Signatory Title & Company</label>
-            <input type="text" id="cfgAuthCompany" value="${period.authorizedCompany || company.authorizedCompany || 'Spillburg Holdings (pvt)Ltd'}" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Checked By (Verifier)</label>
-            <input type="text" id="cfgCheckedBy" value="${period.checkedBy || company.checkedBy || 'Hemanthi Basnayake'}" required class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-          </div>
-          <div>
-            <label class="block text-slate-700 font-semibold mb-1">Verifier Title</label>
-            <input type="text" id="cfgCheckedTitle" value="${period.checkedTitle || company.checkedTitle || 'Accountant'}" class="w-full px-3 py-2 border border-slate-200 rounded-xl">
-          </div>
-        </div>
-
-        ${canEdit('payroll') ? `
-          <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
-            <button type="submit" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold shadow-sm transition">
-              Save Configuration
-            </button>
-          </div>
-        ` : ''}
-      </form>
-    </div>
-  `;
-}
-
-async function handleSavePayrollSettings(e) {
-  e.preventDefault();
-  if (!canEdit('payroll')) return;
-  const period = activePayrollPeriod;
-  if (!period) return;
-  const company = (payrollData.companies || []).find(c => c.id === period.companyId) || (payrollData.companies || [])[0] || {};
-
-  const periodPayload = {
-    id: period.id,
-    bankName: document.getElementById('cfgBankName').value.trim(),
-    bankBranch: document.getElementById('cfgBankBranch').value.trim(),
-    bankAddress: document.getElementById('cfgBankAddress').value.trim(),
-    debitAccountNo: document.getElementById('cfgDebitAccount').value.trim(),
-    debitAccountName: document.getElementById('cfgDebitAccountName').value.trim(),
-    letterDate: document.getElementById('cfgLetterDate').value.trim(),
-    authorizedSignatory: document.getElementById('cfgAuthSignatory').value.trim(),
-    authorizedCompany: document.getElementById('cfgAuthCompany').value.trim(),
-    checkedBy: document.getElementById('cfgCheckedBy').value.trim(),
-    checkedTitle: document.getElementById('cfgCheckedTitle').value.trim()
-  };
-
-  const compPayload = {
-    id: company.id || 'comp_apadmi',
-    name: document.getElementById('cfgCompName').value.trim(),
-    registrationNo: document.getElementById('cfgCompReg').value.trim(),
-    address: document.getElementById('cfgCompAddress').value.trim(),
-    bankName: periodPayload.bankName,
-    bankBranch: periodPayload.bankBranch,
-    bankAddress: periodPayload.bankAddress,
-    debitAccountNo: periodPayload.debitAccountNo,
-    debitAccountName: periodPayload.debitAccountName,
-    authorizedSignatory: periodPayload.authorizedSignatory,
-    authorizedCompany: periodPayload.authorizedCompany,
-    checkedBy: periodPayload.checkedBy,
-    checkedTitle: periodPayload.checkedTitle
-  };
-
-  try {
-    const [pRes, cRes] = await Promise.all([
-      fetch('/api/payroll/period', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-        body: JSON.stringify(periodPayload)
-      }),
-      fetch('/api/payroll/company', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-        body: JSON.stringify(compPayload)
-      })
-    ]);
-
-    if (pRes.ok && cRes.ok) {
-      const pData = await pRes.json();
-      activePayrollPeriod = pData.period;
-      if (payrollData) payrollData.activePeriod = activePayrollPeriod;
-      alert('Payroll and bank settings updated successfully.');
-      const container = document.getElementById('mainContent');
-      if (container) renderPayroll(container);
-    } else {
-      alert('Failed to save settings');
-    }
-  } catch (err) {
-    alert('Error: ' + err.message);
-  }
-}
-
-function printCurrentPayrollView() {
-  if (currentPayrollSubTab === 'letter') {
-    printPayrollDocument('letter');
-  } else if (currentPayrollSubTab === 'slips') {
-    printPayrollDocument('slip', activePayslipEmployeeId);
-  } else {
-    printPayrollDocument('sheet');
-  }
-}
-
-function printPayrollDocument(type, empId) {
-  const period = activePayrollPeriod;
-  if (!period) return;
-  const company = (payrollData.companies || []).find(c => c.id === period.companyId) || (payrollData.companies || [])[0] || {};
-  const employees = period.employees || [];
-  const totals = period.totals || {};
-
-  const printWin = window.open('', '_blank', 'width=1100,height=800');
-  if (!printWin) {
-    alert('Please allow popups to generate print view.');
-    return;
-  }
-
-  let title = 'Spillburg Portal Document';
-  let bodyHtml = '';
-  let orientation = 'portrait';
-
-  if (type === 'letter') {
-    title = `Bank_Remittance_Letter_${period.monthCode || 'Sep-26'}`;
-    orientation = 'portrait';
-    bodyHtml = `
-      <div style="min-height: 1080px; padding: 140px 58px 120px 58px; background-image: url('/public/spillburg_letterhead.jpg'); background-size: 100% 100%; background-repeat: no-repeat; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.45; color: #111;">
-        <div style="text-align: right; font-size: 12px; margin-bottom: 16px;">${period.letterDate || '30.09.2026'}</div>
-        <div style="font-size: 12px; margin-bottom: 14px;">
-          The Manager,<br>
-          ${period.bankName || 'Nations Trust Bank PLC'},<br>
-          ${period.bankBranch || 'Borella Branch'},<br>
-          ${(period.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.').replace(/\n/g, '<br>')}
-        </div>
-        <div style="font-size: 12px; font-weight: bold; margin-bottom: 10px;">Dear Sir,</div>
-        <div style="font-size: 12px; font-weight: bold; text-decoration: underline; text-transform: uppercase; margin-bottom: 12px;">
-          SALARY FOR STAFF MEMBERS OF ${company.name || 'APADMI SL (PRIVATE) LIMITED'}
-        </div>
-        <div style="font-size: 12px; text-align: justify; margin-bottom: 14px;">
-          Please debit our account number <strong>${period.debitAccountNo || company.debitAccountNo || '1001 5000 7554'}</strong> in the name of <strong>${period.debitAccountName || company.debitAccountName || 'Spillburg Holdings (Private) Limited'}</strong> and credit the following accounts as per the details given below.
-        </div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 12px;">
-          <thead>
-            <tr>
-              <th style="border-bottom: 1px solid #000; padding: 4px 6px; text-align: left;">Account Number</th>
-              <th style="border-bottom: 1px solid #000; padding: 4px 6px; text-align: left;">Name</th>
-              <th style="border-bottom: 1px solid #000; padding: 4px 6px; text-align: left;">ID No</th>
-              <th style="border-bottom: 1px solid #000; padding: 4px 6px; text-align: left;">Bank Name & Branch</th>
-              <th style="border-bottom: 1px solid #000; padding: 4px 6px; text-align: right;">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${employees.map(e => `
-              <tr>
-                <td style="padding: 3px 6px;">${e.bankAccountNo}</td>
-                <td style="padding: 3px 6px;">${e.name}</td>
-                <td style="padding: 3px 6px;">${e.idNo || '-'}</td>
-                <td style="padding: 3px 6px;">${e.bankBranch || (e.bankCode ? `${e.bankCode} Bank` : '')}</td>
-                <td style="padding: 3px 6px; text-align: right; font-variant-numeric: tabular-nums;">${formatLKR(e.netSalaryLkr)}</td>
-              </tr>
-            `).join('')}
-            <tr style="border-top: 1px solid #000; font-weight: bold;">
-              <td colspan="4" style="padding: 6px; text-align: right;">Total:</td>
-              <td style="padding: 6px; text-align: right; border-bottom: 3px double #000; font-variant-numeric: tabular-nums;">${formatLKR(totals.sumNetSalaryLkr)}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div style="font-size: 11.5px; font-style: italic; margin-bottom: 24px;">
-          (${numberToWordsRupees(totals.sumNetSalaryLkr)})
-        </div>
-        <div style="font-size: 12px; margin-top: 20px;">
-          <div>Thanking you,</div>
-          <div>Yours faithfully,</div>
-          <div style="font-weight: bold; margin-top: 6px; text-transform: uppercase;">${period.authorizedCompany || company.authorizedCompany || 'SPILLBURG HOLDINGS (PVT) LIMITED'}</div>
-          <div style="margin-top: 50px;">
-            <div style="font-weight: bold;">${period.authorizedSignatory || company.authorizedSignatory || 'Shaameel Mohideen'}</div>
-            <div style="color: #444;">${company.authorizedTitle || 'Director - Operations & Development'}</div>
-          </div>
-        </div>
-      </div>
-    `;
-  } else if (type === 'sheet') {
-    title = `Salary_Sheet_${period.monthCode || 'Sep-26'}`;
-    orientation = 'landscape';
-    bodyHtml = `
-      <div style="padding: 20px; font-family: Arial, Calibri, sans-serif; font-size: 10.5px;">
-        <h2 style="font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 8px;">
-          SALARY SHEET (IN GBP) - ${(period.month || '').toUpperCase()}
-        </h2>
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
-          <thead>
-            <tr style="background: #2563eb; color: #fff; font-size: 10px;">
-              <th style="border: 1px solid #cbd5e1; padding: 4px;">No</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">Employee Name</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">POSITION</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">GBP Salary</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px;">Column1</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">Column2</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">EPF (12%)</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">ETF(3%)</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">AMOUNT</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">BANK ACCOUNT NO</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">TIN NO</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">IDNO</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">Date of Joined</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${employees.map(e => `
-              <tr>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: center;">${e.no}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-weight: bold;">${e.name}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;">${e.position || ''}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.gbpSalary)}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: center;">${e.workDays || ''}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.earnedGbp)}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.epf12Gbp)}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.etf3Gbp)}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right; font-weight: bold;">${formatLKR(e.totalGbp)}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;">${e.bankAccountNo}${e.bankCode ? `(${e.bankCode})` : ''}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;">${e.tinNo || ''}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;">${e.idNo || ''}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;">${e.dateJoined || ''}</td>
-              </tr>
-            `).join('')}
-            <tr style="background: #dbeafe; font-weight: bold;">
-              <td colspan="3" style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">TOTALS:</td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumGbpSalary)}</td>
-              <td style="border: 1px solid #3b82f6;"></td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEarnedGbp)}</td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEpf12Gbp)}</td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEtf3Gbp)}</td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumTotalGbp)}</td>
-              <td colspan="4" style="border: 1px solid #3b82f6;"></td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div style="display: flex; justify-content: space-between; margin: 10px 0 20px 0; font-size: 11px;">
-          <div>Checked by: <strong>${period.checkedBy || company.checkedBy || 'Hemanthi Basnayake'}</strong> (${period.checkedTitle || company.checkedTitle || 'Accountant'})</div>
-          <div>Authorized by: <strong>${period.authorizedSignatory || company.authorizedSignatory || 'Shaameel Mohideen'}</strong> (${period.authorizedCompany || company.authorizedCompany || 'Spillburg Holdings (pvt)Ltd'})</div>
-        </div>
-
-        <h2 style="font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 8px;">
-          SALARY SHEET (IN GBP) - ${(period.month || '').toUpperCase()}. @${period.exchangeRate ? Number(period.exchangeRate).toFixed(0) : '440'}
-        </h2>
-        <table style="width: 100%; border-collapse: collapse;">
-          <thead>
-            <tr style="background: #1e3a8a; color: #fff; font-size: 10px;">
-              <th style="border: 1px solid #cbd5e1; padding: 4px;">No</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">Employee Name</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: left;">POSITION</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">GBP Salary</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px;">Column1</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">Column2</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">LKR (Gross)</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">EPF 8%</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">EPF 12%</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">ETF 3%</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">APIT</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">Column3</th>
-              <th style="border: 1px solid #cbd5e1; padding: 4px; text-align: right;">TOTAL</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${employees.map(e => `
-              <tr>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: center;">${e.no}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; font-weight: bold;">${e.name}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;">${e.position || ''}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.gbpSalary)}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: center;">${e.workDays || ''}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.earnedGbp)}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.lkrGross)}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.epf8Lkr)}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.epf12Lkr)}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${formatLKR(e.etf3Lkr)}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right;">${e.apit ? formatLKR(e.apit) : '0'}</td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px;"></td>
-                <td style="border: 1px solid #cbd5e1; padding: 3px 5px; text-align: right; font-weight: bold; background: #f0fdf4;">${formatLKR(e.netSalaryLkr)}</td>
-              </tr>
-            `).join('')}
-            <tr style="background: #dbeafe; font-weight: bold;">
-              <td colspan="3" style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">TOTALS:</td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumGbpSalary)}</td>
-              <td style="border: 1px solid #3b82f6;"></td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEarnedGbp)}</td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumLkrGross)}</td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEpf8Lkr)}</td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEpf12Lkr)}</td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumEtf3Lkr)}</td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right;">${formatLKR(totals.sumApitLkr)}</td>
-              <td style="border: 1px solid #3b82f6;"></td>
-              <td style="border: 1px solid #3b82f6; padding: 4px; text-align: right; background: #bbf7d0;">${formatLKR(totals.sumNetSalaryLkr)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    `;
-  } else {
-    // Payslips ('slip' or 'all-slips')
-    title = `Staff_Payslips_${period.monthCode || 'Sep-26'}`;
-    orientation = 'portrait';
-    const targetEmps = (type === 'slip' && empId && empId !== 'all') ? employees.filter(e => e.id === empId) : employees;
-    bodyHtml = `
-      <div style="padding: 10px; font-family: Arial, Calibri, sans-serif;">
-        ${targetEmps.map(emp => `
-          <div style="page-break-after: always; max-width: 440px; margin: 20px auto; border: 2px solid #000; padding: 16px; font-size: 11px;">
-            <div style="text-align: center; font-weight: bold; font-size: 13px; text-transform: uppercase;">${company.name || 'APADMI SL (PRIVATE) LIMITED'}</div>
-            <div style="text-align: center; font-size: 11px; margin-bottom: 8px;">Monthly Payroll ${period.yearPeriod || '2026-2027'}</div>
-            <div style="display: flex; justify-content: space-between; border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 4px 0; margin-bottom: 6px;">
-              <div>EPF NO : <strong>${emp.epfNo || emp.no}</strong></div>
-              <div>Month : <strong>${period.month}</strong></div>
-            </div>
-            <div style="margin-bottom: 8px;">Name : <strong>${emp.name}</strong></div>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px;">
-              <thead>
-                <tr style="background: #f1f5f9;">
-                  <th style="border: 1px solid #000; padding: 3px 6px; text-align: left;">Earnings & Deductions</th>
-                  <th style="border: 1px solid #000; padding: 3px 6px; text-align: right;">LKR</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td style="border: 1px solid #000; padding: 3px 6px;">Basic Pay (GBP ${formatLKR(emp.earnedGbp)})</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${formatLKR(emp.lkrGross)}</td></tr>
-                <tr><td style="border: 1px solid #000; padding: 3px 6px;">Special Allowance</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${formatLKR(emp.specialAllowance || 0)}</td></tr>
-                <tr style="font-weight: bold;"><td style="border: 1px solid #000; padding: 3px 6px;">Total (Gross)</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${formatLKR(emp.lkrGross + (emp.specialAllowance || 0))}</td></tr>
-                <tr><td style="border: 1px solid #000; padding: 3px 6px;">(-) No Pay/Late</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${emp.noPayLate ? formatLKR(emp.noPayLate) : '0'}</td></tr>
-                <tr style="font-weight: bold;"><td style="border: 1px solid #000; padding: 3px 6px;">Net total (Gross Pay)</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${formatLKR(emp.netTotalGross || emp.lkrGross)}</td></tr>
-                <tr><td style="border: 1px solid #000; padding: 3px 6px;">(-) EPF 8%</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${formatLKR(emp.epf8Lkr)}</td></tr>
-                <tr><td style="border: 1px solid #000; padding: 3px 6px;">(-) Advance</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${emp.advance ? formatLKR(emp.advance) : '0'}</td></tr>
-                <tr><td style="border: 1px solid #000; padding: 3px 6px;">(-) Loan</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${emp.loan ? formatLKR(emp.loan) : '0'}</td></tr>
-                <tr><td style="border: 1px solid #000; padding: 3px 6px;">(-) APIT</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${emp.apit ? formatLKR(emp.apit) : '0'}</td></tr>
-                <tr style="font-weight: bold; background: #f8fafc;"><td style="border: 1px solid #000; padding: 3px 6px;">Total Deduction</td><td style="border: 1px solid #000; padding: 3px 6px; text-align: right;">${formatLKR(emp.totalDeductionsLkr)}</td></tr>
-                <tr style="font-weight: bold; font-size: 12px; background: #ecfdf5;"><td style="border: 1px solid #000; padding: 4px 6px;">Balance Pay</td><td style="border: 1px solid #000; padding: 4px 6px; text-align: right;">${formatLKR(emp.netSalaryLkr)}</td></tr>
-                <tr style="color: #444;"><td style="border: 1px solid #000; padding: 2px 6px; font-size: 10px;">EPF 12%</td><td style="border: 1px solid #000; padding: 2px 6px; text-align: right; font-size: 10px;">${formatLKR(emp.epf12Lkr)}</td></tr>
-                <tr style="color: #444;"><td style="border: 1px solid #000; padding: 2px 6px; font-size: 10px;">ETF 3%</td><td style="border: 1px solid #000; padding: 2px 6px; text-align: right; font-size: 10px;">${formatLKR(emp.etf3Lkr)}</td></tr>
-              </tbody>
-            </table>
-            <div style="text-align: center; margin-top: 18px; font-size: 10px;">
-              <div style="margin-bottom: 8px;">......................................................................<br><strong>Signature</strong></div>
-              <div style="font-weight: bold;">Spillburg Holdings (Pvt)ltd</div>
-              <div style="color: #666;">Office 14, Basement Level · Cinnamon Lake side Hotel - Colombo 02</div>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    `;
-  }
-
-  printWin.document.open();
-  printWin.document.write(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          @page {
-            size: ${orientation};
-            margin: 0;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-            background: #fff;
-            color: #000;
-          }
-        </style>
-      </head>
-      <body>
-        ${bodyHtml}
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-            }, 300);
-          };
-        </script>
-      </body>
-    </html>
-  `);
-  printWin.document.close();
-}
-
-// Modals: Add / Edit Staff, New Period, Edit Rate, Edit Settings
-function openAddPayrollEmployeeModal() {
-  if (!canEdit('payroll')) {
-    alert('You have Viewer access only.');
-    return;
-  }
-  const period = activePayrollPeriod;
-  if (!period) return;
-  const nextNo = (period.employees || []).length + 1;
-  const c = document.getElementById('modalContent');
-  c.innerHTML = `
-    <div class="space-y-4 text-xs">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
-        <div>
-          <h3 class="font-display font-bold text-base text-slate-900">Add Staff Member</h3>
-          <p class="text-[11px] text-slate-500">Add employee to ${period.month} payroll cycle.</p>
-        </div>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <form onsubmit="handleAddPayrollEmployee(event)" class="space-y-3">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">No #</label>
-            <input type="number" id="payEmpNo" value="${nextNo}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">EPF No</label>
-            <input type="text" id="payEmpEpfNo" value="${String(nextNo).padStart(2, '0')}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Joined Date</label>
-            <input type="text" id="payEmpJoined" placeholder="DD/MM/YYYY" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Full Legal Name</label>
-            <input type="text" id="payEmpName" required placeholder="e.g. MS PIRIYATHARSHINI SENTHIL KUMARAN" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Position / Title</label>
-            <input type="text" id="payEmpPosition" required placeholder="e.g. SENIOR SOFTWARE ENGINEER" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Monthly GBP Salary (£)</label>
-            <input type="number" step="0.01" id="payEmpGbp" required placeholder="e.g. 1939.00" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Work Days / Note</label>
-            <input type="text" id="payEmpWorkDays" placeholder="Leave blank or e.g. 17 D" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Earned GBP (£)</label>
-            <input type="number" step="0.01" id="payEmpEarnedGbp" placeholder="Leave blank to match salary" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Bank Account No</label>
-            <input type="text" id="payEmpAccount" required placeholder="e.g. 8005702912" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Bank Code</label>
-            <input type="text" id="payEmpBankCode" placeholder="e.g. COMM, HNB, NTB" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Bank Branch</label>
-            <input type="text" id="payEmpBranch" placeholder="e.g. Commercial Bank KATUBADDA" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">NIC / Passport (ID No)</label>
-            <input type="text" id="payEmpIdNo" placeholder="e.g. 198485700230" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">TIN Number</label>
-            <input type="text" id="payEmpTinNo" placeholder="e.g. 123494520" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">APIT Tax (LKR)</label>
-            <input type="number" step="0.01" id="payEmpApit" placeholder="Leave empty for auto tax" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-            <span class="text-[10px] text-slate-400">Leave blank for Sri Lanka APIT table calculation</span>
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Special Allowance (LKR)</label>
-            <input type="number" step="0.01" id="payEmpAllowance" value="0" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">No Pay / Deductions (LKR)</label>
-            <input type="number" step="0.01" id="payEmpNoPay" value="0" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-        </div>
-
-        <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
-          <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 font-medium">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium">Add Staff Member</button>
-        </div>
-      </form>
-    </div>
-  `;
-  document.getElementById('modalBackdrop').classList.remove('hidden');
-  if (window.lucide) lucide.createIcons();
-}
-
-async function handleAddPayrollEmployee(e) {
-  e.preventDefault();
-  const period = activePayrollPeriod;
-  if (!period) return;
-
-  const earnedGbpVal = document.getElementById('payEmpEarnedGbp').value;
-  const apitVal = document.getElementById('payEmpApit').value;
-
-  const payload = {
-    periodId: period.id,
-    no: parseInt(document.getElementById('payEmpNo').value, 10),
-    epfNo: document.getElementById('payEmpEpfNo').value.trim(),
-    name: document.getElementById('payEmpName').value.trim(),
-    position: document.getElementById('payEmpPosition').value.trim(),
-    gbpSalary: parseFloat(document.getElementById('payEmpGbp').value) || 0,
-    workDays: document.getElementById('payEmpWorkDays').value.trim(),
-    earnedGbp: earnedGbpVal ? parseFloat(earnedGbpVal) : null,
-    bankAccountNo: document.getElementById('payEmpAccount').value.trim(),
-    bankCode: document.getElementById('payEmpBankCode').value.trim(),
-    bankBranch: document.getElementById('payEmpBranch').value.trim(),
-    idNo: document.getElementById('payEmpIdNo').value.trim(),
-    tinNo: document.getElementById('payEmpTinNo').value.trim(),
-    dateJoined: document.getElementById('payEmpJoined').value.trim(),
-    apit: apitVal ? parseFloat(apitVal) : null,
-    specialAllowance: parseFloat(document.getElementById('payEmpAllowance').value) || 0,
-    noPayLate: parseFloat(document.getElementById('payEmpNoPay').value) || 0
-  };
-
-  try {
-    const res = await fetch('/api/payroll/employee', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify(payload)
-    });
-    if (res.ok) {
-      const data = await res.json();
-      activePayrollPeriod = data.period;
-      if (payrollData) payrollData.activePeriod = activePayrollPeriod;
-      closeModal();
-      const container = document.getElementById('mainContent');
-      if (container) renderPayroll(container);
-    } else {
-      const err = await res.json();
-      alert('Failed to add employee: ' + (err.error || 'Unknown error'));
-    }
-  } catch (err) {
-    alert('Error: ' + err.message);
-  }
-}
-
-function openEditPayrollEmployeeModal(empId) {
-  if (!canEdit('payroll')) return;
-  const period = activePayrollPeriod;
-  if (!period) return;
-  const emp = (period.employees || []).find(e => e.id === empId);
-  if (!emp) return;
-
-  const c = document.getElementById('modalContent');
-  c.innerHTML = `
-    <div class="space-y-4 text-xs">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
-        <div>
-          <h3 class="font-display font-bold text-base text-slate-900">Edit Staff Member</h3>
-          <p class="text-[11px] text-slate-500">${emp.name} · Update salary, bank or deductions</p>
-        </div>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <form onsubmit="handleEditPayrollEmployee(event, '${emp.id}')" class="space-y-3">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">No #</label>
-            <input type="number" id="editPayEmpNo" value="${emp.no}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">EPF No</label>
-            <input type="text" id="editPayEmpEpfNo" value="${emp.epfNo || ''}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Joined Date</label>
-            <input type="text" id="editPayEmpJoined" value="${emp.dateJoined || ''}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Full Legal Name</label>
-            <input type="text" id="editPayEmpName" value="${emp.name}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Position / Title</label>
-            <input type="text" id="editPayEmpPosition" value="${emp.position || ''}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Monthly GBP Salary (£)</label>
-            <input type="number" step="0.01" id="editPayEmpGbp" value="${emp.gbpSalary}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Work Days / Note</label>
-            <input type="text" id="editPayEmpWorkDays" value="${emp.workDays || ''}" placeholder="e.g. 17 D" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Earned GBP (£)</label>
-            <input type="number" step="0.01" id="editPayEmpEarnedGbp" value="${emp.earnedGbp !== undefined ? emp.earnedGbp : emp.gbpSalary}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Bank Account No</label>
-            <input type="text" id="editPayEmpAccount" value="${emp.bankAccountNo || ''}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Bank Code</label>
-            <input type="text" id="editPayEmpBankCode" value="${emp.bankCode || ''}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Bank Branch</label>
-            <input type="text" id="editPayEmpBranch" value="${emp.bankBranch || ''}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">NIC / Passport (ID No)</label>
-            <input type="text" id="editPayEmpIdNo" value="${emp.idNo || ''}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">TIN Number</label>
-            <input type="text" id="editPayEmpTinNo" value="${emp.tinNo || ''}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">APIT Tax (LKR)</label>
-            <input type="number" step="0.01" id="editPayEmpApit" value="${emp.apit !== undefined && emp.apit !== null ? emp.apit : ''}" placeholder="Auto calculated if empty" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Special Allowance (LKR)</label>
-            <input type="number" step="0.01" id="editPayEmpAllowance" value="${emp.specialAllowance || 0}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">No Pay / Deductions (LKR)</label>
-            <input type="number" step="0.01" id="editPayEmpNoPay" value="${emp.noPayLate || 0}" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-        </div>
-
-        <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-200">
-          <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 font-medium">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium">Save Changes</button>
-        </div>
-      </form>
-    </div>
-  `;
-  document.getElementById('modalBackdrop').classList.remove('hidden');
-  if (window.lucide) lucide.createIcons();
-}
-
-async function handleEditPayrollEmployee(e, empId) {
-  e.preventDefault();
-  const period = activePayrollPeriod;
-  if (!period) return;
-
-  const earnedGbpVal = document.getElementById('editPayEmpEarnedGbp').value;
-  const apitVal = document.getElementById('editPayEmpApit').value;
-
-  const payload = {
-    id: empId,
-    periodId: period.id,
-    no: parseInt(document.getElementById('editPayEmpNo').value, 10),
-    epfNo: document.getElementById('editPayEmpEpfNo').value.trim(),
-    name: document.getElementById('editPayEmpName').value.trim(),
-    position: document.getElementById('editPayEmpPosition').value.trim(),
-    gbpSalary: parseFloat(document.getElementById('editPayEmpGbp').value) || 0,
-    workDays: document.getElementById('editPayEmpWorkDays').value.trim(),
-    earnedGbp: earnedGbpVal !== '' ? parseFloat(earnedGbpVal) : null,
-    bankAccountNo: document.getElementById('editPayEmpAccount').value.trim(),
-    bankCode: document.getElementById('editPayEmpBankCode').value.trim(),
-    bankBranch: document.getElementById('editPayEmpBranch').value.trim(),
-    idNo: document.getElementById('editPayEmpIdNo').value.trim(),
-    tinNo: document.getElementById('editPayEmpTinNo').value.trim(),
-    dateJoined: document.getElementById('editPayEmpJoined').value.trim(),
-    apit: apitVal !== '' ? parseFloat(apitVal) : null,
-    specialAllowance: parseFloat(document.getElementById('editPayEmpAllowance').value) || 0,
-    noPayLate: parseFloat(document.getElementById('editPayEmpNoPay').value) || 0
-  };
-
-  try {
-    const res = await fetch('/api/payroll/employee', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify(payload)
-    });
-    if (res.ok) {
-      const data = await res.json();
-      activePayrollPeriod = data.period;
-      if (payrollData) payrollData.activePeriod = activePayrollPeriod;
-      closeModal();
-      const container = document.getElementById('mainContent');
-      if (container) renderPayroll(container);
-    } else {
-      const err = await res.json();
-      alert('Failed to update employee: ' + (err.error || 'Unknown error'));
-    }
-  } catch (err) {
-    alert('Error: ' + err.message);
-  }
-}
-
-async function deletePayrollEmployee(empId, empName) {
-  if (!canEdit('payroll')) return;
-  const decoded = decodeURIComponent(empName);
-  if (!confirm(`Are you sure you want to remove "${decoded}" from this payroll period?`)) return;
-
-  try {
-    const res = await fetch(`/api/payroll/employee?id=${encodeURIComponent(empId)}&periodId=${encodeURIComponent(activePayrollPeriod.id)}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${authToken}` }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      activePayrollPeriod = data.period;
-      if (payrollData) payrollData.activePeriod = activePayrollPeriod;
-      const countEl = document.getElementById('navPayrollCount');
-      if (countEl && activePayrollPeriod) {
-        countEl.textContent = activePayrollPeriod.employees?.length || 0;
-      }
-      const container = document.getElementById('mainContent');
-      if (container) renderPayroll(container);
-    } else {
-      const err = await res.json();
-      alert('Failed to delete employee: ' + (err.error || 'Unknown error'));
-    }
-  } catch (err) {
-    alert('Error: ' + err.message);
-  }
-}
-
-function openNewPayrollPeriodModal() {
-  if (!canEdit('payroll')) {
-    alert('You have Viewer access only.');
-    return;
-  }
-  const period = activePayrollPeriod || {};
-  const c = document.getElementById('modalContent');
-  c.innerHTML = `
-    <div class="space-y-4 text-xs">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
-        <div>
-          <h3 class="font-display font-bold text-base text-slate-900">Create New Payroll Period</h3>
-          <p class="text-[11px] text-slate-500">Initiate a new monthly cycle with optional staff roster cloning.</p>
-        </div>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <form onsubmit="handleCreatePayrollPeriod(event)" class="space-y-3">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Month Name</label>
-            <input type="text" id="newPeriodMonth" required placeholder="e.g. October 2026" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Month Code</label>
-            <input type="text" id="newPeriodCode" required placeholder="e.g. Oct-26" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Financial Year</label>
-            <input type="text" id="newPeriodYear" value="${period.yearPeriod || '2026-2027'}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Exchange Rate (GBP/LKR)</label>
-            <input type="number" step="0.01" id="newPeriodRate" value="${period.exchangeRate || 440.0}" required class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-          <div>
-            <label class="block text-slate-600 font-medium mb-1">Bank Letter Date</label>
-            <input type="text" id="newPeriodDate" placeholder="DD.MM.YYYY" class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
-          </div>
-        </div>
-
-        <div class="p-3 bg-teal-50 border border-teal-200 rounded-xl flex items-start gap-2.5">
-          <input type="checkbox" id="cloneEmployeesCheck" checked class="mt-0.5 rounded text-teal-600 focus:ring-teal-500">
-          <div>
-            <label for="cloneEmployeesCheck" class="font-semibold text-slate-800 cursor-pointer">
-              Clone All Staff Members from ${period.month || 'Active Period'}
-            </label>
-            <p class="text-[11px] text-slate-600 mt-0.5">
-              Automatically copies the existing roster of ${period.employees?.length || 0} employees, their GBP salaries, and bank accounts into this new month.
-            </p>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
-          <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 font-medium">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium">Create Period</button>
-        </div>
-      </form>
-    </div>
-  `;
-  document.getElementById('modalBackdrop').classList.remove('hidden');
-  if (window.lucide) lucide.createIcons();
-}
-
-async function handleCreatePayrollPeriod(e) {
-  e.preventDefault();
-  const period = activePayrollPeriod || {};
-  const clone = document.getElementById('cloneEmployeesCheck').checked;
-
-  const payload = {
-    month: document.getElementById('newPeriodMonth').value.trim(),
-    monthCode: document.getElementById('newPeriodCode').value.trim(),
-    yearPeriod: document.getElementById('newPeriodYear').value.trim(),
-    exchangeRate: parseFloat(document.getElementById('newPeriodRate').value) || 440.0,
-    letterDate: document.getElementById('newPeriodDate').value.trim() || undefined,
-    basePeriodId: clone ? period.id : undefined,
-    cloneEmployees: clone
-  };
-
-  try {
-    const res = await fetch('/api/payroll/period', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify(payload)
-    });
-    if (res.ok) {
-      const data = await res.json();
-      activePayrollPeriod = data.period;
-      // Refresh overall payroll list
-      const rList = await fetch('/api/payroll', { headers: { 'Authorization': `Bearer ${authToken}` } });
-      if (rList.ok) payrollData = await rList.json();
-      closeModal();
-      const container = document.getElementById('mainContent');
-      if (container) renderPayroll(container);
-    } else {
-      const err = await res.json();
-      alert('Failed to create period: ' + (err.error || 'Unknown error'));
-    }
-  } catch (err) {
-    alert('Error: ' + err.message);
-  }
-}
-
-function openEditExchangeRateModal() {
-  if (!canEdit('payroll')) {
-    alert('You have Viewer access only.');
-    return;
-  }
-  const period = activePayrollPeriod;
-  if (!period) return;
-  const c = document.getElementById('modalContent');
-  c.innerHTML = `
-    <div class="space-y-4 text-xs">
-      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
-        <div>
-          <h3 class="font-display font-bold text-base text-slate-900">Adjust Exchange Rate</h3>
-          <p class="text-[11px] text-slate-500">${period.month} · Live currency conversion rate</p>
-        </div>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <form onsubmit="handleUpdateExchangeRate(event)" class="space-y-4">
-        <div>
-          <label class="block text-slate-700 font-semibold mb-1">Exchange Rate (1 GBP in LKR)</label>
-          <div class="relative">
-            <span class="absolute left-3 top-2.5 text-slate-400 font-mono">Rs.</span>
-            <input type="number" step="0.01" id="newExchangeRateInput" value="${period.exchangeRate || 440.0}" required class="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl font-mono text-base font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500">
-          </div>
-          <p class="text-[11px] text-slate-500 mt-1.5">
-            Updating the exchange rate immediately recalculates all Gross LKR amounts, EPF 8%, EPF 12%, ETF 3%, APIT taxes, and the net bank remittance total across all documents.
-          </p>
-        </div>
-
-        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
-          <button type="button" onclick="closeModal()" class="px-4 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 font-medium">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-medium">Recalculate & Save</button>
-        </div>
-      </form>
-    </div>
-  `;
-  document.getElementById('modalBackdrop').classList.remove('hidden');
-  if (window.lucide) lucide.createIcons();
-}
-
-async function handleUpdateExchangeRate(e) {
-  e.preventDefault();
-  const period = activePayrollPeriod;
-  if (!period) return;
-  const rate = parseFloat(document.getElementById('newExchangeRateInput').value);
-  if (!rate || rate <= 0) return;
-
-  try {
-    const res = await fetch('/api/payroll/period', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify({ id: period.id, exchangeRate: rate })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      activePayrollPeriod = data.period;
-      if (payrollData) payrollData.activePeriod = activePayrollPeriod;
-      closeModal();
-      const container = document.getElementById('mainContent');
-      if (container) renderPayroll(container);
-    } else {
-      alert('Failed to update exchange rate');
-    }
-  } catch (err) {
-    alert('Error: ' + err.message);
-  }
-}
-
-function openPayrollSettingsModal() {
-  switchPayrollSubTab('settings');
-}
 
 // ================= MODAL CONTROLS & CRUD OPERATIONS =================
 function closeModal() {
@@ -5553,7 +3915,7 @@ function openAddUserModal() {
 
         <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
           <div class="font-bold text-slate-800">Module Access Level</div>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
             <div>
               <label class="block text-[11px] font-medium text-slate-600 mb-1">Operations</label>
               <select id="mUserPermOps" class="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs">
@@ -5579,6 +3941,15 @@ function openAddUserModal() {
                 <option value="editor">Editor (Read/Write)</option>
                 <option value="full">Full Control</option>
                 <option value="none">No Access</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Payroll</label>
+              <select id="mUserPermPayroll" class="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs">
+                <option value="none" selected>No Access</option>
+                <option value="viewer">Viewer (Read Only)</option>
+                <option value="editor">Editor (Read/Write)</option>
+                <option value="full">Full Control</option>
               </select>
             </div>
             <div>
@@ -5616,6 +3987,7 @@ async function submitAddUser(e) {
       operations: document.getElementById('mUserPermOps').value,
       customer_files: document.getElementById('mUserPermCust').value,
       financial_files: document.getElementById('mUserPermFin').value,
+      payroll: document.getElementById('mUserPermPayroll').value,
       user_management: document.getElementById('mUserPermUserMgmt').value
     }
   };
@@ -5692,7 +4064,7 @@ function openEditUserModal(userId) {
 
         <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
           <div class="font-bold text-slate-800">Module Permissions</div>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
             <div>
               <label class="block text-[11px] font-medium text-slate-600 mb-1">Operations</label>
               <select id="mEditPermOps" class="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs">
@@ -5718,6 +4090,15 @@ function openEditUserModal(userId) {
                 <option value="editor" ${target.permissions?.financial_files === 'editor' ? 'selected' : ''}>Editor</option>
                 <option value="viewer" ${target.permissions?.financial_files === 'viewer' ? 'selected' : ''}>Viewer</option>
                 <option value="none" ${target.permissions?.financial_files === 'none' ? 'selected' : ''}>None</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Payroll</label>
+              <select id="mEditPermPayroll" class="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs">
+                <option value="full" ${target.permissions?.payroll === 'full' ? 'selected' : ''}>Full</option>
+                <option value="editor" ${target.permissions?.payroll === 'editor' ? 'selected' : ''}>Editor</option>
+                <option value="viewer" ${target.permissions?.payroll === 'viewer' ? 'selected' : ''}>Viewer</option>
+                <option value="none" ${(!target.permissions?.payroll || target.permissions?.payroll === 'none') ? 'selected' : ''}>None</option>
               </select>
             </div>
             <div>
@@ -5753,6 +4134,7 @@ async function submitEditUser(e, userId) {
       operations: document.getElementById('mEditPermOps').value,
       customer_files: document.getElementById('mEditPermCust').value,
       financial_files: document.getElementById('mEditPermFin').value,
+      payroll: document.getElementById('mEditPermPayroll').value,
       user_management: document.getElementById('mEditPermUserMgmt').value
     }
   };
@@ -5924,7 +4306,7 @@ function escapeHtml(str) {
 }
 
 async function renderPayroll(container) {
-  if (!payrollData || !activePayrollPeriod) {
+  if (!payrollData) {
     try {
       const res = await fetch('/api/payroll', {
         headers: { 'Authorization': `Bearer ${authToken}` }
@@ -5938,176 +4320,292 @@ async function renderPayroll(container) {
     }
   }
 
-  if (!payrollData || !activePayrollPeriod) {
+  if (!payrollData || !payrollData.companies || payrollData.companies.length === 0) {
     container.innerHTML = `
       <div class="p-8 text-center text-slate-500 space-y-3">
         <i data-lucide="alert-circle" class="w-10 h-10 text-amber-500 mx-auto"></i>
         <h3 class="text-base font-bold text-slate-800">Payroll Records Not Available</h3>
-        <p class="text-xs">Unable to load payroll period data. Please verify server connection.</p>
+        <p class="text-xs">Unable to load payroll company data. Please verify server connection.</p>
       </div>
     `;
     if (window.lucide) lucide.createIcons();
     return;
   }
 
-  const p = activePayrollPeriod;
-  const totals = p.totals || {};
-  const currentComp = (payrollData.companies || []).find(c => c.id === p.companyId) || (payrollData.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  // Resolve currently active / selected company
+  if (!selectedPayrollCompanyId) {
+    selectedPayrollCompanyId = (activePayrollPeriod && activePayrollPeriod.companyId) || (payrollData.companies[0]?.id) || 'comp_apadmi';
+  }
 
+  const selectedComp = (payrollData.companies || []).find(c => c.id === selectedPayrollCompanyId) || payrollData.companies[0];
+  selectedPayrollCompanyId = selectedComp.id;
+
+  // Filter periods belonging to this company
+  const compPeriods = (payrollData.periods || []).filter(per => per.companyId === selectedComp.id);
+
+  // If active period doesn't belong to the selected company, switch to first period of that company
+  if (!activePayrollPeriod || activePayrollPeriod.companyId !== selectedComp.id) {
+    if (compPeriods.length > 0) {
+      try {
+        const pRes = await fetch(`/api/payroll/period?id=${encodeURIComponent(compPeriods[0].id)}`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          activePayrollPeriod = pData.period;
+        }
+      } catch (err) {}
+    } else {
+      activePayrollPeriod = null;
+    }
+  }
+
+  const p = activePayrollPeriod;
+  const totals = p ? (p.totals || {}) : {};
+
+  // Build the complete HTML
   container.innerHTML = `
     <div class="space-y-6 fade-in">
-      
-      <!-- Top Header & Period Selector -->
-      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-slate-200">
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200 uppercase tracking-wider">
-              Corporate Payroll
-            </span>
-            <span class="text-xs text-slate-400">&bull;</span>
-            <span class="text-xs font-semibold text-slate-600">${escapeHtml(currentComp.name)}</span>
-          </div>
-          <h2 class="font-display font-bold text-xl md:text-2xl text-slate-900 tracking-tight mt-1">
-            Payroll &amp; Bank Remittance Center
-          </h2>
-          <p class="text-xs text-slate-500">
-            Automated Staff Salary Sheets (Dual GBP &amp; LKR), Official Bank Letters &amp; Employee Payslips
-          </p>
-        </div>
 
-        <!-- Period Selector & Actions -->
-        <div class="flex flex-wrap items-center gap-2.5">
-          <!-- Live Exchange Rate Badge -->
-          <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 shadow-2xs">
-            <i data-lucide="trending-up" class="w-3.5 h-3.5 text-amber-600"></i>
-            <span class="font-medium text-amber-700">1 GBP =</span>
-            <span class="font-bold text-slate-900">${formatMoney(p.exchangeRate, 2)} LKR</span>
-            <button onclick="openExchangeRateModal()" title="Adjust Exchange Rate" class="ml-1 p-1 hover:bg-amber-100 rounded text-amber-700 transition">
-              <i data-lucide="edit-2" class="w-3 h-3"></i>
+      <!-- ================= COMPANY DASHBOARD & SELECTION HUB ================= -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-950 p-4 sm:p-5 rounded-2xl text-white shadow-md space-y-4 border border-slate-700/60">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div class="flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-teal-500/20 border border-teal-400/30 flex items-center justify-center text-teal-300 font-bold text-lg shadow-inner">
+              <i data-lucide="building-2" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-teal-300 bg-teal-950 px-2 py-0.5 rounded border border-teal-700/60">Managed Client Company</span>
+                <span class="text-xs text-slate-400 font-mono">${escapeHtml(selectedComp.code || 'CO')} &bull; Reg: ${escapeHtml(selectedComp.registrationNo || 'N/A')}</span>
+              </div>
+              <h2 class="text-lg sm:text-xl font-bold font-display tracking-tight text-white mt-0.5">${escapeHtml(selectedComp.name)}</h2>
+            </div>
+          </div>
+
+          <!-- Company Actions Toolbar -->
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Select Company Dropdown -->
+            <div class="relative">
+              <select id="payrollCompanySelect" onchange="handlePayrollCompanyChange(this.value)"
+                class="appearance-none pl-3 pr-8 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs font-semibold text-white shadow-sm hover:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/40 cursor-pointer">
+                ${(payrollData.companies || []).map(c => `
+                  <option value="${c.id}" ${c.id === selectedComp.id ? 'selected' : ''}>
+                    ${escapeHtml(c.name)} (${escapeHtml(c.code || 'CO')})
+                  </option>
+                `).join('')}
+              </select>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none"></i>
+            </div>
+
+            <!-- Add New Company Button -->
+            <button onclick="openAddCompanyModal()"
+              class="px-3 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+              <span>+ Add Company</span>
+            </button>
+
+            <!-- Edit Company Profile Button -->
+            <button onclick="openEditCompanyModal('${selectedComp.id}')"
+              class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+              <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+              <span>Edit Company</span>
+            </button>
+
+            <!-- Directory Overview Button -->
+            <button onclick="openCompanyDirectoryModal()"
+              class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+              <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+              <span>All Companies (${(payrollData.companies || []).length})</span>
             </button>
           </div>
+        </div>
 
-          <!-- Month/Period Selector -->
-          <div class="relative">
-            <select id="payrollPeriodSelect" onchange="handlePayrollPeriodChange(this.value)"
-              class="appearance-none pl-3 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30">
-              ${(payrollData.periods || []).map(per => `
-                <option value="${per.id}" ${per.id === p.id ? 'selected' : ''}>
-                  ${escapeHtml(per.month)} (${per.employeeCount || 0} Staff)
-                </option>
-              `).join('')}
-            </select>
-            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none"></i>
+        <!-- Company Metadata Pill Row -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 border-t border-slate-700/60 text-[11px] text-slate-300">
+          <div>
+            <span class="text-slate-400 block text-[10px] uppercase font-semibold">Bank / Branch:</span>
+            <span class="font-medium truncate block">${escapeHtml(selectedComp.bankName || 'N/A')} - ${escapeHtml(selectedComp.bankBranch || '')}</span>
           </div>
+          <div>
+            <span class="text-slate-400 block text-[10px] uppercase font-semibold">Debit Account:</span>
+            <span class="font-mono text-emerald-400 truncate block">${escapeHtml(selectedComp.debitAccountNo || 'N/A')}</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block text-[10px] uppercase font-semibold">Signatory:</span>
+            <span class="font-medium truncate block">${escapeHtml(selectedComp.authorizedSignatory || 'Shaameel Mohideen')}</span>
+          </div>
+          <div>
+            <span class="text-slate-400 block text-[10px] uppercase font-semibold">Payroll Periods:</span>
+            <span class="font-bold text-teal-300 block">${compPeriods.length} active period${compPeriods.length === 1 ? '' : 's'}</span>
+          </div>
+        </div>
+      </div>
 
-          <!-- Add Period Button -->
-          <button onclick="openNewPeriodModal()"
-            class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition">
-            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-            <span>New Period</span>
+      ${compPeriods.length === 0 ? `
+        <!-- Empty State for Company without periods -->
+        <div class="p-12 text-center bg-white rounded-2xl border border-dashed border-slate-300 space-y-4 my-4 shadow-sm">
+          <div class="w-16 h-16 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto border border-teal-200">
+            <i data-lucide="folder-plus" class="w-8 h-8"></i>
+          </div>
+          <div class="max-w-md mx-auto space-y-1">
+            <h3 class="text-base font-bold text-slate-900">No Payroll Periods Found for ${escapeHtml(selectedComp.name)}</h3>
+            <p class="text-xs text-slate-500">This client company does not have any processed salary sheets or bank remittance cycles yet. Initialize the first payroll cycle to begin.</p>
+          </div>
+          <button onclick="openNewPeriodModal('${selectedComp.id}')"
+            class="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-2 shadow-sm transition">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>Create Initial Payroll Period for ${escapeHtml(selectedComp.code || 'Company')}</span>
           </button>
         </div>
-      </div>
+      ` : `
+        <!-- Top Header & Period Selector -->
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+          <div>
+            <h2 class="font-display font-bold text-xl md:text-2xl text-slate-900 tracking-tight">
+              Staff Salary &amp; Remittance Records
+            </h2>
+            <p class="text-xs text-slate-500">
+              Active Period: <span class="font-semibold text-slate-800">${escapeHtml(p ? p.month : '')}</span> &bull; Dual Currency (GBP &amp; LKR) with Official Bank Letter
+            </p>
+          </div>
 
-      <!-- KPI Executive Stat Cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- 1. Total Net Remittance to Bank -->
-        <div class="glass-card p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-white via-white to-emerald-50/40 relative overflow-hidden">
-          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
-            <span class="font-semibold uppercase tracking-wider text-[10px] text-emerald-700">Bank Remittance</span>
-            <i data-lucide="landmark" class="w-4 h-4 text-emerald-600"></i>
-          </div>
-          <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
-            Rs ${formatMoney(totals.sumNetSalaryLkr, 2)}
-          </div>
-          <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-            <span>Net Staff Pay (${p.employees?.length || 0} Members)</span>
-            <span class="font-medium text-emerald-700">${escapeHtml(p.bankBranch || 'Borella')}</span>
+          <!-- Period Selector & Actions -->
+          <div class="flex flex-wrap items-center gap-2.5">
+            <!-- Live Exchange Rate Badge -->
+            <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 shadow-2xs">
+              <i data-lucide="trending-up" class="w-3.5 h-3.5 text-amber-600"></i>
+              <span class="font-medium text-amber-700">1 GBP =</span>
+              <span class="font-bold text-slate-900">${formatMoney(p ? p.exchangeRate : 440, 2)} LKR</span>
+              <button onclick="openExchangeRateModal()" title="Adjust Exchange Rate" class="ml-1 p-1 hover:bg-amber-100 rounded text-amber-700 transition">
+                <i data-lucide="edit-2" class="w-3 h-3"></i>
+              </button>
+            </div>
+
+            <!-- Month/Period Selector (Filtered to this company) -->
+            <div class="relative">
+              <select id="payrollPeriodSelect" onchange="handlePayrollPeriodChange(this.value)"
+                class="appearance-none pl-3 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 cursor-pointer">
+                ${compPeriods.map(per => `
+                  <option value="${per.id}" ${p && per.id === p.id ? 'selected' : ''}>
+                    ${escapeHtml(per.month)} (${per.employeeCount || 0} Staff)
+                  </option>
+                `).join('')}
+              </select>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none"></i>
+            </div>
+
+            <!-- Add Period Button -->
+            <button onclick="openNewPeriodModal('${selectedComp.id}')"
+              class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <span>New Period</span>
+            </button>
           </div>
         </div>
 
-        <!-- 2. Total Earned Base GBP -->
-        <div class="glass-card p-4 rounded-xl border border-slate-200 bg-white">
-          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
-            <span class="font-semibold uppercase tracking-wider text-[10px] text-blue-700">Earned Base (GBP)</span>
-            <i data-lucide="coins" class="w-4 h-4 text-blue-600"></i>
+        <!-- KPI Executive Stat Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- 1. Total Net Remittance to Bank -->
+          <div class="glass-card p-4 rounded-xl border border-slate-200 bg-gradient-to-br from-white via-white to-emerald-50/40 relative overflow-hidden shadow-2xs">
+            <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+              <span class="font-semibold uppercase tracking-wider text-[10px] text-emerald-700">Bank Remittance</span>
+              <i data-lucide="landmark" class="w-4 h-4 text-emerald-600"></i>
+            </div>
+            <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
+              Rs ${formatMoney(totals.sumNetSalaryLkr, 2)}
+            </div>
+            <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+              <span>Net Staff Pay (${p?.employees?.length || 0} Members)</span>
+              <span class="font-medium text-emerald-700">${escapeHtml((p && p.bankBranch) || selectedComp.bankBranch || 'Borella')}</span>
+            </div>
           </div>
-          <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
-            &pound; ${formatMoney(totals.sumEarnedGbp, 2)}
+
+          <!-- 2. Total Earned Base GBP -->
+          <div class="glass-card p-4 rounded-xl border border-slate-200 bg-white shadow-2xs">
+            <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+              <span class="font-semibold uppercase tracking-wider text-[10px] text-blue-700">Earned Base (GBP)</span>
+              <i data-lucide="coins" class="w-4 h-4 text-blue-600"></i>
+            </div>
+            <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
+              &pound; ${formatMoney(totals.sumEarnedGbp, 2)}
+            </div>
+            <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+              <span>Total GBP Base</span>
+              <span class="font-medium text-slate-700">Contract &pound; ${formatMoney(totals.sumGbpSalary, 2)}</span>
+            </div>
           </div>
-          <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-            <span>Total GBP Base</span>
-            <span class="font-medium text-slate-700">Contract &pound; ${formatMoney(totals.sumGbpSalary, 2)}</span>
+
+          <!-- 3. Statutory Deductions (EPF 8% + APIT) -->
+          <div class="glass-card p-4 rounded-xl border border-slate-200 bg-white shadow-2xs">
+            <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+              <span class="font-semibold uppercase tracking-wider text-[10px] text-amber-700">Statutory Deductions</span>
+              <i data-lucide="receipt" class="w-4 h-4 text-amber-600"></i>
+            </div>
+            <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
+              Rs ${formatMoney(totals.sumDeductionsLkr, 2)}
+            </div>
+            <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+              <span>EPF 8%: Rs ${formatMoney(totals.sumEpf8Lkr, 0)}</span>
+              <span class="font-medium text-amber-700">APIT: Rs ${formatMoney(totals.sumApitLkr, 0)}</span>
+            </div>
+          </div>
+
+          <!-- 4. Employer Contributions (EPF 12% + ETF 3%) -->
+          <div class="glass-card p-4 rounded-xl border border-slate-200 bg-white shadow-2xs">
+            <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
+              <span class="font-semibold uppercase tracking-wider text-[10px] text-indigo-700">Employer EPF/ETF</span>
+              <i data-lucide="shield-check" class="w-4 h-4 text-indigo-600"></i>
+            </div>
+            <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
+              Rs ${formatMoney((totals.sumEpf12Lkr || 0) + (totals.sumEtf3Lkr || 0), 2)}
+            </div>
+            <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+              <span>EPF 12%: Rs ${formatMoney(totals.sumEpf12Lkr, 0)}</span>
+              <span class="font-medium text-indigo-700">ETF 3%: Rs ${formatMoney(totals.sumEtf3Lkr, 0)}</span>
+            </div>
           </div>
         </div>
 
-        <!-- 3. Statutory Deductions (EPF 8% + APIT) -->
-        <div class="glass-card p-4 rounded-xl border border-slate-200 bg-white">
-          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
-            <span class="font-semibold uppercase tracking-wider text-[10px] text-amber-700">Statutory Deductions</span>
-            <i data-lucide="receipt" class="w-4 h-4 text-amber-600"></i>
-          </div>
-          <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
-            Rs ${formatMoney(totals.sumDeductionsLkr, 2)}
-          </div>
-          <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-            <span>EPF 8%: Rs ${formatMoney(totals.sumEpf8Lkr, 0)}</span>
-            <span class="font-medium text-amber-700">APIT: Rs ${formatMoney(totals.sumApitLkr, 0)}</span>
-          </div>
+        <!-- Navigation Tabs (Sub-Views) -->
+        <div class="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto tab-nav-bar">
+          <button onclick="switchPayrollSubTab('sheet')" id="paytab-sheet"
+            class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'sheet' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+            <span>Staff Payroll Sheet (Dual Table)</span>
+          </button>
+
+          <button onclick="switchPayrollSubTab('letter')" id="paytab-letter"
+            class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'letter' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+            <i data-lucide="mail" class="w-3.5 h-3.5"></i>
+            <span>Bank Request Letter (Printed to Bank)</span>
+          </button>
+
+          <button onclick="switchPayrollSubTab('slips')" id="paytab-slips"
+            class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'slips' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+            <i data-lucide="ticket" class="w-3.5 h-3.5"></i>
+            <span>Individual Payslips (Vouchers)</span>
+          </button>
+
+          <button onclick="switchPayrollSubTab('staff')" id="paytab-staff"
+            class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'staff' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+            <i data-lucide="users" class="w-3.5 h-3.5"></i>
+            <span>Staff Directory &amp; Details</span>
+          </button>
         </div>
 
-        <!-- 4. Employer Contributions (EPF 12% + ETF 3%) -->
-        <div class="glass-card p-4 rounded-xl border border-slate-200 bg-white">
-          <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
-            <span class="font-semibold uppercase tracking-wider text-[10px] text-indigo-700">Employer EPF/ETF</span>
-            <i data-lucide="shield-check" class="w-4 h-4 text-indigo-600"></i>
-          </div>
-          <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
-            Rs ${formatMoney((totals.sumEpf12Lkr || 0) + (totals.sumEtf3Lkr || 0), 2)}
-          </div>
-          <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-            <span>EPF 12%: Rs ${formatMoney(totals.sumEpf12Lkr, 0)}</span>
-            <span class="font-medium text-indigo-700">ETF 3%: Rs ${formatMoney(totals.sumEtf3Lkr, 0)}</span>
-          </div>
+        <!-- Active Tab Sub-View Container -->
+        <div id="payrollSubContent" class="space-y-4">
+          <!-- Injected via sub-tab handler -->
         </div>
-      </div>
-
-      <!-- Navigation Tabs (Sub-Views) -->
-      <div class="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto tab-nav-bar">
-        <button onclick="switchPayrollSubTab('sheet')" id="paytab-sheet"
-          class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'sheet' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
-          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
-          <span>Staff Payroll Sheet (Dual Table)</span>
-        </button>
-
-        <button onclick="switchPayrollSubTab('letter')" id="paytab-letter"
-          class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'letter' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
-          <i data-lucide="mail" class="w-3.5 h-3.5"></i>
-          <span>Bank Request Letter (Printed to Bank)</span>
-        </button>
-
-        <button onclick="switchPayrollSubTab('slips')" id="paytab-slips"
-          class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'slips' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
-          <i data-lucide="ticket" class="w-3.5 h-3.5"></i>
-          <span>Individual Payslips (Vouchers)</span>
-        </button>
-
-        <button onclick="switchPayrollSubTab('staff')" id="paytab-staff"
-          class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'staff' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
-          <i data-lucide="users" class="w-3.5 h-3.5"></i>
-          <span>Staff Directory &amp; Details</span>
-        </button>
-      </div>
-
-      <!-- Active Tab Sub-View Container -->
-      <div id="payrollSubContent" class="space-y-4">
-        <!-- Injected via sub-tab handler -->
-      </div>
+      `}
 
     </div>
   `;
 
-  renderActivePayrollSubTab();
+  if (compPeriods.length > 0 && p) {
+    renderActivePayrollSubTab();
+  }
   if (window.lucide) lucide.createIcons();
 }
 
@@ -6203,11 +4701,11 @@ function renderPayrollSheet(container) {
               <th style="text-align: left; min-width: 200px;">Employee Name</th>
               <th style="text-align: left; min-width: 170px;">POSITION</th>
               <th>GBP Salary</th>
-              <th>Column1</th>
-              <th>Column2</th>
+              <th>Working Days</th>
+              <th>Earned Base (GBP)</th>
               <th>EPF (12% )</th>
               <th>ETF(3% )</th>
-              <th>AMOUNT</th>
+              <th>Total Employer Cost (GBP)</th>
               <th>BANK ACCOUNT NO</th>
               <th>TIN NO</th>
               <th>IDNO</th>
@@ -6278,15 +4776,15 @@ function renderPayrollSheet(container) {
               <th style="text-align: left; min-width: 200px;">Employee Name</th>
               <th style="text-align: left; min-width: 170px;">POSITION</th>
               <th>GBP Salary</th>
-              <th>Column1</th>
-              <th>Column2</th>
+              <th>Working Days</th>
+              <th>Earned Base (GBP)</th>
               <th>LKR</th>
               <th>EPF 8%</th>
               <th>EPF12%</th>
               <th>ETF 3%</th>
-              <th>APIT</th>
-              <th>Column3</th>
-              <th>TOTAL</th>
+              <th style="min-width: 95px;">APIT (LKR)</th>
+              <th>Other Deductions</th>
+              <th>Net Remittance (LKR)</th>
             </tr>
           </thead>
           <tbody>
@@ -6302,7 +4800,16 @@ function renderPayrollSheet(container) {
                 <td style="text-align: right;">${formatMoney(e.epf8Lkr, 0)}</td>
                 <td style="text-align: right;">${formatMoney(e.epf12Lkr, 0)}</td>
                 <td style="text-align: right;">${formatMoney(e.etf3Lkr, 0)}</td>
-                <td style="text-align: right; color: #dc2626;">${formatMoney(e.apit, 0)}</td>
+                <td style="text-align: right; padding: 2px 4px;">
+                  <input type="number" step="1" min="0"
+                    value="${Math.round(e.apit || 0)}"
+                    title="APIT Tax (LKR) - Editable. Press Enter or click outside to save and recalculate net pay."
+                    class="font-mono text-right text-red-600 font-semibold bg-transparent hover:bg-red-50 focus:bg-white focus:ring-1 focus:ring-red-400 border border-transparent hover:border-red-200 rounded px-1 py-0.5 transition"
+                    style="width: 82px;"
+                    onchange="updateEmployeeApitInline('${e.id}', this.value)"
+                    onkeydown="if(event.key==='Enter'){this.blur();}"
+                  />
+                </td>
                 <td></td>
                 <td style="text-align: right; font-weight: 700; color: #047857; font-size: 11.5px;">${formatMoney(e.netSalaryLkr, 0)}</td>
               </tr>
@@ -6336,6 +4843,7 @@ function renderBankRequestLetter(container) {
   const p = activePayrollPeriod;
   const emps = p.employees || [];
   const totals = p.totals || {};
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
 
   container.innerHTML = `
     <div class="space-y-4 fade-in">
@@ -6344,7 +4852,7 @@ function renderBankRequestLetter(container) {
       <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
         <div>
           <h3 class="text-xs font-bold text-slate-800">Official Bank Remittance Presentation</h3>
-          <p class="text-[11px] text-slate-500">Letter to ${escapeHtml(p.bankName || 'Nations Trust Bank PLC')} for staff direct salary transfer</p>
+          <p class="text-[11px] text-slate-500">Letter to ${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC')} for staff direct salary transfer</p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -6374,9 +4882,9 @@ function renderBankRequestLetter(container) {
           <!-- Addressee -->
           <div style="line-height: 1.35; margin-bottom: 20px;">
             <div>The Manager</div>
-            <div style="font-weight: 500;">${escapeHtml(p.bankName || 'Nations Trust Bank PLC')},</div>
-            <div>${escapeHtml(p.bankBranch || 'Borella Branch')},</div>
-            <div>${(p.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.').split('\n').map(l => escapeHtml(l)).join('<br>')}</div>
+            <div style="font-weight: 500;">${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC')},</div>
+            <div>${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')},</div>
+            <div>${(p.bankAddress || currentComp.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.').split('\n').map(l => escapeHtml(l)).join('<br>')}</div>
           </div>
 
           <!-- Salutation -->
@@ -6384,7 +4892,7 @@ function renderBankRequestLetter(container) {
 
           <!-- Subject -->
           <div style="margin-bottom: 16px; font-weight: 700; text-decoration: underline;">
-            SALARY FOR STAFF MEMBERS OF APADMI SL (PRIVATE) LIMITED
+            SALARY FOR STAFF MEMBERS OF ${escapeHtml(currentComp.name || 'APADMI SL (PRIVATE) LIMITED').toUpperCase()}
           </div>
 
           <!-- Staff Table -->
@@ -6420,15 +4928,15 @@ function renderBankRequestLetter(container) {
 
           <!-- Debit Authorization Paragraph -->
           <div style="margin-top: 18px; line-height: 1.45; text-align: justify;">
-            Please be kind enough to remit the respective amount for above mention staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
+            Please be kind enough to remit the respective amount for above mentioned staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
           </div>
 
           <!-- Sign-off Block -->
           <div style="margin-top: 25px;">
             <div>Thank You,</div>
             <div style="margin-bottom: 45px;">Yours faithfully,</div>
-            <div style="font-weight: 700; color: #1e293b;">${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
-            <div style="font-size: 11px; color: #475569;">Director &middot; Spillburg Holdings (Private) Limited</div>
+            <div style="font-weight: 700; color: #1e293b;">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
+            <div style="font-size: 11px; color: #475569;">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')} &middot; ${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || 'Spillburg Holdings (Private) Limited')}</div>
           </div>
 
         </div>
@@ -6512,13 +5020,14 @@ function selectPayslipEmployee(empId) {
 }
 
 function generatePayslipHtml(emp, period) {
+  const comp = (payrollData?.companies || []).find(c => c.id === period.companyId) || { name: 'APADMI SL (PRIVATE) LIMITED' };
   return `
     <div class="payslip-voucher p-5 bg-white shadow-md">
       <table>
         <tr>
           <td colspan="2" style="border-bottom: 2px solid #000; padding-bottom: 8px;">
-            <div style="font-weight: 800; font-size: 13px; text-transform: uppercase;">APADMI SL (PRIVATE) LIMITED</div>
-            <div style="font-size: 11px; color: #475569;">Monthly Payroll ${escapeHtml(period.yearPeriod || '2026-2027')}</div>
+            <div style="font-weight: 800; font-size: 13px; text-transform: uppercase;">${escapeHtml(comp.name)}</div>
+            <div style="font-size: 11px; color: #475569;">Monthly Payroll ${escapeHtml(period.yearPeriod || comp.payrollYearPeriod || '2026-2027')}</div>
             <div style="font-size: 11px; font-weight: 600; margin-top: 2px;">EPF NO :${escapeHtml(emp.epfNo || String(emp.no).padStart(2, '0'))}</div>
           </td>
         </tr>
@@ -6636,6 +5145,7 @@ function renderPayrollStaffManager(container) {
               <th class="p-3">Staff Member</th>
               <th class="p-3">Position</th>
               <th class="p-3 text-right">GBP Base</th>
+              <th class="p-3 text-right">APIT Tax (LKR)</th>
               <th class="p-3">Bank Remittance Account</th>
               <th class="p-3">TIN &amp; NIC / Passport</th>
               <th class="p-3">Date Joined</th>
@@ -6652,6 +5162,9 @@ function renderPayrollStaffManager(container) {
                 </td>
                 <td class="p-3 font-medium text-slate-700">${escapeHtml(e.position)}</td>
                 <td class="p-3 text-right font-bold text-slate-900">&pound; ${formatMoney(e.gbpSalary, 2)}</td>
+                <td class="p-3 text-right font-mono font-semibold text-red-600">
+                  ${e.apit !== null && e.apit !== undefined ? `Rs ${formatMoney(e.apit, 0)}` : '<span class="text-slate-400 italic font-sans text-[11px]">Auto</span>'}
+                </td>
                 <td class="p-3">
                   <div class="font-mono font-medium text-slate-800">${escapeHtml(e.bankAccountNo)}</div>
                   <div class="text-[11px] text-slate-500">${escapeHtml(e.bankBranch)}</div>
@@ -6682,6 +5195,410 @@ function renderPayrollStaffManager(container) {
     </div>
   `;
 }
+
+
+// ================= COMPANY MANAGEMENT DASHBOARD & ACTIONS =================
+
+async function handlePayrollCompanyChange(compId) {
+  selectedPayrollCompanyId = compId;
+  const compPeriods = (payrollData?.periods || []).filter(p => p.companyId === compId);
+  if (compPeriods.length > 0) {
+    await handlePayrollPeriodChange(compPeriods[0].id);
+  } else {
+    activePayrollPeriod = null;
+    const container = document.getElementById('mainContent');
+    if (container) await renderPayroll(container);
+  }
+}
+
+function openAddCompanyModal() {
+  if (!canEdit('payroll')) {
+    alert('You have read-only access to Corporate Payroll.');
+    return;
+  }
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Add New Managed Client Company</h3>
+          <p class="text-[11px] text-slate-500">Configure corporate details, banking remittance parameters &amp; signatories</p>
+        </div>
+        <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitAddCompany(event)" class="space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block font-semibold text-slate-700 mb-1">Company Full Legal Name *</label>
+            <input type="text" id="newCompName" required placeholder="e.g. SPILLBURG GLOBAL (PVT) LTD" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Company Short Code *</label>
+            <input type="text" id="newCompCode" required placeholder="e.g. GLOBAL" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono uppercase text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Company Registration No</label>
+            <input type="text" id="newCompRegNo" placeholder="e.g. PV 00298765" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block font-semibold text-slate-700 mb-1">Registered Office Address</label>
+            <input type="text" id="newCompAddress" placeholder="e.g. Level 12, West Tower, World Trade Center, Colombo 01" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+          <div class="font-bold text-slate-800 flex items-center gap-1.5">
+            <i data-lucide="landmark" class="w-3.5 h-3.5 text-teal-600"></i>
+            <span>Bank Remittance &amp; Debit Details</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Bank Name</label>
+              <input type="text" id="newCompBankName" value="Nations Trust Bank PLC" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Branch Name</label>
+              <input type="text" id="newCompBankBranch" placeholder="e.g. Borella Branch" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Branch Address</label>
+              <input type="text" id="newCompBankAddress" placeholder="e.g. 67 D.S. Senanayake Mawatha, Colombo 08." class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Debit Account Number</label>
+              <input type="text" id="newCompDebitAcctNo" placeholder="e.g. 1001 5000 7554" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Debit Account Holder Name</label>
+              <input type="text" id="newCompDebitAcctName" placeholder="e.g. Spillburg Holdings (Private) Limited" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+          <div class="font-bold text-slate-800 flex items-center gap-1.5">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-teal-600"></i>
+            <span>Authorized Signatories &amp; Period Settings</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Authorized Signatory Name</label>
+              <input type="text" id="newCompSignatory" value="Shaameel Mohideen" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Signatory Title &amp; Company</label>
+              <input type="text" id="newCompSignatoryTitle" value="Director · Spillburg Holdings (pvt)Ltd" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Prepared / Checked By</label>
+              <input type="text" id="newCompCheckedBy" value="Hemanthi Basnayake" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Financial Year Period</label>
+              <input type="text" id="newCompYearPeriod" value="2026-2027" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-3 flex justify-end gap-2 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-slate-600 bg-slate-100 hover:bg-slate-200 font-semibold transition">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-white bg-teal-600 hover:bg-teal-700 font-semibold transition shadow-sm">Save &amp; Switch to Company</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function submitAddCompany(e) {
+  e.preventDefault();
+  const payload = {
+    name: document.getElementById('newCompName').value.trim(),
+    code: document.getElementById('newCompCode').value.trim().toUpperCase(),
+    registrationNo: document.getElementById('newCompRegNo').value.trim(),
+    address: document.getElementById('newCompAddress').value.trim(),
+    bankName: document.getElementById('newCompBankName').value.trim(),
+    bankBranch: document.getElementById('newCompBankBranch').value.trim(),
+    bankAddress: document.getElementById('newCompBankAddress').value.trim(),
+    debitAccountNo: document.getElementById('newCompDebitAcctNo').value.trim(),
+    debitAccountName: document.getElementById('newCompDebitAcctName').value.trim(),
+    authorizedSignatory: document.getElementById('newCompSignatory').value.trim(),
+    authorizedTitle: document.getElementById('newCompSignatoryTitle').value.trim(),
+    checkedBy: document.getElementById('newCompCheckedBy').value.trim(),
+    payrollYearPeriod: document.getElementById('newCompYearPeriod').value.trim()
+  };
+
+  try {
+    const res = await fetch('/api/payroll/company', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success && data.company) {
+      selectedPayrollCompanyId = data.company.id;
+      closeModal();
+      await refreshPayrollData();
+      alert(`Company "${payload.name}" registered successfully.`);
+    } else {
+      alert(data.error || 'Failed to add company');
+    }
+  } catch (err) {
+    alert('Network error adding company: ' + err.message);
+  }
+}
+
+function openEditCompanyModal(compId) {
+  if (!canEdit('payroll')) {
+    alert('You have read-only access to Corporate Payroll.');
+    return;
+  }
+  const targetComp = (payrollData?.companies || []).find(c => c.id === compId) || payrollData?.companies?.[0];
+  if (!targetComp) return;
+
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Edit Company Profile</h3>
+          <p class="text-[11px] text-slate-500">Update company parameters, bank details &amp; signatories</p>
+        </div>
+        <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitEditCompany(event, '${targetComp.id}')" class="space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="sm:col-span-2">
+            <label class="block font-semibold text-slate-700 mb-1">Company Full Legal Name *</label>
+            <input type="text" id="editCompName" value="${escapeHtml(targetComp.name || '')}" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Company Short Code *</label>
+            <input type="text" id="editCompCode" value="${escapeHtml(targetComp.code || '')}" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono uppercase text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Company Registration No</label>
+            <input type="text" id="editCompRegNo" value="${escapeHtml(targetComp.registrationNo || '')}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block font-semibold text-slate-700 mb-1">Registered Address</label>
+            <input type="text" id="editCompAddress" value="${escapeHtml(targetComp.address || '')}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+          <div class="font-bold text-slate-800 flex items-center gap-1.5">
+            <i data-lucide="landmark" class="w-3.5 h-3.5 text-teal-600"></i>
+            <span>Bank Remittance &amp; Debit Details</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Bank Name</label>
+              <input type="text" id="editCompBankName" value="${escapeHtml(targetComp.bankName || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Branch Name</label>
+              <input type="text" id="editCompBankBranch" value="${escapeHtml(targetComp.bankBranch || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Branch Address</label>
+              <input type="text" id="editCompBankAddress" value="${escapeHtml(targetComp.bankAddress || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Debit Account Number</label>
+              <input type="text" id="editCompDebitAcctNo" value="${escapeHtml(targetComp.debitAccountNo || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-mono">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Debit Account Holder Name</label>
+              <input type="text" id="editCompDebitAcctName" value="${escapeHtml(targetComp.debitAccountName || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+          <div class="font-bold text-slate-800 flex items-center gap-1.5">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-teal-600"></i>
+            <span>Authorized Signatories &amp; Period Settings</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Authorized Signatory Name</label>
+              <input type="text" id="editCompSignatory" value="${escapeHtml(targetComp.authorizedSignatory || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Signatory Title &amp; Company</label>
+              <input type="text" id="editCompSignatoryTitle" value="${escapeHtml(targetComp.authorizedTitle || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Prepared / Checked By</label>
+              <input type="text" id="editCompCheckedBy" value="${escapeHtml(targetComp.checkedBy || '')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+            <div>
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Financial Year Period</label>
+              <input type="text" id="editCompYearPeriod" value="${escapeHtml(targetComp.payrollYearPeriod || '2026-2027')}" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-3 flex justify-end gap-2 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-slate-600 bg-slate-100 hover:bg-slate-200 font-semibold transition">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-xl text-white bg-teal-600 hover:bg-teal-700 font-semibold transition shadow-sm">Save Profile Changes</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function submitEditCompany(e, compId) {
+  e.preventDefault();
+  const payload = {
+    id: compId,
+    name: document.getElementById('editCompName').value.trim(),
+    code: document.getElementById('editCompCode').value.trim().toUpperCase(),
+    registrationNo: document.getElementById('editCompRegNo').value.trim(),
+    address: document.getElementById('editCompAddress').value.trim(),
+    bankName: document.getElementById('editCompBankName').value.trim(),
+    bankBranch: document.getElementById('editCompBankBranch').value.trim(),
+    bankAddress: document.getElementById('editCompBankAddress').value.trim(),
+    debitAccountNo: document.getElementById('editCompDebitAcctNo').value.trim(),
+    debitAccountName: document.getElementById('editCompDebitAcctName').value.trim(),
+    authorizedSignatory: document.getElementById('editCompSignatory').value.trim(),
+    authorizedTitle: document.getElementById('editCompSignatoryTitle').value.trim(),
+    checkedBy: document.getElementById('editCompCheckedBy').value.trim(),
+    payrollYearPeriod: document.getElementById('editCompYearPeriod').value.trim()
+  };
+
+  try {
+    const res = await fetch(`/api/payroll/company?id=${encodeURIComponent(compId)}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeModal();
+      await refreshPayrollData();
+      alert(`Company "${payload.name}" updated successfully.`);
+    } else {
+      alert(data.error || 'Failed to update company');
+    }
+  } catch (err) {
+    alert('Network error updating company: ' + err.message);
+  }
+}
+
+function openCompanyDirectoryModal() {
+  const comps = payrollData?.companies || [];
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Managed Companies Directory</h3>
+          <p class="text-[11px] text-slate-500">${comps.length} registered client corporate entities</p>
+        </div>
+        <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+        ${comps.map(comp => {
+          const compPers = (payrollData?.periods || []).filter(p => p.companyId === comp.id);
+          const isSelected = comp.id === selectedPayrollCompanyId;
+          return `
+            <div class="p-3.5 rounded-xl border ${isSelected ? 'border-teal-500 bg-teal-50/40 ring-1 ring-teal-500/30' : 'border-slate-200 bg-white hover:border-slate-300'} transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-slate-900 text-sm">${escapeHtml(comp.name)}</span>
+                  <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-slate-100 text-slate-600 border border-slate-200">${escapeHtml(comp.code || 'CO')}</span>
+                  ${isSelected ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-600 text-white">Active</span>' : ''}
+                </div>
+                <div class="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                  <span>Reg: <b class="text-slate-700">${escapeHtml(comp.registrationNo || 'N/A')}</b></span>
+                  <span>&bull;</span>
+                  <span>Bank: <b class="text-slate-700">${escapeHtml(comp.bankName || 'N/A')} (${escapeHtml(comp.bankBranch || '')})</b></span>
+                  <span>&bull;</span>
+                  <span>A/C: <b class="font-mono text-slate-700">${escapeHtml(comp.debitAccountNo || 'N/A')}</b></span>
+                  <span>&bull;</span>
+                  <span>Cycles: <b class="text-teal-700 font-semibold">${compPers.length} period${compPers.length === 1 ? '' : 's'}</b></span>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 self-end sm:self-center shrink-0">
+                <button onclick="handlePayrollCompanyChange('${comp.id}'); closeModal();"
+                  class="px-3 py-1.5 ${isSelected ? 'bg-teal-700 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} rounded-lg text-xs font-semibold transition">
+                  ${isSelected ? 'Currently Selected' : 'Switch To'}
+                </button>
+                <button onclick="openEditCompanyModal('${comp.id}')" title="Edit Company Details"
+                  class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition">
+                  <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                </button>
+                ${comps.length > 1 ? `
+                  <button onclick="deletePayrollCompany('${comp.id}', '${escapeHtml(comp.name)}')" title="Delete Company"
+                    class="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="pt-3 flex justify-between items-center border-t border-slate-100">
+        <button onclick="openAddCompanyModal()" class="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-xs">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+          <span>Add Another Company</span>
+        </button>
+        <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-slate-600 bg-slate-100 hover:bg-slate-200 font-semibold transition">Close</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function deletePayrollCompany(compId, compName) {
+  if (!confirm(`Are you sure you want to delete company "${compName}" and all of its associated payroll periods? This cannot be undone.`)) {
+    return;
+  }
+  try {
+    const res = await fetch(`/api/payroll/company?id=${encodeURIComponent(compId)}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (selectedPayrollCompanyId === compId) {
+        selectedPayrollCompanyId = data.companies?.[0]?.id || null;
+      }
+      closeModal();
+      await refreshPayrollData();
+      alert(`Company "${compName}" deleted.`);
+    } else {
+      alert(data.error || 'Failed to delete company');
+    }
+  } catch (err) {
+    alert('Network error deleting company: ' + err.message);
+  }
+}
+
 
 // ---------------- PERIOD SWITCHING & DATA SYNC ----------------
 async function handlePayrollPeriodChange(periodId) {
@@ -6930,50 +5847,57 @@ async function submitBankDetails(e) {
 }
 
 // 3. New Period Modal
-function openNewPeriodModal() {
+function openNewPeriodModal(targetCompanyId) {
+  const compId = targetCompanyId || selectedPayrollCompanyId || activePayrollPeriod?.companyId || 'comp_apadmi';
+  const comp = (payrollData?.companies || []).find(c => c.id === compId) || { name: 'Managed Company' };
   const c = document.getElementById('modalContent');
   const nextMonthDefault = "October 2026";
   const curRate = activePayrollPeriod ? activePayrollPeriod.exchangeRate : 440.0;
+  const canClone = !!(activePayrollPeriod && activePayrollPeriod.employees && activePayrollPeriod.employees.length > 0);
 
   c.innerHTML = `
     <div class="space-y-4 text-xs">
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
         <div>
           <h3 class="font-display font-bold text-base text-slate-900">Create New Payroll Period</h3>
-          <p class="text-[11px] text-slate-500">Initialize a new monthly salary sheet for managed company staff.</p>
+          <p class="text-[11px] text-slate-500">For <b>${escapeHtml(comp.name)}</b> (${escapeHtml(comp.code || 'CO')})</p>
         </div>
         <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
-      <form onsubmit="submitNewPeriod(event)" class="space-y-3">
+      <form onsubmit="submitNewPeriod(event, '${compId}')" class="space-y-3">
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Month &amp; Year</label>
+          <label class="block font-semibold text-slate-700 mb-1">Month &amp; Year *</label>
           <input type="text" id="newPeriodMonth" value="${nextMonthDefault}" required
             placeholder="e.g. October 2026"
             class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-semibold">
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Exchange Rate (1 GBP in LKR)</label>
+          <label class="block font-semibold text-slate-700 mb-1">Exchange Rate (1 GBP in LKR) *</label>
           <input type="number" id="newPeriodRate" step="0.01" min="1" value="${curRate}" required
             class="w-full px-3 py-2 border border-slate-200 rounded-xl font-bold">
         </div>
 
-        <div class="p-3 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 space-y-1">
-          <label class="flex items-center gap-2 cursor-pointer font-semibold">
-            <input type="checkbox" id="newPeriodClone" checked class="rounded text-teal-600 focus:ring-teal-500">
-            <span>Copy all staff members from active period (${activePayrollPeriod?.month || 'current'})</span>
-          </label>
-          <p class="text-[11px] text-teal-700/80 pl-5">Staff member names, bank accounts, TIN, and contracted base GBP will be pre-filled automatically.</p>
-        </div>
+        ${canClone ? `
+          <div class="p-3 rounded-xl bg-teal-50 border border-teal-200 text-teal-800 space-y-1">
+            <label class="flex items-center gap-2 cursor-pointer font-semibold">
+              <input type="checkbox" id="newPeriodClone" checked class="rounded text-teal-600 focus:ring-teal-500">
+              <span>Copy staff roster from period (${activePayrollPeriod?.month || 'current'})</span>
+            </label>
+            <p class="text-[11px] text-teal-700/80 pl-5">Staff member names, bank accounts, TIN, and contracted base GBP will be pre-filled automatically.</p>
+          </div>
+        ` : `
+          <input type="hidden" id="newPeriodClone" value="0">
+        `}
 
         <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
           <button type="button" onclick="closeModal()" class="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">
             Cancel
           </button>
-          <button type="submit" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold shadow-xs transition">
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold shadow-xs transition">
             Create Period
           </button>
         </div>
@@ -6984,16 +5908,20 @@ function openNewPeriodModal() {
   if (window.lucide) lucide.createIcons();
 }
 
-async function submitNewPeriod(e) {
+async function submitNewPeriod(e, compId) {
   e.preventDefault();
   const month = document.getElementById('newPeriodMonth').value.trim();
   const rate = parseFloat(document.getElementById('newPeriodRate').value);
-  const clone = document.getElementById('newPeriodClone').checked;
+  const cloneEl = document.getElementById('newPeriodClone');
+  const clone = cloneEl ? (cloneEl.type === 'checkbox' ? cloneEl.checked : false) : false;
+
+  const targetCompId = compId || selectedPayrollCompanyId || activePayrollPeriod?.companyId || 'comp_apadmi';
 
   const payload = {
-    companyId: activePayrollPeriod?.companyId || 'comp_apadmi',
+    companyId: targetCompId,
     month: month,
     exchangeRate: rate,
+    cloneFromId: clone && activePayrollPeriod ? activePayrollPeriod.id : null,
     cloneFromPeriodId: clone && activePayrollPeriod ? activePayrollPeriod.id : null
   };
 
@@ -7009,6 +5937,7 @@ async function submitNewPeriod(e) {
     if (res.ok) {
       const data = await res.json();
       closeModal();
+      selectedPayrollCompanyId = targetCompId;
       await refreshPayrollData();
       if (data.period) {
         await handlePayrollPeriodChange(data.period.id);
@@ -7136,6 +6065,28 @@ function openEmployeeModal(emp) {
           </div>
         </div>
 
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-red-50/70 rounded-xl border border-red-200">
+          <div>
+            <label class="block font-semibold text-slate-800 mb-1 flex items-center justify-between">
+              <span>APIT Tax (LKR)</span>
+              <span class="text-[10px] text-red-600 font-bold uppercase tracking-wider">Accountant / IRD Input</span>
+            </label>
+            <input type="number" id="empApitInput" step="1" min="0"
+              value="${isEdit && emp.apit !== undefined && emp.apit !== null ? Math.round(emp.apit) : ''}"
+              placeholder="Leave blank for auto-bracket tax"
+              class="w-full px-3 py-1.5 border border-red-200 focus:border-red-500 rounded-lg font-mono font-bold text-red-700 bg-white">
+            <p class="text-[10px] text-slate-500 mt-1">Directly editable APIT tax field. Enter manual IRD tax table value, or leave blank to auto-calculate with standard tax brackets.</p>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-800 mb-1">Special Allowance (LKR)</label>
+            <input type="number" id="empSpecialAllowanceInput" step="0.01" min="0"
+              value="${isEdit && emp.specialAllowance ? emp.specialAllowance : ''}"
+              placeholder="e.g. 25000"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono bg-white">
+            <p class="text-[10px] text-slate-500 mt-1">Non-contractual allowance added to monthly gross earnings.</p>
+          </div>
+        </div>
+
         <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
           <button type="button" onclick="closeModal()" class="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">
             Cancel
@@ -7155,6 +6106,8 @@ async function submitEmployee(e, empId) {
   e.preventDefault();
   const earnedInput = document.getElementById('empEarnedGbpInput').value.trim();
   const gbpSalary = parseFloat(document.getElementById('empGbpSalaryInput').value);
+  const apitVal = document.getElementById('empApitInput').value.trim();
+  const specVal = document.getElementById('empSpecialAllowanceInput').value.trim();
 
   const payload = {
     periodId: activePayrollPeriod.id,
@@ -7169,7 +6122,9 @@ async function submitEmployee(e, empId) {
     idNo: document.getElementById('empIdNoInput').value.trim(),
     tinNo: document.getElementById('empTinNoInput').value.trim(),
     dateJoined: document.getElementById('empDateJoinedInput').value.trim(),
-    epfNo: document.getElementById('empEpfNoInput').value.trim()
+    epfNo: document.getElementById('empEpfNoInput').value.trim(),
+    apit: apitVal !== '' ? parseFloat(apitVal) : null,
+    specialAllowance: specVal !== '' ? parseFloat(specVal) : 0.0
   };
 
   const isEdit = !!empId;
@@ -7190,6 +6145,32 @@ async function submitEmployee(e, empId) {
     } else {
       const err = await res.json();
       alert('Error saving staff member: ' + (err.error || 'Server error'));
+    }
+  } catch (err) {
+    alert('Connection error: ' + err.message);
+  }
+}
+
+async function updateEmployeeApitInline(empId, val) {
+  const apitNum = val.trim() === '' ? null : parseFloat(val);
+  try {
+    const res = await fetch('/api/payroll/employee', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        periodId: activePayrollPeriod.id,
+        id: empId,
+        apit: apitNum
+      })
+    });
+    if (res.ok) {
+      await refreshPayrollData();
+    } else {
+      const err = await res.json();
+      alert('Error updating APIT: ' + (err.error || 'Server error'));
     }
   } catch (err) {
     alert('Connection error: ' + err.message);
@@ -7299,11 +6280,11 @@ function printMasterSalarySheet() {
             <th class="text-left" style="width: 170px;">Employee Name</th>
             <th class="text-left" style="width: 140px;">POSITION</th>
             <th>GBP Salary</th>
-            <th>Column1</th>
-            <th>Column2</th>
+            <th>Working Days</th>
+            <th>Earned Base (GBP)</th>
             <th>EPF (12% )</th>
             <th>ETF(3% )</th>
-            <th>AMOUNT</th>
+            <th>Total Employer Cost (GBP)</th>
             <th>BANK ACCOUNT NO</th>
             <th>TIN NO</th>
             <th>IDNO</th>
@@ -7362,15 +6343,15 @@ function printMasterSalarySheet() {
             <th class="text-left" style="width: 170px;">Employee Name</th>
             <th class="text-left" style="width: 140px;">POSITION</th>
             <th>GBP Salary</th>
-            <th>Column1</th>
-            <th>Column2</th>
+            <th>Working Days</th>
+            <th>Earned Base (GBP)</th>
             <th>LKR</th>
             <th>EPF 8%</th>
             <th>EPF12%</th>
             <th>ETF 3%</th>
-            <th>APIT</th>
-            <th>Column3</th>
-            <th>TOTAL</th>
+            <th>APIT (LKR)</th>
+            <th>Other Deductions</th>
+            <th>Net Remittance (LKR)</th>
           </tr>
         </thead>
         <tbody>
@@ -7381,7 +6362,7 @@ function printMasterSalarySheet() {
               <td class="text-left">${escapeHtml(e.position)}</td>
               <td class="text-right">${formatMoney(e.gbpSalary, 2)}</td>
               <td class="text-center bold">${escapeHtml(e.workDays || '')}</td>
-              <td class="text-right">${formatMoney(e.earnedGbp, 2)}</td>
+              <td class="text-right bold">${formatMoney(e.earnedGbp, 2)}</td>
               <td class="text-right bold">${formatMoney(e.lkrGross, 0)}</td>
               <td class="text-right">${formatMoney(e.epf8Lkr, 0)}</td>
               <td class="text-right">${formatMoney(e.epf12Lkr, 0)}</td>
@@ -7424,6 +6405,7 @@ function printBankRequestLetter() {
   if (!p) return;
   const emps = p.employees || [];
   const totals = p.totals || {};
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
 
   const printWin = window.open('', '_blank');
   if (!printWin) {
@@ -7540,14 +6522,14 @@ function printBankRequestLetter() {
 
           <div class="recipient">
             <div>The Manager</div>
-            <div style="font-weight: 600;">${escapeHtml(p.bankName || 'Nations Trust Bank PLC')},</div>
-            <div>${escapeHtml(p.bankBranch || 'Borella Branch')},</div>
-            <div>${(p.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.').split('\n').map(l => escapeHtml(l)).join('<br>')}</div>
+            <div style="font-weight: 600;">${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC')},</div>
+            <div>${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')},</div>
+            <div>${(p.bankAddress || currentComp.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.').split('\n').map(l => escapeHtml(l)).join('<br>')}</div>
           </div>
 
           <div class="salutation">Dear Sir,</div>
 
-          <div class="subject">SALARY FOR STAFF MEMBERS OF APADMI SL (PRIVATE) LIMITED</div>
+          <div class="subject">SALARY FOR STAFF MEMBERS OF ${escapeHtml(currentComp.name || 'APADMI SL (PRIVATE) LIMITED').toUpperCase()}</div>
 
           <table>
             <thead>
@@ -7580,15 +6562,15 @@ function printBankRequestLetter() {
           </table>
 
           <div class="paragraph">
-            Please be kind enough to remit the respective amount for above mention staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
+            Please be kind enough to remit the respective amount for above mentioned staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
           </div>
 
           <div class="closing">
             <div>Thank You,</div>
             <div style="margin-top: 3mm;">Yours faithfully,</div>
             <div class="signature-space"></div>
-            <div class="signatory-name">${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
-            <div class="signatory-title">Director &middot; Spillburg Holdings (Private) Limited</div>
+            <div class="signatory-name">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
+            <div class="signatory-title">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')} &middot; ${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || 'Spillburg Holdings (Private) Limited')}</div>
           </div>
 
         </div>

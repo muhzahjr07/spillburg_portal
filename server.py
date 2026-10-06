@@ -393,7 +393,7 @@ def generate_payroll_csv(enriched_period):
 
     lines = []
     lines.append(f'SALARY SHEET (IN GBP ) - {month.upper()}')
-    lines.append('No,Employee Name,POSITION,GBP Salary,Column1,Column2,EPF (12% ),ETF(3% ),AMOUNT,BANK ACCOUNT NO,TIN NO,IDNO,Date of Joined')
+    lines.append('No,Employee Name,POSITION,GBP Salary,Working Days,Earned Base (GBP),EPF (12% ),ETF(3% ),Total Employer Cost (GBP),BANK ACCOUNT NO,TIN NO,IDNO,Date of Joined')
     for e in employees:
         bank_str = f"{e.get('bankAccountNo','')}({e.get('bankCode','')})" if e.get('bankCode') else str(e.get('bankAccountNo',''))
         lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("epf12Gbp",0)},{e.get("etf3Gbp",0)},{e.get("totalGbp",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
@@ -402,7 +402,7 @@ def generate_payroll_csv(enriched_period):
     lines.append(f'Checked by: {enriched_period.get("checkedBy","")},Accountant,,,Authorized by: {enriched_period.get("authorizedSignatory","")},{enriched_period.get("authorizedCompany","")}')
     lines.append('')
     lines.append(f'SALARY SHEET (IN GBP ) - {month.upper().replace(" ", "")}. @{rate}')
-    lines.append('No,Employee Name,POSITION,GBP Salary,Column1,Column2,LKR,EPF 8%,EPF12%,ETF 3%,APIT,Column3,TOTAL')
+    lines.append('No,Employee Name,POSITION,GBP Salary,Working Days,Earned Base (GBP),LKR,EPF 8%,EPF12%,ETF 3%,APIT,Other Deductions,Net Remittance (LKR)')
     for e in employees:
         lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("lkrGross",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},,{e.get("netSalaryLkr",0)}')
     lines.append(f',,,{totals.get("sumGbpSalary",0)},,{totals.get("sumEarnedGbp",0)},{totals.get("sumLkrGross",0)},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},,{totals.get("sumNetSalaryLkr",0)}')
@@ -734,13 +734,17 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             return None
         
         role = user.get("role", "staff")
-        if role in ["director", "admin"]:
-            return user
-        
         user_perms = user.get("permissions", {})
         mod_perm = user_perms.get(module, "none")
-        if module == "payroll" and mod_perm == "none":
-            mod_perm = user_perms.get("financial_files", user_perms.get("operations", "viewer"))
+        
+        if mod_perm == "none":
+            self.send_json({
+                "error": f"Access Denied: You need '{required_level}' access for module '{module}'. Your permission level is '{mod_perm}'."
+            }, 403)
+            return None
+
+        if role in ["director", "admin"]:
+            return user
         
         if required_level == "viewer":
             if mod_perm in ["viewer", "editor", "full"]:
@@ -1073,7 +1077,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             user = self.require_permission("payroll", "viewer")
             if not user: return
 
-            pid = query.get("id", [""])[0] or PAYROLL_RECORDS.get("activePeriodId", "")
+            pid = query.get("id", [""])[0] or query.get("periodId", [""])[0] or PAYROLL_RECORDS.get("activePeriodId", "")
             target_period = None
             for p in PAYROLL_RECORDS.get("periods", []):
                 if p.get("id") == pid:
@@ -1099,7 +1103,9 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             user = self.require_permission("payroll", "viewer")
             if not user: return
 
-            master_xlsx = os.path.join(BASE_DIR, "payroll", "APADAMI -SALARY SHEET -SEP 2026.xlsx")
+            master_xlsx = os.path.join(BASE_DIR, "payroll", "APADMI -SALARY SHEET -SEP 2026.xlsx")
+            if not os.path.exists(master_xlsx):
+                master_xlsx = os.path.join(BASE_DIR, "payroll", "APADAMI -SALARY SHEET -SEP 2026.xlsx")
             if os.path.exists(master_xlsx):
                 with open(master_xlsx, "rb") as xf:
                     xbytes = xf.read()
@@ -1417,13 +1423,18 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             user = self.require_permission("payroll", "editor")
             if not user: return
 
-            clone_from_id = body.get("cloneFromId")
+            clone_from_id = body.get("cloneFromId") or body.get("cloneFromPeriodId")
             month = body.get("month", "New Month")
             month_code = body.get("monthCode", "Month")
             year_period = body.get("yearPeriod", "2026-2027")
             exchange_rate = float(body.get("exchangeRate", 440.0))
             letter_date = body.get("letterDate", time.strftime("%d.%m.%Y"))
             company_id = body.get("companyId", "comp_apadmi")
+            comp = None
+            for c in PAYROLL_RECORDS.get("companies", []):
+                if c.get("id") == company_id:
+                    comp = c
+                    break
 
             new_period_id = f"period_{uuid.uuid4().hex[:6]}"
             base_employees = []
@@ -1441,21 +1452,21 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "companyId": company_id,
                 "month": month,
                 "monthCode": month_code,
-                "yearPeriod": year_period,
+                "yearPeriod": year_period or (comp.get("payrollYearPeriod") if comp else "2026-2027"),
                 "letterDate": letter_date,
                 "exchangeRate": exchange_rate,
                 "baseCurrency": "GBP",
                 "localCurrency": "LKR",
                 "status": "Draft",
-                "checkedBy": body.get("checkedBy", "Hemanthi Basnayake"),
-                "checkedTitle": body.get("checkedTitle", "Accountant"),
-                "authorizedSignatory": body.get("authorizedSignatory", "Shaameel Mohideen"),
-                "authorizedCompany": body.get("authorizedCompany", "Spillburg Holdings (pvt)Ltd"),
-                "bankName": body.get("bankName", "Nations Trust Bank PLC"),
-                "bankBranch": body.get("bankBranch", "Borella Branch"),
-                "bankAddress": body.get("bankAddress", "67 D.S. Senanayake Mawatha,\nColombo 08."),
-                "debitAccountNo": body.get("debitAccountNo", "1001 5000 7554"),
-                "debitAccountName": body.get("debitAccountName", "Spillburg Holdings (Private) Limited"),
+                "checkedBy": body.get("checkedBy", (comp.get("checkedBy") if comp else "Hemanthi Basnayake")),
+                "checkedTitle": body.get("checkedTitle", (comp.get("checkedTitle") if comp else "Accountant")),
+                "authorizedSignatory": body.get("authorizedSignatory", (comp.get("authorizedSignatory") if comp else "Shaameel Mohideen")),
+                "authorizedCompany": body.get("authorizedCompany", (comp.get("authorizedCompany") if comp else "Spillburg Holdings (pvt)Ltd")),
+                "bankName": body.get("bankName", (comp.get("bankName") if comp else "Nations Trust Bank PLC")),
+                "bankBranch": body.get("bankBranch", (comp.get("bankBranch") if comp else "Borella Branch")),
+                "bankAddress": body.get("bankAddress", (comp.get("bankAddress") if comp else "67 D.S. Senanayake Mawatha,\nColombo 08.")),
+                "debitAccountNo": body.get("debitAccountNo", (comp.get("debitAccountNo") if comp else "1001 5000 7554")),
+                "debitAccountName": body.get("debitAccountName", (comp.get("debitAccountName") if comp else (comp.get("name") if comp else "Spillburg Holdings (Private) Limited"))),
                 "employees": base_employees
             }
             PAYROLL_RECORDS.setdefault("periods", []).append(new_period)
@@ -1502,7 +1513,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "noPayLate": float(body.get("noPayLate", 0.0)),
                 "advance": float(body.get("advance", 0.0)),
                 "loan": float(body.get("loan", 0.0)),
-                "apit": float(body["apit"]) if "apit" in body and body["apit"] is not None else None
+                "apit": float(body["apit"]) if ("apit" in body and body["apit"] is not None and str(body["apit"]).strip() != "") else None
             }
             emps.append(new_emp)
             save_payroll_records()
@@ -1866,6 +1877,28 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
 
             save_payroll_records()
             self.send_json({"success": True, "activePeriodId": PAYROLL_RECORDS["activePeriodId"]})
+            return
+
+        # 7. Payroll: Delete Company
+        elif path.startswith("/api/payroll/company"):
+            user = self.require_permission("payroll", "editor")
+            if not user: return
+
+            cid = query.get("id", [""])[0] or path.replace("/api/payroll/company/", "")
+            comps = PAYROLL_RECORDS.get("companies", [])
+            if len(comps) <= 1:
+                self.send_json({"error": "Cannot delete the only remaining company"}, 400)
+                return
+
+            PAYROLL_RECORDS["companies"] = [c for c in comps if c.get("id") != cid]
+            PAYROLL_RECORDS["periods"] = [p for p in PAYROLL_RECORDS.get("periods", []) if p.get("companyId") != cid]
+            if PAYROLL_RECORDS.get("periods"):
+                PAYROLL_RECORDS["activePeriodId"] = PAYROLL_RECORDS["periods"][0]["id"]
+            else:
+                PAYROLL_RECORDS["activePeriodId"] = None
+
+            save_payroll_records()
+            self.send_json({"success": True, "companies": PAYROLL_RECORDS["companies"]})
             return
 
         self.send_json({"error": "Endpoint not found"}, 404)
