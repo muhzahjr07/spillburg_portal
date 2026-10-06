@@ -509,6 +509,7 @@ def sync_customer_records_from_access():
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
+    allow_reuse_address = True
 
 class PortalRequestHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -687,10 +688,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     base_tasks = [t for t in OPERATIONS if t.get("userId") == for_user or t.get("ownerUsername") == for_user]
             else:
                 user_tasks = [t for t in OPERATIONS if t.get("userId") == user.get("id") or t.get("ownerUsername") == user.get("username")]
-                if user_tasks or role not in ["director", "admin"]:
-                    base_tasks = user_tasks
-                else:
-                    base_tasks = list(OPERATIONS)
+                base_tasks = user_tasks
 
             filtered = base_tasks
             if search:
@@ -721,10 +719,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     base_tasks = [t for t in OPERATIONS if t.get("userId") == for_user or t.get("ownerUsername") == for_user]
             else:
                 user_tasks = [t for t in OPERATIONS if t.get("userId") == user.get("id") or t.get("ownerUsername") == user.get("username")]
-                if user_tasks or role not in ["director", "admin"]:
-                    base_tasks = user_tasks
-                else:
-                    base_tasks = list(OPERATIONS)
+                base_tasks = user_tasks
 
             total = len(base_tasks)
             pending = sum(1 for t in base_tasks if t.get("status") == "Pending")

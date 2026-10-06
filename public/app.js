@@ -1009,11 +1009,11 @@ function renderOperations(container) {
           <div class="flex items-center gap-2">
             <h2 class="font-display font-bold text-xl text-slate-900">Operations Tracker</h2>
             <span class="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-              ${operationsUserFilter === 'all' ? 'All Team Tasks' : 'Personal Tracker'}
+              ${operationsUserFilter === 'all' ? 'All Team Tasks' : (operationsUserFilter === 'me' ? 'My Personal Tasks' : 'Filtered User Tasks')}
             </span>
           </div>
           <p class="text-xs text-slate-500 mt-1">
-            ${operationsUserFilter === 'all' ? 'Viewing combined tasks across all company personnel' : `Personal task log for ${currentUser ? currentUser.fullName : 'You'}`} &middot; Live synchronized with Google Sheet
+            ${operationsUserFilter === 'all' ? 'Viewing combined tasks across all company personnel' : (operationsUserFilter === 'me' ? `Personal task log for ${currentUser ? currentUser.fullName : 'You'}` : 'Viewing specific user deliverables')} &middot; Live synchronized with Google Sheet
           </p>
         </div>
 
@@ -1217,12 +1217,13 @@ function handleOperationsFilter() {
 
 // 10-Column Operations Tracker Table
 function renderOperationsTable(tasks) {
+  const isPrivileged = currentUser && ['director', 'admin'].includes(currentUser.role);
   if (!tasks.length) {
     return `
       <div class="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 space-y-2 shadow-sm">
         <i data-lucide="clipboard-list" class="w-10 h-10 mx-auto text-slate-300"></i>
-        <div class="text-sm font-semibold text-slate-700">No tasks match your filter criteria</div>
-        <p class="text-xs text-slate-500">Try adjusting your filters or click "Add Task" to create a deliverable.</p>
+        <div class="text-sm font-semibold text-slate-700">No personal tasks recorded yet</div>
+        <p class="text-xs text-slate-500">${isPrivileged ? 'Select "👥 All Team Tasks" in the dropdown above to view company tasks, or click "Add Task" to record an executive deliverable.' : 'Click "Add Task" above to create your first deliverable.'}</p>
       </div>
     `;
   }
