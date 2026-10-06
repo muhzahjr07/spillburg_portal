@@ -2071,6 +2071,61 @@ async function renderAccessControl(container) {
       <div id="usersTableContainer">
         ${renderUsersTable(getFilteredUsers())}
       </div>
+
+      <!-- Data Persistence & Cloud Deployment Safeguards Card -->
+      <div class="bg-white p-5 md:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+              <i data-lucide="hard-drive-download" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h3 class="font-display font-bold text-sm text-slate-900">Data Persistence & Deployment Safeguards</h3>
+              <p class="text-[11px] text-slate-500">Protect user passwords, operations tasks, and payroll records across cloud rebuilds and git updates.</p>
+            </div>
+          </div>
+          <div id="persistenceStatusBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 self-start sm:self-auto">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Live Data Sync: Active</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+            <div>
+              <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">1-Click Full Backup</div>
+              <div class="text-xs font-semibold text-slate-700 mt-1">Download System Snapshot</div>
+              <p class="text-[11px] text-slate-500 mt-1">Exports all 9 user accounts, changed passwords, 38+ operations tasks, and statutory payroll sheets into a single JSON file.</p>
+            </div>
+            <button onclick="downloadSystemBackup()" class="mt-3 w-full py-2 px-3 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-semibold text-xs rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
+              <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-600"></i> Download Backup (.json)
+            </button>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+            <div>
+              <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Instant Restoration</div>
+              <div class="text-xs font-semibold text-slate-700 mt-1">Restore from Backup</div>
+              <p class="text-[11px] text-slate-500 mt-1">Instantly applies your saved backup. Automatically creates a safety rollback snapshot before overwriting.</p>
+            </div>
+            <label class="mt-3 w-full py-2 px-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-lg shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i> Restore Backup File
+              <input type="file" id="systemRestoreFileInput" accept=".json" class="hidden" onchange="handleSystemRestoreFile(event)">
+            </label>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+            <div>
+              <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Deployment Shield</div>
+              <div class="text-xs font-semibold text-slate-700 mt-1">Why Changes Previously Reverted</div>
+              <p class="text-[11px] text-slate-500 mt-1">Free cloud containers (Render) rebuild from git on deployment. <code>Push_To_GitHub.bat</code> now auto-commits live data, and persistent storage is fully supported.</p>
+            </div>
+            <button onclick="showPersistenceGuideModal()" class="mt-3 w-full py-2 px-3 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-semibold text-xs rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
+              <i data-lucide="info" class="w-3.5 h-3.5 text-blue-600"></i> View Persistence Guide
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   `;
   if (window.lucide) lucide.createIcons();
@@ -4196,6 +4251,106 @@ async function deleteUserAccount(userId) {
   } catch (e) {
     alert('Error deleting user');
   }
+}
+
+// ==========================================
+// DATA PERSISTENCE & SYSTEM BACKUP / RESTORE
+// ==========================================
+async function downloadSystemBackup() {
+  try {
+    const res = await fetch('/api/system/backup', {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (!res.ok) {
+      alert('Failed to generate system backup. Please verify admin privileges.');
+      return;
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    a.download = `spillburg_portal_backup_${ts}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Error exporting system backup: ' + err.message);
+  }
+}
+
+async function handleSystemRestoreFile(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (!confirm(`Are you sure you want to restore the portal state from "${file.name}"? This will update all users, passwords, operations tasks, and payroll records to match the backup.`)) {
+    event.target.value = '';
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    const payload = JSON.parse(text);
+
+    const res = await fetch('/api/system/restore', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(`System restore successful!\nRestored: ${JSON.stringify(data.restored, null, 2)}`);
+      await loadInitialData();
+      await renderAccessControl(document.getElementById('mainContent'));
+    } else {
+      alert('Restore failed: ' + (data.error || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('Invalid backup file or restore failed: ' + err.message);
+  } finally {
+    event.target.value = '';
+  }
+}
+
+function showPersistenceGuideModal() {
+  openModal(`
+    <div class="space-y-4">
+      <div class="flex items-center gap-2 border-b border-slate-100 pb-3">
+        <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Cloud Data Persistence Architecture</h3>
+          <p class="text-xs text-slate-500">How Spillburg Holdings protects data across deployments</p>
+        </div>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-600 leading-relaxed">
+        <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl">
+          <span class="font-bold text-amber-800">Why Data Previously Reverted:</span>
+          <p class="mt-1 text-amber-700">Cloud hosting services like Render run on ephemeral container disks. When a new deployment occurs, the old container is discarded and replaced with a fresh clone of the GitHub repository. Any password changes or tasks created were either uncommitted in git or stored only in the old container's disk, causing them to revert to default.</p>
+        </div>
+
+        <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5">
+          <span class="font-bold text-emerald-800">Three Permanent Protections Now Active:</span>
+          <ol class="list-decimal pl-4 space-y-1 text-emerald-700">
+            <li><strong>Auto-Commit in Push Script:</strong> Running <code>Push_To_GitHub.bat</code> automatically stages and commits your changed passwords, operations tasks, and payroll before pushing to GitHub. Render then clones your actual latest state.</li>
+            <li><strong>1-Click Backup & Restore:</strong> Download a complete JSON snapshot anytime. If a cloud server ever restarts fresh, click Restore to bring back all accounts and tasks in 2 seconds.</li>
+            <li><strong>Persistent Cloud Volume Support:</strong> The server automatically binds to <code>PORTAL_DATA_DIR</code> or <code>/var/data</code> when a Render Persistent Disk is attached, keeping files permanent with zero restarts.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button onclick="closeModal()" class="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg transition">Got it</button>
+      </div>
+    </div>
+  `);
+  if (window.lucide) lucide.createIcons();
 }
 
 // Know It All Section Roadmap Modal

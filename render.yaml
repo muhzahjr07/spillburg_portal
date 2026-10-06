@@ -9,3 +9,14 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: PORTAL_DATA_DIR
+        value: ./data
+    # -------------------------------------------------------------------------
+    # ZERO-REVERT CLOUD PERSISTENCE (OPTIONAL UPGRADE):
+    # Free tier uses ephemeral disk. When upgrading to Render Starter ($7/mo),
+    # uncomment the disk block below to mount a permanent cloud volume:
+    # -------------------------------------------------------------------------
+    # disk:
+    #   name: portal-data
+    #   mountPath: /var/data
+    #   sizeGB: 1

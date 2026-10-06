@@ -24,7 +24,17 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+
+# Persistent storage directory configuration (supports Render persistent disks, cloud volumes, or local active dir)
+PERSISTENT_ENV_DIR = os.environ.get("PORTAL_DATA_DIR")
+if PERSISTENT_ENV_DIR:
+    DATA_DIR = os.path.abspath(PERSISTENT_ENV_DIR)
+elif os.path.exists("/var/data") and os.path.isdir("/var/data"):
+    DATA_DIR = "/var/data"
+else:
+    DATA_DIR = os.path.join(BASE_DIR, "data")
+
+os.makedirs(DATA_DIR, exist_ok=True)
 PUBLIC_DIR = os.path.join(BASE_DIR, "public")
 FINANCIAL_PHOTOS_DIR = os.path.join(BASE_DIR, "financial_files_db")
 ACTIVE_CUSTOMER_DB = os.path.join(BASE_DIR, "customer_file_db", "Customer_Files_Active.accdb")
@@ -57,6 +67,7 @@ DEFAULT_USERS = [
             "operations": "full",
             "customer_files": "full",
             "financial_files": "full",
+            "payroll": "full",
             "user_management": "full"
         },
         "createdAt": "2026-09-01T08:00:00Z",
@@ -74,6 +85,7 @@ DEFAULT_USERS = [
             "operations": "editor",
             "customer_files": "editor",
             "financial_files": "none",
+            "payroll": "none",
             "user_management": "none"
         },
         "createdAt": "2026-09-12T10:00:00Z",
@@ -91,6 +103,7 @@ DEFAULT_USERS = [
             "operations": "editor",
             "customer_files": "editor",
             "financial_files": "editor",
+            "payroll": "editor",
             "user_management": "none"
         },
         "createdAt": "2026-09-10T09:30:00Z",
@@ -108,6 +121,7 @@ DEFAULT_USERS = [
             "operations": "full",
             "customer_files": "full",
             "financial_files": "full",
+            "payroll": "full",
             "user_management": "full"
         },
         "createdAt": "2026-09-01T08:00:00Z",
@@ -125,6 +139,7 @@ DEFAULT_USERS = [
             "operations": "full",
             "customer_files": "full",
             "financial_files": "full",
+            "payroll": "full",
             "user_management": "full"
         },
         "createdAt": "2026-09-01T08:00:00Z",
@@ -142,6 +157,7 @@ DEFAULT_USERS = [
             "operations": "full",
             "customer_files": "full",
             "financial_files": "full",
+            "payroll": "full",
             "user_management": "full"
         },
         "createdAt": "2026-09-01T08:00:00Z",
@@ -159,6 +175,7 @@ DEFAULT_USERS = [
             "operations": "editor",
             "customer_files": "editor",
             "financial_files": "editor",
+            "payroll": "editor",
             "user_management": "none"
         },
         "createdAt": "2026-09-15T11:00:00Z",
@@ -176,6 +193,7 @@ DEFAULT_USERS = [
             "operations": "viewer",
             "customer_files": "viewer",
             "financial_files": "viewer",
+            "payroll": "none",
             "user_management": "none"
         },
         "createdAt": "2026-09-15T11:00:00Z",
@@ -193,6 +211,7 @@ DEFAULT_USERS = [
             "operations": "full",
             "customer_files": "full",
             "financial_files": "full",
+            "payroll": "full",
             "user_management": "full"
         },
         "createdAt": "2026-09-01T08:00:00Z",
@@ -208,6 +227,16 @@ def load_json_file(filename, default_val):
                 return json.load(f)
         except Exception as e:
             print(f"[WARN] Failed to load {filename}: {e}")
+    # Fallback to repository baseline if custom persistent volume is used and file not yet seeded
+    default_repo_data = os.path.join(BASE_DIR, "data")
+    if os.path.abspath(DATA_DIR) != os.path.abspath(default_repo_data):
+        fallback_path = os.path.join(default_repo_data, filename)
+        if os.path.exists(fallback_path):
+            try:
+                with open(fallback_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                pass
     return default_val
 
 def save_json_file(filename, data):
@@ -223,6 +252,15 @@ def save_json_file(filename, data):
             pass
     shutil.move(temp_path, path)
 
+    # Automated snapshot backup in data/backups/
+    try:
+        backup_dir = os.path.join(DATA_DIR, "backups")
+        os.makedirs(backup_dir, exist_ok=True)
+        stem = os.path.splitext(filename)[0]
+        shutil.copy2(path, os.path.join(backup_dir, f"{stem}_latest.json"))
+    except Exception:
+        pass
+
 def sync_users_from_disk():
     global USERS
     disk_users = load_json_file("users.json", None)
@@ -230,8 +268,55 @@ def sync_users_from_disk():
         USERS = disk_users
     return USERS
 
+def sync_operations_from_disk():
+    global OPERATIONS
+    disk_ops = load_json_file("operations.json", None)
+    if disk_ops and isinstance(disk_ops, list):
+        OPERATIONS = disk_ops
+    return OPERATIONS
+
+def sync_payroll_from_disk():
+    global PAYROLL_RECORDS
+    disk_pr = load_json_file("payroll_records.json", None)
+    if disk_pr and isinstance(disk_pr, dict):
+        PAYROLL_RECORDS = disk_pr
+    return PAYROLL_RECORDS
+
+def sync_financials_from_disk():
+    global FINANCIAL_RECORDS
+    active_fin = os.path.join(DATA_DIR, "financial_records_active.json")
+    if os.path.exists(active_fin):
+        disk_fin = load_json_file("financial_records_active.json", None)
+    else:
+        disk_fin = load_json_file("financial_records.json", None)
+    if disk_fin and isinstance(disk_fin, list):
+        FINANCIAL_RECORDS = disk_fin
+    return FINANCIAL_RECORDS
+
+def bootstrap_persistent_data():
+    """
+    If DATA_DIR is configured to a persistent volume (e.g. /var/data on Render)
+    and has not been seeded yet, copy all baseline data files from the project repo.
+    Never overwrites existing files in DATA_DIR.
+    """
+    default_repo_data = os.path.join(BASE_DIR, "data")
+    if os.path.abspath(DATA_DIR) == os.path.abspath(default_repo_data):
+        return
+    os.makedirs(DATA_DIR, exist_ok=True)
+    for fname in ["users.json", "operations.json", "payroll_records.json", "financial_records.json", "financial_records_active.json", "customer_records_cache.json"]:
+        src = os.path.join(default_repo_data, fname)
+        dst = os.path.join(DATA_DIR, fname)
+        if os.path.exists(src) and not os.path.exists(dst):
+            try:
+                shutil.copy2(src, dst)
+                print(f"[BOOTSTRAP] Copied initial {fname} to persistent volume: {dst}")
+            except Exception as e:
+                print(f"[BOOTSTRAP] Warning copying {fname}: {e}")
+
 def init_data():
-    global USERS, OPERATIONS, FINANCIAL_RECORDS, CUSTOMER_RECORDS
+    global USERS, OPERATIONS, FINANCIAL_RECORDS, CUSTOMER_RECORDS, PAYROLL_RECORDS
+    bootstrap_persistent_data()
+
     existing_users = load_json_file("users.json", None)
     if not existing_users or not isinstance(existing_users, list) or len(existing_users) == 0:
         USERS = copy.deepcopy(DEFAULT_USERS)
@@ -242,21 +327,23 @@ def init_data():
         print(f"[INIT] Loaded {len(USERS)} user accounts from users.json (all user edits and additions preserved).")
 
     OPERATIONS = load_json_file("operations.json", [])
-    # Load from active financial database if present, else fallback
+    print(f"[INIT] Loaded {len(OPERATIONS)} operations tasks from disk.")
+
     active_fin = os.path.join(DATA_DIR, "financial_records_active.json")
     if os.path.exists(active_fin):
         FINANCIAL_RECORDS = load_json_file("financial_records_active.json", [])
     else:
         FINANCIAL_RECORDS = load_json_file("financial_records.json", [])
+        save_json_file("financial_records_active.json", FINANCIAL_RECORDS)
     
     # Initialize customer records from Access DB bridge
     sync_customer_records_from_access()
     print(f"[INIT] Active Cust DB: {CUSTOMER_DB_PATH}")
 
     # Initialize payroll records
-    global PAYROLL_RECORDS
     PAYROLL_RECORDS = load_json_file("payroll_records.json", {})
     print(f"[INIT] Active portal ready with {len(USERS)} users, {len(OPERATIONS)} operations tasks, {len(FINANCIAL_RECORDS)} financial files, {len(CUSTOMER_RECORDS)} customer file records, {len(PAYROLL_RECORDS.get('periods', []))} payroll cycles.")
+    print(f"[INIT] Storage Location: {DATA_DIR} (Persistent Engine: {'Enabled' if DATA_DIR != os.path.join(BASE_DIR, 'data') else 'Standard Active Directory'})")
 
 def save_payroll_records():
     global PAYROLL_RECORDS
@@ -793,6 +880,54 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             self.send_json({"users": safe_list})
             return
 
+        # 2.1 API: System Backup Export (Admin and Director)
+        elif path == "/api/system/backup":
+            user = self.get_auth_user()
+            if not user or user.get("role") not in ["admin", "director"]:
+                self.send_json({"error": "Admin or Director privileges required to export system backups"}, 403)
+                return
+
+            backup_data = {
+                "portal": "Spillburg Holdings Corporate Portal",
+                "version": "3.0",
+                "exportTimestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "storageLocation": DATA_DIR,
+                "users": sync_users_from_disk(),
+                "operations": sync_operations_from_disk(),
+                "payroll": sync_payroll_from_disk(),
+                "financial_records": sync_financials_from_disk()
+            }
+            raw = json.dumps(backup_data, indent=2, ensure_ascii=False).encode("utf-8")
+            ts = time.strftime("%Y%m%d_%H%M%S")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="spillburg_portal_backup_{ts}.json"')
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+            return
+
+        # 2.2 API: System Storage Status & Diagnostics
+        elif path == "/api/system/status":
+            user = self.get_auth_user()
+            if not user:
+                self.send_json({"error": "Authentication required"}, 401)
+                return
+
+            is_persistent = (os.path.abspath(DATA_DIR) != os.path.abspath(os.path.join(BASE_DIR, "data"))) or bool(os.environ.get("PORTAL_DATA_DIR")) or os.path.exists("/var/data")
+            self.send_json({
+                "dataDir": DATA_DIR,
+                "isPersistent": is_persistent,
+                "storageType": "Persistent Cloud Volume" if is_persistent else "Local Standard Disk",
+                "usersCount": len(sync_users_from_disk()),
+                "operationsCount": len(sync_operations_from_disk()),
+                "payrollPeriodsCount": len(sync_payroll_from_disk().get("periods", [])),
+                "financialRecordsCount": len(sync_financials_from_disk()),
+                "backupDir": os.path.join(DATA_DIR, "backups"),
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            })
+            return
+
         # 3. API: Company Overview
         elif path == "/api/company/overview":
             self.send_json({
@@ -832,6 +967,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/operations":
             user = self.require_permission("operations", "viewer")
             if not user: return
+            sync_operations_from_disk()
             
             search = query.get("search", [""])[0].lower()
             workstream = query.get("workstream", [""])[0]
@@ -870,6 +1006,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/operations/stats":
             user = self.require_permission("operations", "viewer")
             if not user: return
+            sync_operations_from_disk()
 
             for_user = query.get("forUser", [""])[0]
             role = user.get("role", "staff")
@@ -911,6 +1048,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/financial-files":
             user = self.require_permission("financial_files", "viewer")
             if not user: return
+            sync_financials_from_disk()
 
             search = query.get("search", [""])[0].lower()
             category = query.get("category", [""])[0]
@@ -1025,6 +1163,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/payroll":
             user = self.require_permission("payroll", "viewer")
             if not user: return
+            sync_payroll_from_disk()
 
             active_id = PAYROLL_RECORDS.get("activePeriodId", "")
             periods_list = []
@@ -1059,6 +1198,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/payroll/period":
             user = self.require_permission("payroll", "viewer")
             if not user: return
+            sync_payroll_from_disk()
 
             pid = query.get("id", [""])[0] or PAYROLL_RECORDS.get("activePeriodId", "")
             target_period = None
@@ -1077,6 +1217,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/payroll/export-csv":
             user = self.require_permission("payroll", "viewer")
             if not user: return
+            sync_payroll_from_disk()
 
             pid = query.get("id", [""])[0] or query.get("periodId", [""])[0] or PAYROLL_RECORDS.get("activePeriodId", "")
             target_period = None
@@ -1238,12 +1379,74 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             self.send_json({"success": True})
             return
 
+        # 3.1 System Restore from Backup (Admin only)
+        elif path == "/api/system/restore":
+            user = self.get_auth_user()
+            if not user or user.get("role") != "admin":
+                self.send_json({"error": "Administrator privileges required to restore system data"}, 403)
+                return
+
+            if not isinstance(body, dict):
+                self.send_json({"error": "Invalid backup payload format"}, 400)
+                return
+
+            res_users = body.get("users")
+            res_ops = body.get("operations")
+            res_payroll = body.get("payroll")
+            res_fin = body.get("financial_records")
+
+            if not res_users and not res_ops and not res_payroll:
+                self.send_json({"error": "Backup payload must contain at least 'users', 'operations', or 'payroll' data."}, 400)
+                return
+
+            # Safety snapshot before applying restore
+            pre_ts = time.strftime("%Y%m%d_%H%M%S")
+            pre_backup_dir = os.path.join(DATA_DIR, "backups", f"pre_restore_{pre_ts}")
+            os.makedirs(pre_backup_dir, exist_ok=True)
+            for fname in ["users.json", "operations.json", "payroll_records.json", "financial_records_active.json"]:
+                fpath = os.path.join(DATA_DIR, fname)
+                if os.path.exists(fpath):
+                    shutil.copy2(fpath, os.path.join(pre_backup_dir, fname))
+
+            restored_stats = {}
+
+            if res_users and isinstance(res_users, list) and len(res_users) > 0:
+                save_json_file("users.json", res_users)
+                sync_users_from_disk()
+                restored_stats["users"] = len(res_users)
+
+            if res_ops is not None and isinstance(res_ops, list):
+                save_json_file("operations.json", res_ops)
+                sync_operations_from_disk()
+                restored_stats["operations"] = len(res_ops)
+
+            if res_payroll is not None and isinstance(res_payroll, dict):
+                save_json_file("payroll_records.json", res_payroll)
+                sync_payroll_from_disk()
+                restored_stats["payrollPeriods"] = len(res_payroll.get("periods", []))
+
+            if res_fin is not None and isinstance(res_fin, list):
+                save_json_file("financial_records_active.json", res_fin)
+                sync_financials_from_disk()
+                restored_stats["financialRecords"] = len(res_fin)
+
+            self.send_json({
+                "success": True,
+                "message": "System data successfully restored from backup.",
+                "restored": restored_stats,
+                "preRestoreBackup": pre_backup_dir
+            })
+            return
+
         # 4. Users: Create (Admin Panel only)
         elif path == "/api/users":
             user = self.get_auth_user()
             if not user or user.get("role") not in ["admin", "director"]:
                 self.send_json({"error": "Admin or Director privileges required to create accounts"}, 403)
                 return
+
+            sync_users_from_disk()
+            sync_operations_from_disk()
 
             username = body.get("username", "").strip().lower()
             password = body.get("password", "spillburg123").strip()
@@ -1268,6 +1471,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "operations": "editor" if role != "staff" else "viewer",
                 "customer_files": "viewer",
                 "financial_files": "viewer",
+                "payroll": "none",
                 "user_management": "full" if role == "admin" else "none"
             })
 
@@ -1311,12 +1515,12 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             safe.pop("password", None)
             self.send_json({"success": True, "user": safe})
             return
-            return
 
         # 5. Operations: Add task (Personalized to user)
         elif path == "/api/operations":
             user = self.require_permission("operations", "editor")
             if not user: return
+            sync_operations_from_disk()
 
             user_tasks = [t for t in OPERATIONS if t.get("userId") == user.get("id")]
             new_no = max([t.get("no", 0) for t in user_tasks] or [0]) + 1
@@ -1560,6 +1764,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Admin or Director privileges required"}, 403)
                 return
 
+            sync_users_from_disk()
             user_id = path.replace("/api/users/", "")
             target = None
             for u in USERS:
@@ -1592,6 +1797,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path.startswith("/api/operations/"):
             user = self.require_permission("operations", "editor")
             if not user: return
+            sync_operations_from_disk()
 
             task_id = path.replace("/api/operations/", "")
             target = None
@@ -1620,6 +1826,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path.startswith("/api/financial-files/"):
             user = self.require_permission("financial_files", "editor")
             if not user: return
+            sync_financials_from_disk()
 
             rec_id = path.replace("/api/financial-files/", "")
             target = None
@@ -1772,6 +1979,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Admin or Director privileges required"}, 403)
                 return
 
+            sync_users_from_disk()
+            sync_operations_from_disk()
             user_id = path.replace("/api/users/", "")
             if user.get("id") == user_id:
                 self.send_json({"error": "Security Alert: You cannot delete your own active administrator account."}, 400)
@@ -1788,6 +1997,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path.startswith("/api/operations/"):
             user = self.require_permission("operations", "editor")
             if not user: return
+            sync_operations_from_disk()
 
             task_id = path.replace("/api/operations/", "")
             target = None
@@ -1812,6 +2022,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path.startswith("/api/financial-files/"):
             user = self.require_permission("financial_files", "editor")
             if not user: return
+            sync_financials_from_disk()
 
             rec_id = path.replace("/api/financial-files/", "")
             FINANCIAL_RECORDS = [r for r in FINANCIAL_RECORDS if str(r.get("id")) != str(rec_id)]

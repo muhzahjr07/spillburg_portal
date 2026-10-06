@@ -44,3 +44,4 @@ desktop.ini
 *.bak
 scratch/
 .system_generated/
+data/backups/
