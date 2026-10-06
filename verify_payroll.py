@@ -74,6 +74,7 @@ def run_tests():
         assert csv_resp.status == 200, "CSV export failed"
         csv_text = csv_resp.read().decode('utf-8')
         assert "SALARY SHEET (IN GBP ) - SEPTEMBER 2026" in csv_text
+        assert "SALARY SHEET (IN LKR) - SEPTEMBER 2026 @ 440" in csv_text
         assert "5214427" in csv_text
         assert "wikum" in csv_text.lower()
         print("  [PASS] Export CSV delivered with dual tables and exact totals")

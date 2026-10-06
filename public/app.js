@@ -4765,7 +4765,7 @@ function renderPayrollSheet(container) {
 
         <!-- TABLE 2: LKR SALARY SHEET -->
         <div class="excel-header-title flex items-center justify-between border-t-2 border-slate-300">
-          <span>SALARY SHEET (IN GBP ) - ${p.month.toUpperCase().replace(/\s+/g, '')}. @${formatMoney(p.exchangeRate, 0)}</span>
+          <span>SALARY SHEET (IN LKR) - ${p.month.toUpperCase()} @ ${formatMoney(p.exchangeRate, 0)}</span>
           <span class="text-[11px] font-normal text-slate-500">Exchange Rate: @${formatMoney(p.exchangeRate, 2)} LKR/GBP</span>
         </div>
 
@@ -6335,7 +6335,7 @@ function printMasterSalarySheet() {
       </div>
 
       <!-- TABLE 2: LKR SALARY SHEET -->
-      <div class="header-title" style="margin-top: 10px;">SALARY SHEET (IN GBP ) - ${p.month.toUpperCase().replace(/\s+/g, '')}. @${formatMoney(p.exchangeRate, 0)}</div>
+      <div class="header-title" style="margin-top: 10px;">SALARY SHEET (IN LKR) - ${p.month.toUpperCase()} @ ${formatMoney(p.exchangeRate, 0)}</div>
       <table>
         <thead>
           <tr>

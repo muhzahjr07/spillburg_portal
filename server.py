@@ -401,7 +401,8 @@ def generate_payroll_csv(enriched_period):
     lines.append('')
     lines.append(f'Checked by: {enriched_period.get("checkedBy","")},Accountant,,,Authorized by: {enriched_period.get("authorizedSignatory","")},{enriched_period.get("authorizedCompany","")}')
     lines.append('')
-    lines.append(f'SALARY SHEET (IN GBP ) - {month.upper().replace(" ", "")}. @{rate}')
+    rate_disp = int(rate) if rate == int(rate) else rate
+    lines.append(f'SALARY SHEET (IN LKR) - {month.upper()} @ {rate_disp}')
     lines.append('No,Employee Name,POSITION,GBP Salary,Working Days,Earned Base (GBP),LKR,EPF 8%,EPF12%,ETF 3%,APIT,Other Deductions,Net Remittance (LKR)')
     for e in employees:
         lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("lkrGross",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},,{e.get("netSalaryLkr",0)}')
