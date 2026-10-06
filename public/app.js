@@ -241,6 +241,9 @@ function handleSort(tableKey, col) {
     handleFinancialFilter();
   } else if (tableKey === 'users') {
     handleUsersFilter();
+  }
+}
+
 // ================= STICKY / FLOATING BOTTOM HORIZONTAL SCROLLBAR CONTROLLER =================
 let stickyScrollbarEl = null;
 let stickyScrollTrackEl = null;
@@ -504,11 +507,45 @@ function showAuthError(msg) {
   if (window.lucide) lucide.createIcons();
 }
 
+function toggleLoginPassword() {
+  const pwdInput = document.getElementById('loginPassword');
+  const icon = document.getElementById('togglePasswordIcon');
+  if (!pwdInput) return;
+  if (pwdInput.type === 'password') {
+    pwdInput.type = 'text';
+    if (icon) icon.setAttribute('data-lucide', 'eye-off');
+  } else {
+    pwdInput.type = 'password';
+    if (icon) icon.setAttribute('data-lucide', 'eye');
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
 async function handleLoginSubmit(e) {
   e.preventDefault();
   const username = document.getElementById('loginUsername').value.trim();
   const password = document.getElementById('loginPassword').value;
-  await loginAs(username, password);
+  const submitBtn = document.getElementById('loginSubmitBtn');
+  const errBox = document.getElementById('authErrorBox');
+  if (errBox) errBox.classList.add('hidden');
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.classList.add('opacity-80', 'cursor-not-allowed');
+    submitBtn.innerHTML = `<span>Signing In...</span><i data-lucide="loader" class="w-4 h-4 animate-spin"></i>`;
+    if (window.lucide) lucide.createIcons();
+  }
+
+  try {
+    await loginAs(username, password);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('opacity-80', 'cursor-not-allowed');
+      submitBtn.innerHTML = `<span>Sign In to Portal</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
 }
 
 async function checkAuth() {
@@ -542,15 +579,19 @@ async function loginAs(username, password) {
       document.cookie = `token=${encodeURIComponent(authToken)}; path=/; max-age=86400; SameSite=Lax`;
       currentUser = data.user;
       showPortalWorkspace();
-      await loadInitialData();
-      switchView(currentView || 'dashboard');
+      try {
+        await loadInitialData();
+        switchView(currentView || 'dashboard');
+      } catch (uiErr) {
+        console.error('Failed to initialize portal dashboard after login:', uiErr);
+      }
       return true;
     } else {
       showAuthError(data.error || 'Invalid credentials');
       return false;
     }
   } catch (e) {
-    showAuthError('Unable to connect to portal server');
+    showAuthError('Unable to connect to portal server. Please ensure the server is running.');
     return false;
   }
 }

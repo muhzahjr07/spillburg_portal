@@ -942,7 +942,15 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             sync_users_from_disk()
             matched = None
             for u in USERS:
-                if u["username"].lower() == username and u["password"] == password:
+                u_user = u.get("username", "").strip().lower()
+                u_email = u.get("email", "").strip().lower()
+                is_user_match = (
+                    u_user == username or
+                    (u_email and u_email == username) or
+                    (username == "staff" and u_user == "staff_editor")
+                )
+                pwd_match = (u.get("password") == password) or (password and u.get("password") == password.strip())
+                if is_user_match and pwd_match:
                     matched = u
                     break
 
