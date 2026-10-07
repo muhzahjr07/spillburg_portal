@@ -15,6 +15,7 @@ let customerViewMode = 'table'; // 'table' or 'boxes'
 let operationsViewMode = 'table'; // 'table' or 'kanban'
 let operationsUserFilter = 'me'; // 'me', 'all', or specific userId
 let operationsMonthFilter = 'all'; // 'all', or 'sep', 'oct', 'nov', etc.
+let operationsYearFilter = 'all'; // 'all', or '2026', '2025', etc.
 
 // Payroll & Remittance State
 let payrollData = null;
@@ -258,6 +259,31 @@ function getOperationsMonthLabel(monthKey) {
   if (!monthKey || monthKey === 'all') return 'All Months';
   const found = CALENDAR_MONTHS.find(m => m.key === monthKey.toLowerCase());
   return found ? found.name : monthKey;
+}
+
+function extractTaskYear(taskedDateStr) {
+  if (!taskedDateStr) return null;
+  const str = String(taskedDateStr).trim();
+  if (!str || str === '-' || str.toLowerCase() === 'n/a' || str.toLowerCase() === 'null') return null;
+  const info = extractTaskMonthInfo(str);
+  if (info && info.year) return String(info.year);
+  const m = str.match(/\b(20\d\d)\b/);
+  return m ? m[1] : null;
+}
+
+function matchesOperationsYearFilter(task, filterVal) {
+  if (!filterVal || filterVal.toLowerCase() === 'all') return true;
+  const f = filterVal.toLowerCase().trim();
+  const yr = extractTaskYear(task.taskedDate);
+  if (!yr) {
+    return f === 'unspecified' || f === 'none';
+  }
+  return yr.toLowerCase() === f;
+}
+
+function getOperationsYearLabel(yearVal) {
+  if (!yearVal || yearVal === 'all') return 'All Years';
+  return `Year ${yearVal}`;
 }
 
 // Attach Flatpickr calendar picker with emerald styling and DD-MMM-YYYY format
@@ -1295,19 +1321,28 @@ function renderOperations(container) {
   const workstreams = [...new Set(operationsTasks.map(t => t.workstream).filter(Boolean))].sort();
   const requesters = [...new Set(operationsTasks.map(t => t.requestedBy).filter(Boolean))].sort();
 
-  // Compute task counts per month based on taskedDate
+  // Compute task counts per year and month based on taskedDate
+  const yearCounts = {};
   const monthCounts = {};
   operationsTasks.forEach(t => {
+    const yr = extractTaskYear(t.taskedDate);
+    if (yr) {
+      yearCounts[yr] = (yearCounts[yr] || 0) + 1;
+    }
     const info = extractTaskMonthInfo(t.taskedDate);
     if (info) {
       monthCounts[info.monthKey] = (monthCounts[info.monthKey] || 0) + 1;
     }
   });
 
+  const availableYears = Object.keys(yearCounts).sort().reverse();
+  if (availableYears.length === 0) availableYears.push('2026');
+
   const monthOptions = CALENDAR_MONTHS.map(m => ({
     ...m,
     count: monthCounts[m.key] || 0
   }));
+
 
   container.innerHTML = `
     <div class="space-y-6 fade-in">
@@ -1414,9 +1449,26 @@ function renderOperations(container) {
         </div>
       </div>
 
-      <!-- Month Filter Pills Bar (Quick Switcher) -->
-      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-3 overflow-hidden">
+      <!-- Date Filter Pills Bar (Year & Month Quick Switcher) -->
+      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
+        <!-- Year Switcher Row -->
         <div class="flex items-center gap-1.5 overflow-x-auto w-full pb-1 sm:pb-0 scrollbar-thin">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 shrink-0 mr-1.5">
+            <i data-lucide="calendar-days" class="w-3.5 h-3.5 text-blue-600"></i>
+            <span>Tasked Year:</span>
+          </span>
+          <button onclick="setOperationsYearFilter('all')" data-year="all" class="ops-year-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${operationsYearFilter === 'all' ? 'bg-blue-600 text-white shadow-xs font-bold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}">
+            All Years (${total})
+          </button>
+          ${availableYears.map(yr => `
+            <button onclick="setOperationsYearFilter('${yr}')" data-year="${yr}" class="ops-year-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${operationsYearFilter === yr ? 'bg-blue-600 text-white shadow-xs font-bold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}">
+              ${yr} ${yearCounts[yr] > 0 ? `<span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${operationsYearFilter === yr ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-700 font-bold'}">${yearCounts[yr]}</span>` : ''}
+            </button>
+          `).join('')}
+        </div>
+
+        <!-- Month Switcher Row -->
+        <div class="border-t border-slate-100 pt-2 flex items-center gap-1.5 overflow-x-auto w-full pb-1 sm:pb-0 scrollbar-thin">
           <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 shrink-0 mr-1.5">
             <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i>
             <span>Tasked Month:</span>
@@ -1434,10 +1486,20 @@ function renderOperations(container) {
 
       <!-- Search & Dynamic Filters -->
       <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2.5">
           <div class="relative sm:col-span-2 lg:col-span-2">
             <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
             <input type="text" id="opsSearchInput" oninput="handleOperationsFilter()" placeholder="Search tasks, deliverables, requesters, notes, costs..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+          </div>
+          <div>
+            <select id="opsYearFilter" onchange="setOperationsYearFilter(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium cursor-pointer">
+              <option value="all" ${operationsYearFilter === 'all' ? 'selected' : ''}>🗓️ All Years (${total})</option>
+              ${availableYears.map(yr => `
+                <option value="${yr}" ${operationsYearFilter === yr ? 'selected' : ''}>
+                  Year ${yr} ${yearCounts[yr] ? `(${yearCounts[yr]})` : ''}
+                </option>
+              `).join('')}
+            </select>
           </div>
           <div>
             <select id="opsMonthFilter" onchange="setOperationsMonthFilter(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium cursor-pointer">
@@ -1474,6 +1536,7 @@ function renderOperations(container) {
             </select>
           </div>
         </div>
+
 
         <div class="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1 gap-2">
           <div class="flex items-center gap-3 flex-wrap">
@@ -1515,6 +1578,7 @@ function getFilteredOperations() {
   const workstream = document.getElementById('opsWorkstreamFilter')?.value || '';
   const requestedBy = document.getElementById('opsRequestedByFilter')?.value || '';
   const monthFilter = document.getElementById('opsMonthFilter')?.value || operationsMonthFilter || 'all';
+  const yearFilter = document.getElementById('opsYearFilter')?.value || operationsYearFilter || 'all';
 
   let filtered = operationsTasks.filter(t => {
     const mSearch = !q || 
@@ -1529,8 +1593,9 @@ function getFilteredOperations() {
     const mWork = !workstream || (t.workstream || '').toLowerCase() === workstream.toLowerCase();
     const mReq = !requestedBy || (t.requestedBy || '').toLowerCase() === requestedBy.toLowerCase();
     const mMonth = matchesOperationsMonthFilter(t, monthFilter);
+    const mYear = matchesOperationsYearFilter(t, yearFilter);
 
-    return mSearch && mStatus && mPri && mWork && mReq && mMonth;
+    return mSearch && mStatus && mPri && mWork && mReq && mMonth && mYear;
   });
 
   const sortCol = tableSortState.operations.col;
@@ -1572,10 +1637,14 @@ function updateOperationsFilterBadges(filteredCount) {
   const activeText = document.getElementById('opsActiveFilterText');
   const total = operationsTasks.length;
   const mLabel = getOperationsMonthLabel(operationsMonthFilter);
+  const yLabel = getOperationsYearLabel(operationsYearFilter);
 
   if (badge) {
-    if (operationsMonthFilter !== 'all') {
-      badge.innerHTML = `<span class="text-emerald-700 font-bold">${filteredCount}</span> of ${total} tasks (${mLabel})`;
+    if (operationsMonthFilter !== 'all' || operationsYearFilter !== 'all') {
+      const parts = [];
+      if (operationsMonthFilter !== 'all') parts.push(mLabel);
+      if (operationsYearFilter !== 'all') parts.push(operationsYearFilter);
+      badge.innerHTML = `<span class="text-emerald-700 font-bold">${filteredCount}</span> of ${total} tasks (${parts.join(' ')})`;
     } else {
       badge.textContent = `Showing ${filteredCount} of ${total} tasks`;
     }
@@ -1586,13 +1655,14 @@ function updateOperationsFilterBadges(filteredCount) {
   const priority = document.getElementById('opsPriorityFilter')?.value;
   const workstream = document.getElementById('opsWorkstreamFilter')?.value;
   const req = document.getElementById('opsRequestedByFilter')?.value;
-  const hasFilter = (operationsMonthFilter !== 'all') || q || status || priority || workstream || req;
+  const hasFilter = (operationsMonthFilter !== 'all') || (operationsYearFilter !== 'all') || q || status || priority || workstream || req;
 
   if (activeBadge) {
     if (hasFilter) {
       activeBadge.classList.remove('hidden');
       if (activeText) {
         const parts = [];
+        if (operationsYearFilter !== 'all') parts.push(`Year ${operationsYearFilter}`);
         if (operationsMonthFilter !== 'all') parts.push(mLabel);
         if (status) parts.push(status);
         if (priority) parts.push(priority);
@@ -1627,6 +1697,26 @@ function setOperationsMonthFilter(val) {
   handleOperationsFilter();
 }
 
+function setOperationsYearFilter(val) {
+  operationsYearFilter = val || 'all';
+  const sel = document.getElementById('opsYearFilter');
+  if (sel && sel.value !== operationsYearFilter) {
+    sel.value = operationsYearFilter;
+  }
+
+  // Synchronize year pill button styles
+  document.querySelectorAll('.ops-year-pill').forEach(btn => {
+    const yr = btn.getAttribute('data-year');
+    if (yr === operationsYearFilter) {
+      btn.className = 'ops-year-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-blue-600 text-white shadow-xs';
+    } else {
+      btn.className = 'ops-year-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200';
+    }
+  });
+
+  handleOperationsFilter();
+}
+
 function resetOperationsFilters() {
   const searchEl = document.getElementById('opsSearchInput');
   const statusEl = document.getElementById('opsStatusFilter');
@@ -1634,6 +1724,7 @@ function resetOperationsFilters() {
   const workEl = document.getElementById('opsWorkstreamFilter');
   const reqEl = document.getElementById('opsRequestedByFilter');
   const monthEl = document.getElementById('opsMonthFilter');
+  const yearEl = document.getElementById('opsYearFilter');
 
   if (searchEl) searchEl.value = '';
   if (statusEl) statusEl.value = '';
@@ -1641,8 +1732,32 @@ function resetOperationsFilters() {
   if (workEl) workEl.value = '';
   if (reqEl) reqEl.value = '';
   if (monthEl) monthEl.value = 'all';
+  if (yearEl) yearEl.value = 'all';
 
-  setOperationsMonthFilter('all');
+  operationsMonthFilter = 'all';
+  operationsYearFilter = 'all';
+
+  // Synchronize month pill button styles
+  document.querySelectorAll('.ops-month-pill').forEach(btn => {
+    const m = btn.getAttribute('data-month');
+    if (m === 'all') {
+      btn.className = 'ops-month-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-emerald-600 text-white shadow-xs';
+    } else {
+      btn.className = 'ops-month-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200';
+    }
+  });
+
+  // Synchronize year pill button styles
+  document.querySelectorAll('.ops-year-pill').forEach(btn => {
+    const yr = btn.getAttribute('data-year');
+    if (yr === 'all') {
+      btn.className = 'ops-year-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-blue-600 text-white shadow-xs';
+    } else {
+      btn.className = 'ops-year-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200';
+    }
+  });
+
+  handleOperationsFilter();
 }
 
 // 10-Column Operations Tracker Table
@@ -1650,23 +1765,33 @@ function renderOperationsTable(tasks) {
   const isPrivileged = currentUser && ['director', 'admin'].includes(currentUser.role);
   if (!tasks.length) {
     const mLabel = getOperationsMonthLabel(operationsMonthFilter);
+    const hasDateFilter = (operationsMonthFilter !== 'all') || (operationsYearFilter !== 'all');
+    let filterPeriodDesc = '';
+    if (operationsMonthFilter !== 'all' && operationsYearFilter !== 'all') {
+      filterPeriodDesc = `${mLabel} ${operationsYearFilter}`;
+    } else if (operationsMonthFilter !== 'all') {
+      filterPeriodDesc = mLabel;
+    } else if (operationsYearFilter !== 'all') {
+      filterPeriodDesc = `Year ${operationsYearFilter}`;
+    }
+
     return `
       <div class="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 space-y-3 shadow-sm">
         <div class="w-12 h-12 mx-auto rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400">
           <i data-lucide="calendar-x" class="w-6 h-6 text-slate-400"></i>
         </div>
         <div class="text-sm font-semibold text-slate-700">
-          ${operationsMonthFilter !== 'all' ? `No tasks found tasked in ${mLabel}` : 'No personal tasks recorded yet'}
+          ${hasDateFilter ? `No tasks found tasked in ${filterPeriodDesc}` : 'No personal tasks recorded yet'}
         </div>
         <p class="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-          ${operationsMonthFilter !== 'all' 
-            ? `There are no deliverables with a Tasked Date recorded for ${mLabel}. You can view tasks from other months or record a new deliverable.` 
+          ${hasDateFilter 
+            ? `There are no deliverables with a Tasked Date recorded for ${filterPeriodDesc}. You can view tasks from other dates or record a new deliverable.` 
             : (isPrivileged ? 'Select "👥 All Team Tasks" in the dropdown above to view company tasks, or click "Add Task" to record an executive deliverable.' : 'Click "Add Task" above to create your first deliverable.')}
         </p>
         <div class="pt-1 flex items-center justify-center gap-2">
-          ${operationsMonthFilter !== 'all' ? `
-            <button onclick="setOperationsMonthFilter('all')" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition flex items-center gap-1.5">
-              <i data-lucide="calendar" class="w-3.5 h-3.5"></i> View All Months
+          ${hasDateFilter ? `
+            <button onclick="resetOperationsFilters()" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition flex items-center gap-1.5">
+              <i data-lucide="calendar" class="w-3.5 h-3.5"></i> View All Dates
             </button>
           ` : ''}
           <button onclick="openAddOperationModal()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 ${!canEdit('operations') ? 'permission-locked' : ''}">
@@ -1676,6 +1801,7 @@ function renderOperationsTable(tasks) {
       </div>
     `;
   }
+
 
 
   return `

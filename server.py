@@ -539,6 +539,28 @@ def extract_month_from_tasked_date(date_str):
             return names
     return None
 
+def extract_year_from_tasked_date(date_str):
+    if not date_str:
+        return None
+    s = str(date_str).strip()
+    # Pattern: DD-MMM-YYYY or D-MMM-YYYY (e.g. 03-Sep-2026)
+    m1 = re.match(r"^(\d{1,2})-([A-Za-z]{3})-(\d{4})$", s)
+    if m1:
+        return m1.group(3)
+    # Pattern: YYYY-MM-DD or YYYY/MM/DD
+    m2 = re.match(r"^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", s)
+    if m2:
+        return m2.group(1)
+    # Pattern: DD/MM/YYYY or DD-MM-YYYY
+    m3 = re.match(r"^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})", s)
+    if m3:
+        return m3.group(3)
+    m4 = re.search(r"\b(20\d\d)\b", s)
+    if m4:
+        return m4.group(1)
+    return None
+
+
 def init_sqlite_db():
     os.makedirs(os.path.dirname(SQLITE_CUSTOMER_DB), exist_ok=True)
     conn = sqlite3.connect(SQLITE_CUSTOMER_DB)
@@ -1018,6 +1040,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             priority = query.get("priority", [""])[0]
             requestedBy = query.get("requestedBy", [""])[0]
             month_param = query.get("month", [""])[0].strip().lower()
+            year_param = query.get("year", [""])[0].strip().lower()
             for_user = query.get("forUser", [""])[0]
             role = user.get("role", "staff")
 
@@ -1050,9 +1073,17 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                         return month_param in ["unspecified", "none"]
                     return month_param in m_info or month_param.startswith(m_info[0]) or m_info[1].startswith(month_param)
                 filtered = [t for t in filtered if task_matches_month(t)]
+            if year_param and year_param not in ["all", ""]:
+                def task_matches_year(task):
+                    y_info = extract_year_from_tasked_date(task.get("taskedDate"))
+                    if not y_info:
+                        return year_param in ["unspecified", "none"]
+                    return y_info.lower() == year_param
+                filtered = [t for t in filtered if task_matches_year(t)]
 
             self.send_json({"total": len(filtered), "tasks": filtered})
             return
+
 
         elif path == "/api/operations/stats":
             user = self.require_permission("operations", "viewer")

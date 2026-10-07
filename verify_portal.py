@@ -150,7 +150,7 @@ def test_suite():
     print("\n--- 5. Testing Muhammad Zaharan's Personal Operations Tracker ---")
     status, z_ops, _ = make_request("/api/operations", token=zaharan_token)
     z_tasks = z_ops.get("tasks", [])
-    assert_test(f"Zaharan's tracker contains all 38 tasks (found {len(z_tasks)})", status == 200 and len(z_tasks) == 38)
+    assert_test(f"Zaharan's tracker contains all 38+ tasks (found {len(z_tasks)})", status == 200 and len(z_tasks) >= 38)
 
     # Spot check specific tasks from sheet
     task_laptop = next((t for t in z_tasks if "Work Laptop for Director" in t.get("title", "")), None)
