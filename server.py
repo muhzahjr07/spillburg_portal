@@ -496,6 +496,49 @@ def generate_payroll_csv(enriched_period):
     lines.append(f',,,{totals.get("sumGbpSalary",0)},,{totals.get("sumEarnedGbp",0)},{totals.get("sumLkrGross",0)},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},,{totals.get("sumNetSalaryLkr",0)}')
     return '\n'.join(lines)
 
+def extract_month_from_tasked_date(date_str):
+    if not date_str:
+        return None
+    s = str(date_str).strip()
+    month_map = {
+        "jan": ("jan", "january"),
+        "feb": ("feb", "february"),
+        "mar": ("mar", "march"),
+        "apr": ("apr", "april"),
+        "may": ("may", "may"),
+        "jun": ("jun", "june"),
+        "jul": ("jul", "july"),
+        "aug": ("aug", "august"),
+        "sep": ("sep", "september"),
+        "oct": ("oct", "october"),
+        "nov": ("nov", "november"),
+        "dec": ("dec", "december"),
+    }
+    # Pattern: DD-MMM-YYYY or D-MMM-YYYY (e.g. 03-Sep-2026)
+    m1 = re.match(r"^(\d{1,2})-([A-Za-z]{3})-(\d{4})$", s)
+    if m1:
+        mon = m1.group(2).lower()
+        if mon in month_map:
+            return month_map[mon]
+    # Pattern: YYYY-MM-DD
+    m2 = re.match(r"^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", s)
+    num_to_mon = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+    if m2:
+        idx = int(m2.group(2)) - 1
+        if 0 <= idx < 12:
+            return month_map[num_to_mon[idx]]
+    # Pattern: DD/MM/YYYY or DD-MM-YYYY
+    m3 = re.match(r"^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})", s)
+    if m3:
+        idx = int(m3.group(2)) - 1
+        if 0 <= idx < 12:
+            return month_map[num_to_mon[idx]]
+    s_lower = s.lower()
+    for short_m, names in month_map.items():
+        if names[0] in s_lower or names[1] in s_lower:
+            return names
+    return None
+
 def init_sqlite_db():
     os.makedirs(os.path.dirname(SQLITE_CUSTOMER_DB), exist_ok=True)
     conn = sqlite3.connect(SQLITE_CUSTOMER_DB)
@@ -974,6 +1017,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             status = query.get("status", [""])[0]
             priority = query.get("priority", [""])[0]
             requestedBy = query.get("requestedBy", [""])[0]
+            month_param = query.get("month", [""])[0].strip().lower()
             for_user = query.get("forUser", [""])[0]
             role = user.get("role", "staff")
 
@@ -999,6 +1043,13 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 filtered = [t for t in filtered if t.get("priority", "").lower() == priority.lower()]
             if requestedBy:
                 filtered = [t for t in filtered if t.get("requestedBy", "").lower() == requestedBy.lower()]
+            if month_param and month_param not in ["all", ""]:
+                def task_matches_month(task):
+                    m_info = extract_month_from_tasked_date(task.get("taskedDate"))
+                    if not m_info:
+                        return month_param in ["unspecified", "none"]
+                    return month_param in m_info or month_param.startswith(m_info[0]) or m_info[1].startswith(month_param)
+                filtered = [t for t in filtered if task_matches_month(t)]
 
             self.send_json({"total": len(filtered), "tasks": filtered})
             return

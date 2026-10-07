@@ -14,6 +14,7 @@ let customerCupboardFilter = 'All';
 let customerViewMode = 'table'; // 'table' or 'boxes'
 let operationsViewMode = 'table'; // 'table' or 'kanban'
 let operationsUserFilter = 'me'; // 'me', 'all', or specific userId
+let operationsMonthFilter = 'all'; // 'all', or 'sep', 'oct', 'nov', etc.
 
 // Payroll & Remittance State
 let payrollData = null;
@@ -33,6 +34,24 @@ const tableSortState = {
 // ================= DATE FORMATTING & CALENDAR UTILITIES =================
 // Official Corporate Spillburg Standard: "22-Sep-2026" (DD-MMM-YYYY)
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const FULL_MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+const CALENDAR_MONTHS = [
+  { key: 'jan', name: 'January', num: 1 },
+  { key: 'feb', name: 'February', num: 2 },
+  { key: 'mar', name: 'March', num: 3 },
+  { key: 'apr', name: 'April', num: 4 },
+  { key: 'may', name: 'May', num: 5 },
+  { key: 'jun', name: 'June', num: 6 },
+  { key: 'jul', name: 'July', num: 7 },
+  { key: 'aug', name: 'August', num: 8 },
+  { key: 'sep', name: 'September', num: 9 },
+  { key: 'oct', name: 'October', num: 10 },
+  { key: 'nov', name: 'November', num: 11 },
+  { key: 'dec', name: 'December', num: 12 }
+];
 const MONTH_MAP = {
   jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
   jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
@@ -141,6 +160,104 @@ function getTodayFormatted() {
   const mon = MONTH_NAMES[d.getMonth()];
   const year = d.getFullYear();
   return `${day}-${mon}-${year}`;
+}
+
+// Extract month information from a task's taskedDate
+function extractTaskMonthInfo(taskedDateStr) {
+  if (!taskedDateStr) return null;
+  const str = String(taskedDateStr).trim();
+  if (!str || str === '-' || str.toLowerCase() === 'n/a' || str.toLowerCase() === 'null') return null;
+
+  // Pattern: DD-MMM-YYYY or D-MMM-YYYY (e.g. 03-Sep-2026, 3-Sep-2026)
+  const m1 = str.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  if (m1) {
+    const monKey = m1[2].toLowerCase();
+    const monIdx = MONTH_MAP[monKey];
+    if (monIdx !== undefined) {
+      return {
+        monthKey: monKey,
+        monthIndex: monIdx,
+        monthName: FULL_MONTH_NAMES[monIdx],
+        year: m1[3],
+        monthYearKey: `${monKey}-${m1[3]}`.toLowerCase(),
+        monthYearLabel: `${FULL_MONTH_NAMES[monIdx]} ${m1[3]}`
+      };
+    }
+  }
+
+  // Pattern: YYYY-MM-DD or YYYY/MM/DD
+  const m2 = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m2) {
+    const year = m2[1];
+    const monIdx = parseInt(m2[2], 10) - 1;
+    if (monIdx >= 0 && monIdx < 12) {
+      const monKey = MONTH_NAMES[monIdx].toLowerCase();
+      return {
+        monthKey: monKey,
+        monthIndex: monIdx,
+        monthName: FULL_MONTH_NAMES[monIdx],
+        year: year,
+        monthYearKey: `${monKey}-${year}`.toLowerCase(),
+        monthYearLabel: `${FULL_MONTH_NAMES[monIdx]} ${year}`
+      };
+    }
+  }
+
+  // Pattern: DD/MM/YYYY or DD-MM-YYYY
+  const m3 = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (m3) {
+    const year = m3[3];
+    const monIdx = parseInt(m3[2], 10) - 1;
+    if (monIdx >= 0 && monIdx < 12) {
+      const monKey = MONTH_NAMES[monIdx].toLowerCase();
+      return {
+        monthKey: monKey,
+        monthIndex: monIdx,
+        monthName: FULL_MONTH_NAMES[monIdx],
+        year: year,
+        monthYearKey: `${monKey}-${year}`.toLowerCase(),
+        monthYearLabel: `${FULL_MONTH_NAMES[monIdx]} ${year}`
+      };
+    }
+  }
+
+  // Fallback via JS Date
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const monIdx = str.includes('Z') || str.includes('T') ? d.getUTCMonth() : d.getMonth();
+    const year = String(str.includes('Z') || str.includes('T') ? d.getUTCFullYear() : d.getFullYear());
+    const monKey = MONTH_NAMES[monIdx].toLowerCase();
+    return {
+      monthKey: monKey,
+      monthIndex: monIdx,
+      monthName: FULL_MONTH_NAMES[monIdx],
+      year: year,
+      monthYearKey: `${monKey}-${year}`.toLowerCase(),
+      monthYearLabel: `${FULL_MONTH_NAMES[monIdx]} ${year}`
+    };
+  }
+
+  return null;
+}
+
+function matchesOperationsMonthFilter(task, filterVal) {
+  if (!filterVal || filterVal.toLowerCase() === 'all') return true;
+  const f = filterVal.toLowerCase().trim();
+  const info = extractTaskMonthInfo(task.taskedDate);
+  if (!info) {
+    return f === 'unspecified' || f === 'none';
+  }
+  return info.monthKey === f || 
+         info.monthName.toLowerCase() === f || 
+         info.monthYearKey === f || 
+         f.startsWith(info.monthKey) ||
+         info.monthName.toLowerCase().startsWith(f);
+}
+
+function getOperationsMonthLabel(monthKey) {
+  if (!monthKey || monthKey === 'all') return 'All Months';
+  const found = CALENDAR_MONTHS.find(m => m.key === monthKey.toLowerCase());
+  return found ? found.name : monthKey;
 }
 
 // Attach Flatpickr calendar picker with emerald styling and DD-MMM-YYYY format
@@ -1178,6 +1295,20 @@ function renderOperations(container) {
   const workstreams = [...new Set(operationsTasks.map(t => t.workstream).filter(Boolean))].sort();
   const requesters = [...new Set(operationsTasks.map(t => t.requestedBy).filter(Boolean))].sort();
 
+  // Compute task counts per month based on taskedDate
+  const monthCounts = {};
+  operationsTasks.forEach(t => {
+    const info = extractTaskMonthInfo(t.taskedDate);
+    if (info) {
+      monthCounts[info.monthKey] = (monthCounts[info.monthKey] || 0) + 1;
+    }
+  });
+
+  const monthOptions = CALENDAR_MONTHS.map(m => ({
+    ...m,
+    count: monthCounts[m.key] || 0
+  }));
+
   container.innerHTML = `
     <div class="space-y-6 fade-in">
       
@@ -1283,12 +1414,40 @@ function renderOperations(container) {
         </div>
       </div>
 
+      <!-- Month Filter Pills Bar (Quick Switcher) -->
+      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-3 overflow-hidden">
+        <div class="flex items-center gap-1.5 overflow-x-auto w-full pb-1 sm:pb-0 scrollbar-thin">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 shrink-0 mr-1.5">
+            <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <span>Tasked Month:</span>
+          </span>
+          <button onclick="setOperationsMonthFilter('all')" data-month="all" class="ops-month-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${operationsMonthFilter === 'all' ? 'bg-emerald-600 text-white shadow-xs font-bold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}">
+            All Months (${total})
+          </button>
+          ${monthOptions.map(m => `
+            <button onclick="setOperationsMonthFilter('${m.key}')" data-month="${m.key}" class="ops-month-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${operationsMonthFilter === m.key ? 'bg-emerald-600 text-white shadow-xs font-bold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}">
+              ${m.name} ${m.count > 0 ? `<span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${operationsMonthFilter === m.key ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-700 font-bold'}">${m.count}</span>` : ''}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
       <!-- Search & Dynamic Filters -->
       <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-2.5">
-          <div class="relative md:col-span-2">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
+          <div class="relative sm:col-span-2 lg:col-span-2">
             <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
             <input type="text" id="opsSearchInput" oninput="handleOperationsFilter()" placeholder="Search tasks, deliverables, requesters, notes, costs..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+          </div>
+          <div>
+            <select id="opsMonthFilter" onchange="setOperationsMonthFilter(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium cursor-pointer">
+              <option value="all" ${operationsMonthFilter === 'all' ? 'selected' : ''}>📅 All Months (${total})</option>
+              ${monthOptions.map(m => `
+                <option value="${m.key}" ${operationsMonthFilter === m.key ? 'selected' : ''}>
+                  ${m.name} ${m.count > 0 ? `(${m.count})` : ''}
+                </option>
+              `).join('')}
+            </select>
           </div>
           <div>
             <select id="opsWorkstreamFilter" onchange="handleOperationsFilter()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none">
@@ -1316,16 +1475,26 @@ function renderOperations(container) {
           </div>
         </div>
 
-        <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-          <div class="flex items-center gap-2">
-            <span>Filter by Requester:</span>
-            <select id="opsRequestedByFilter" onchange="handleOperationsFilter()" class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-700 focus:outline-none">
-              <option value="">All Requesters</option>
-              ${requesters.map(r => `<option value="${r}">${r}</option>`).join('')}
-            </select>
+        <div class="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1 gap-2">
+          <div class="flex items-center gap-3 flex-wrap">
+            <div class="flex items-center gap-1.5">
+              <span>Filter by Requester:</span>
+              <select id="opsRequestedByFilter" onchange="handleOperationsFilter()" class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-700 focus:outline-none">
+                <option value="">All Requesters</option>
+                ${requesters.map(r => `<option value="${r}">${r}</option>`).join('')}
+              </select>
+            </div>
+            <span id="opsActiveFilterBadge" class="hidden inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <i data-lucide="filter" class="w-3 h-3 text-emerald-600"></i>
+              <span id="opsActiveFilterText">Filtered</span>
+              <button onclick="resetOperationsFilters()" class="ml-1 text-slate-400 hover:text-red-500 font-bold" title="Reset all filters">&times;</button>
+            </span>
           </div>
-          <div class="text-slate-400">
-            Click any column header to sort (&Delta;/&nabla;)
+
+          <div class="flex items-center gap-2">
+            <span id="opsFilteredCountBadge" class="font-semibold text-slate-600">Showing all ${total} tasks</span>
+            <span class="text-slate-300 hidden sm:inline">|</span>
+            <span class="text-slate-400 hidden sm:inline">Click any column header to sort (&Delta;/&nabla;)</span>
           </div>
         </div>
       </div>
@@ -1345,6 +1514,7 @@ function getFilteredOperations() {
   const priority = document.getElementById('opsPriorityFilter')?.value || '';
   const workstream = document.getElementById('opsWorkstreamFilter')?.value || '';
   const requestedBy = document.getElementById('opsRequestedByFilter')?.value || '';
+  const monthFilter = document.getElementById('opsMonthFilter')?.value || operationsMonthFilter || 'all';
 
   let filtered = operationsTasks.filter(t => {
     const mSearch = !q || 
@@ -1358,7 +1528,9 @@ function getFilteredOperations() {
     const mPri = !priority || (t.priority || '').toLowerCase() === priority.toLowerCase();
     const mWork = !workstream || (t.workstream || '').toLowerCase() === workstream.toLowerCase();
     const mReq = !requestedBy || (t.requestedBy || '').toLowerCase() === requestedBy.toLowerCase();
-    return mSearch && mStatus && mPri && mWork && mReq;
+    const mMonth = matchesOperationsMonthFilter(t, monthFilter);
+
+    return mSearch && mStatus && mPri && mWork && mReq && mMonth;
   });
 
   const sortCol = tableSortState.operations.col;
@@ -1391,20 +1563,120 @@ function handleOperationsFilter() {
     container.innerHTML = operationsViewMode === 'table' ? renderOperationsTable(filtered) : renderOperationsKanban(filtered);
     if (window.lucide) lucide.createIcons();
   }
+  updateOperationsFilterBadges(filtered.length);
+}
+
+function updateOperationsFilterBadges(filteredCount) {
+  const badge = document.getElementById('opsFilteredCountBadge');
+  const activeBadge = document.getElementById('opsActiveFilterBadge');
+  const activeText = document.getElementById('opsActiveFilterText');
+  const total = operationsTasks.length;
+  const mLabel = getOperationsMonthLabel(operationsMonthFilter);
+
+  if (badge) {
+    if (operationsMonthFilter !== 'all') {
+      badge.innerHTML = `<span class="text-emerald-700 font-bold">${filteredCount}</span> of ${total} tasks (${mLabel})`;
+    } else {
+      badge.textContent = `Showing ${filteredCount} of ${total} tasks`;
+    }
+  }
+
+  const q = document.getElementById('opsSearchInput')?.value?.trim();
+  const status = document.getElementById('opsStatusFilter')?.value;
+  const priority = document.getElementById('opsPriorityFilter')?.value;
+  const workstream = document.getElementById('opsWorkstreamFilter')?.value;
+  const req = document.getElementById('opsRequestedByFilter')?.value;
+  const hasFilter = (operationsMonthFilter !== 'all') || q || status || priority || workstream || req;
+
+  if (activeBadge) {
+    if (hasFilter) {
+      activeBadge.classList.remove('hidden');
+      if (activeText) {
+        const parts = [];
+        if (operationsMonthFilter !== 'all') parts.push(mLabel);
+        if (status) parts.push(status);
+        if (priority) parts.push(priority);
+        if (workstream) parts.push(workstream);
+        if (req) parts.push(req);
+        if (q) parts.push(`"${q}"`);
+        activeText.textContent = parts.join(' • ');
+      }
+    } else {
+      activeBadge.classList.add('hidden');
+    }
+  }
+}
+
+function setOperationsMonthFilter(val) {
+  operationsMonthFilter = val || 'all';
+  const sel = document.getElementById('opsMonthFilter');
+  if (sel && sel.value !== operationsMonthFilter) {
+    sel.value = operationsMonthFilter;
+  }
+
+  // Synchronize pill button styles
+  document.querySelectorAll('.ops-month-pill').forEach(btn => {
+    const m = btn.getAttribute('data-month');
+    if (m === operationsMonthFilter) {
+      btn.className = 'ops-month-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-emerald-600 text-white shadow-xs';
+    } else {
+      btn.className = 'ops-month-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200';
+    }
+  });
+
+  handleOperationsFilter();
+}
+
+function resetOperationsFilters() {
+  const searchEl = document.getElementById('opsSearchInput');
+  const statusEl = document.getElementById('opsStatusFilter');
+  const priEl = document.getElementById('opsPriorityFilter');
+  const workEl = document.getElementById('opsWorkstreamFilter');
+  const reqEl = document.getElementById('opsRequestedByFilter');
+  const monthEl = document.getElementById('opsMonthFilter');
+
+  if (searchEl) searchEl.value = '';
+  if (statusEl) statusEl.value = '';
+  if (priEl) priEl.value = '';
+  if (workEl) workEl.value = '';
+  if (reqEl) reqEl.value = '';
+  if (monthEl) monthEl.value = 'all';
+
+  setOperationsMonthFilter('all');
 }
 
 // 10-Column Operations Tracker Table
 function renderOperationsTable(tasks) {
   const isPrivileged = currentUser && ['director', 'admin'].includes(currentUser.role);
   if (!tasks.length) {
+    const mLabel = getOperationsMonthLabel(operationsMonthFilter);
     return `
-      <div class="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 space-y-2 shadow-sm">
-        <i data-lucide="clipboard-list" class="w-10 h-10 mx-auto text-slate-300"></i>
-        <div class="text-sm font-semibold text-slate-700">No personal tasks recorded yet</div>
-        <p class="text-xs text-slate-500">${isPrivileged ? 'Select "👥 All Team Tasks" in the dropdown above to view company tasks, or click "Add Task" to record an executive deliverable.' : 'Click "Add Task" above to create your first deliverable.'}</p>
+      <div class="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 space-y-3 shadow-sm">
+        <div class="w-12 h-12 mx-auto rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400">
+          <i data-lucide="calendar-x" class="w-6 h-6 text-slate-400"></i>
+        </div>
+        <div class="text-sm font-semibold text-slate-700">
+          ${operationsMonthFilter !== 'all' ? `No tasks found tasked in ${mLabel}` : 'No personal tasks recorded yet'}
+        </div>
+        <p class="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+          ${operationsMonthFilter !== 'all' 
+            ? `There are no deliverables with a Tasked Date recorded for ${mLabel}. You can view tasks from other months or record a new deliverable.` 
+            : (isPrivileged ? 'Select "👥 All Team Tasks" in the dropdown above to view company tasks, or click "Add Task" to record an executive deliverable.' : 'Click "Add Task" above to create your first deliverable.')}
+        </p>
+        <div class="pt-1 flex items-center justify-center gap-2">
+          ${operationsMonthFilter !== 'all' ? `
+            <button onclick="setOperationsMonthFilter('all')" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition flex items-center gap-1.5">
+              <i data-lucide="calendar" class="w-3.5 h-3.5"></i> View All Months
+            </button>
+          ` : ''}
+          <button onclick="openAddOperationModal()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 ${!canEdit('operations') ? 'permission-locked' : ''}">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Task
+          </button>
+        </div>
       </div>
     `;
   }
+
 
   return `
     <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
