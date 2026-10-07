@@ -691,5 +691,22 @@
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Find suitable hosting providers and purchase Hosting for Domain Sites"
+  },
+  {
+    "id": "ops_ecada4",
+    "no": 44,
+    "userId": "usr_admin_zaharan",
+    "ownerUsername": "zaharan",
+    "title": "Updated Chamber Events Slideshow",
+    "requestedBy": "Mr. Shameel",
+    "assignedTo": "Muhammad Zaharan",
+    "workstream": "Designing & Editing",
+    "type": "Operational Task",
+    "taskedDate": "07-Oct-2026",
+    "completedDate": "",
+    "status": "Pending",
+    "priority": "Medium",
+    "estimatedCost": "",
+    "notes": "Create a slideshow video for Spillburg Holdings, based on Mr. Shameel and Mr. Hameez LinkedIn Profiles"
   }
 ]

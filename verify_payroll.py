@@ -77,7 +77,31 @@ def run_tests():
         assert "SALARY SHEET (IN LKR) - SEPTEMBER 2026 @ 440" in csv_text
         assert "5214427" in csv_text
         assert "wikum" in csv_text.lower()
-        print("  [PASS] Export CSV delivered with dual tables and exact totals")
+        assert "Date Joined" in csv_text
+        print("  [PASS] Export CSV delivered with dual tables, Date Joined header, and exact totals")
+
+    # 3.1 GET /api/payroll/export-xlsx
+    print("\n--- 3.1 Testing Dynamic OpenXML XLSX Export ---")
+    import zipfile, io, xml.etree.ElementTree as ET
+    xlsx_req = urllib.request.Request(f"{BASE_URL}/api/payroll/export-xlsx?id=period_2026_09", headers=headers)
+    with urllib.request.urlopen(xlsx_req) as xlsx_resp:
+        assert xlsx_resp.status == 200, "XLSX export failed"
+        cd_hdr = xlsx_resp.headers.get("Content-Disposition", "")
+        assert "APADMI_Salary_Sheet_SEP_2026.xlsx" in cd_hdr or ".xlsx" in cd_hdr, f"Filename header mismatch: {cd_hdr}"
+        xlsx_bytes = xlsx_resp.read()
+        assert len(xlsx_bytes) > 2000, f"XLSX byte length too small: {len(xlsx_bytes)}"
+        
+        # Verify valid zip and xml without repair issues
+        zf = zipfile.ZipFile(io.BytesIO(xlsx_bytes))
+        for fname in zf.namelist():
+            if fname.endswith(".xml"):
+                ET.fromstring(zf.read(fname))
+        styles_xml = zf.read("xl/styles.xml").decode("utf-8")
+        assert 'val="Calibri"' in styles_xml
+        assert 'val="8"' in styles_xml
+        sheet_xml = zf.read("xl/worksheets/sheet1.xml").decode("utf-8")
+        assert "Date Joined" in sheet_xml
+        print(f"  [PASS] Dynamic XLSX validated: {len(xlsx_bytes)} bytes, zero XML errors, Calibri size 8 confirmed!")
 
     # 4. Exchange Rate Modification & Live Recalculation
     print("\n--- 4. Testing Live Exchange Rate Adjustment ---")
