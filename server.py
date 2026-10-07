@@ -293,6 +293,149 @@ def sync_financials_from_disk():
         FINANCIAL_RECORDS = disk_fin
     return FINANCIAL_RECORDS
 
+def get_latest_backup_file_path():
+    """
+    Scans the repository's 'backup_files' directory (and DATA_DIR/backups if available)
+    for all spillburg_portal_backup_*.json files and returns:
+    (latest_file_path, latest_file_name, latest_backup_dict)
+    or (None, None, None) if none found.
+    """
+    candidate_dirs = [
+        os.path.join(BASE_DIR, "backup_files"),
+        os.path.join(DATA_DIR, "backups")
+    ]
+    all_files = []
+    for c_dir in candidate_dirs:
+        if os.path.exists(c_dir) and os.path.isdir(c_dir):
+            for fname in os.listdir(c_dir):
+                if fname.endswith(".json") and ("spillburg_portal_backup" in fname or "backup" in fname.lower()):
+                    fpath = os.path.join(c_dir, fname)
+                    if os.path.isfile(fpath):
+                        all_files.append((fname, fpath))
+    
+    if not all_files:
+        return None, None, None
+
+    # Sort candidates by timestamp in filename or mtime
+    def backup_sort_key(item):
+        fname, fpath = item
+        match = re.search(r"(\d{4}[-_]\d{2}[-_]\d{2}[T_]?\d{0,2}[-_]?\d{0,2}[-_]?\d{0,2})", fname)
+        if match:
+            return (1, match.group(1), os.path.getmtime(fpath))
+        return (0, fname, os.path.getmtime(fpath))
+
+    all_files.sort(key=backup_sort_key, reverse=True)
+
+    for fname, fpath in all_files:
+        try:
+            with open(fpath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict) and ("operations" in data or "users" in data or "payroll" in data):
+                return fpath, fname, data
+        except Exception as e:
+            print(f"[BACKUP_SCAN] Skipped unreadable candidate {fname}: {e}")
+
+    return None, None, None
+
+def auto_sync_latest_backup_to_data(force=False, target_dir=None):
+    """
+    Automatically detects the latest exported backup file in backup_files/
+    and synchronizes users.json, operations.json, payroll_records.json,
+    financial_records_active.json, and financial_records.json into target_dir (default DATA_DIR and repo data/).
+    
+    Ensures Render builds and fresh runtime spins always deploy with the latest backup data.
+    """
+    latest_path, latest_fname, backup_data = get_latest_backup_file_path()
+    if not latest_path or not backup_data:
+        print("[DEPLOY_SYNC] No valid backup files found in backup_files/ to synchronize.")
+        return False
+
+    targets = [DATA_DIR]
+    default_repo_data = os.path.join(BASE_DIR, "data")
+    if os.path.abspath(DATA_DIR) != os.path.abspath(default_repo_data):
+        targets.append(default_repo_data)
+    if target_dir and os.path.abspath(target_dir) not in [os.path.abspath(t) for t in targets]:
+        targets.append(target_dir)
+
+    synced_any = False
+    for t_dir in targets:
+        os.makedirs(t_dir, exist_ok=True)
+        marker_file = os.path.join(t_dir, ".last_deployed_backup")
+        last_applied = ""
+        if os.path.exists(marker_file):
+            try:
+                with open(marker_file, "r", encoding="utf-8") as mf:
+                    last_applied = mf.read().strip()
+            except Exception:
+                pass
+
+        # Check existing operations count on disk
+        ops_disk_path = os.path.join(t_dir, "operations.json")
+        ops_disk_count = 0
+        if os.path.exists(ops_disk_path):
+            try:
+                with open(ops_disk_path, "r", encoding="utf-8") as of:
+                    ops_disk_count = len(json.load(of))
+            except Exception:
+                pass
+
+        backup_ops = backup_data.get("operations", [])
+        backup_users = backup_data.get("users", [])
+        backup_payroll = backup_data.get("payroll", {})
+        backup_fin = backup_data.get("financial_records", [])
+
+        should_apply = (
+            force or
+            not os.path.exists(ops_disk_path) or
+            last_applied != latest_fname or
+            ops_disk_count < len(backup_ops)
+        )
+
+        if should_apply:
+            try:
+                # 1. users.json
+                if backup_users and isinstance(backup_users, list):
+                    with open(os.path.join(t_dir, "users.json"), "w", encoding="utf-8") as f:
+                        json.dump(backup_users, f, indent=2, ensure_ascii=False)
+
+                # 2. operations.json
+                if backup_ops is not None and isinstance(backup_ops, list):
+                    with open(os.path.join(t_dir, "operations.json"), "w", encoding="utf-8") as f:
+                        json.dump(backup_ops, f, indent=2, ensure_ascii=False)
+
+                # 3. payroll_records.json
+                if backup_payroll and isinstance(backup_payroll, dict):
+                    with open(os.path.join(t_dir, "payroll_records.json"), "w", encoding="utf-8") as f:
+                        json.dump(backup_payroll, f, indent=2, ensure_ascii=False)
+
+                # 4. financial_records_active.json & financial_records.json
+                if backup_fin and isinstance(backup_fin, list):
+                    with open(os.path.join(t_dir, "financial_records_active.json"), "w", encoding="utf-8") as f:
+                        json.dump(backup_fin, f, indent=2, ensure_ascii=False)
+                    with open(os.path.join(t_dir, "financial_records.json"), "w", encoding="utf-8") as f:
+                        json.dump(backup_fin, f, indent=2, ensure_ascii=False)
+
+                # 5. Write marker file
+                with open(marker_file, "w", encoding="utf-8") as mf:
+                    mf.write(latest_fname)
+
+                print(f"[DEPLOY_SYNC] Applied latest backup '{latest_fname}' to {t_dir}: {len(backup_ops)} tasks, {len(backup_users)} users, {len(backup_payroll.get('periods', []))} payroll periods, {len(backup_fin)} financial records.")
+                synced_any = True
+            except Exception as e:
+                print(f"[DEPLOY_SYNC] Error applying backup to {t_dir}: {e}")
+
+    # Synchronize in-memory caches if this is being called while the server is active
+    if synced_any:
+        try:
+            sync_users_from_disk()
+            sync_operations_from_disk()
+            sync_payroll_from_disk()
+            sync_financials_from_disk()
+        except Exception:
+            pass
+
+    return synced_any
+
 def bootstrap_persistent_data():
     """
     If DATA_DIR is configured to a persistent volume (e.g. /var/data on Render)
@@ -315,6 +458,7 @@ def bootstrap_persistent_data():
 
 def init_data():
     global USERS, OPERATIONS, FINANCIAL_RECORDS, CUSTOMER_RECORDS, PAYROLL_RECORDS
+    auto_sync_latest_backup_to_data()
     bootstrap_persistent_data()
 
     existing_users = load_json_file("users.json", None)
@@ -964,6 +1108,16 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             }
             raw = json.dumps(backup_data, indent=2, ensure_ascii=False).encode("utf-8")
             ts = time.strftime("%Y%m%d_%H%M%S")
+            iso_ts = time.strftime("%Y-%m-%dT%H-%M-%S")
+            try:
+                repo_backup_dir = os.path.join(BASE_DIR, "backup_files")
+                os.makedirs(repo_backup_dir, exist_ok=True)
+                repo_backup_file = os.path.join(repo_backup_dir, f"spillburg_portal_backup_{iso_ts}.json")
+                with open(repo_backup_file, "wb") as bf:
+                    bf.write(raw)
+            except Exception as e:
+                print(f"[BACKUP] Notice saving to backup_files: {e}")
+
             self.send_response(200)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Disposition", f'attachment; filename="spillburg_portal_backup_{ts}.json"')
@@ -1522,6 +1676,26 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 save_json_file("financial_records_active.json", res_fin)
                 sync_financials_from_disk()
                 restored_stats["financialRecords"] = len(res_fin)
+
+            # Record restore snapshot into backup_files directory
+            try:
+                repo_backup_dir = os.path.join(BASE_DIR, "backup_files")
+                os.makedirs(repo_backup_dir, exist_ok=True)
+                iso_ts = time.strftime("%Y-%m-%dT%H-%M-%S")
+                repo_backup_file = os.path.join(repo_backup_dir, f"spillburg_portal_backup_{iso_ts}.json")
+                with open(repo_backup_file, "w", encoding="utf-8") as bf:
+                    json.dump({
+                        "portal": "Spillburg Holdings Corporate Portal",
+                        "version": "3.0",
+                        "exportTimestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "storageLocation": DATA_DIR,
+                        "users": sync_users_from_disk(),
+                        "operations": sync_operations_from_disk(),
+                        "payroll": sync_payroll_from_disk(),
+                        "financial_records": sync_financials_from_disk()
+                    }, bf, indent=2, ensure_ascii=False)
+            except Exception as e:
+                print(f"[RESTORE] Notice saving restored backup snapshot: {e}")
 
             self.send_json({
                 "success": True,

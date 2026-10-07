@@ -2859,6 +2859,86 @@ function closeModal() {
   scheduleStickyScrollbarUpdate();
 }
 
+// ================= OPERATIONS DROPDOWN & CREATE NEW HELPERS =================
+function getAvailableRequesters() {
+  const set = new Set();
+  (operationsTasks || []).forEach(t => {
+    if (t.requestedBy && typeof t.requestedBy === 'string') {
+      const v = t.requestedBy.trim();
+      if (v) set.add(v);
+    }
+  });
+  if (currentUser && currentUser.fullName) set.add(currentUser.fullName);
+  if (typeof systemUsers !== 'undefined' && Array.isArray(systemUsers)) {
+    systemUsers.forEach(u => {
+      if (u.fullName) set.add(u.fullName);
+    });
+  }
+  // Standard corporate defaults
+  ['Muhammad Zaharan', 'Mr. Hameez', 'Mr. Shameel', 'Mr. Azad', 'Miss. Hemanthi', 'Executive Director'].forEach(d => set.add(d));
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+function getAvailableWorkstreams() {
+  const set = new Set();
+  (operationsTasks || []).forEach(t => {
+    if (t.workstream && typeof t.workstream === 'string') {
+      const v = t.workstream.trim();
+      if (v) set.add(v);
+    }
+  });
+  // Standard corporate defaults
+  ['Office Operations', 'Procurement', 'Designing & Editing', 'Digital Marketing', 'R&D', 'Workspace', 'IT & Infrastructure', 'Secretarial & Legal', 'Personal Tasks'].forEach(d => set.add(d));
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+function handleSelectOrCreateNew(selectEl, containerId, inputId) {
+  const container = document.getElementById(containerId);
+  const input = document.getElementById(inputId);
+  if (!container || !input) return;
+
+  if (selectEl.value === '__CREATE_NEW__') {
+    container.classList.remove('hidden');
+    input.focus();
+    if (window.lucide) lucide.createIcons();
+  } else {
+    container.classList.add('hidden');
+    input.value = '';
+  }
+}
+
+function cancelCreateNew(selectId, containerId, inputId) {
+  const selectEl = document.getElementById(selectId);
+  const container = document.getElementById(containerId);
+  const input = document.getElementById(inputId);
+  if (container) container.classList.add('hidden');
+  if (input) input.value = '';
+  if (selectEl) {
+    for (let opt of selectEl.options) {
+      if (opt.value !== '__CREATE_NEW__' && opt.value !== '') {
+        selectEl.value = opt.value;
+        break;
+      }
+    }
+  }
+}
+
+function getSelectedOrCreatedValue(selectId, customInputId, defaultVal = '') {
+  const selectEl = document.getElementById(selectId);
+  const inputEl = document.getElementById(customInputId);
+  if (selectEl && selectEl.value === '__CREATE_NEW__') {
+    const customVal = inputEl ? inputEl.value.trim() : '';
+    return customVal || defaultVal;
+  }
+  if (inputEl && inputEl.value.trim() && (!selectEl || selectEl.value === '__CREATE_NEW__')) {
+    return inputEl.value.trim();
+  }
+  if (selectEl && selectEl.value) {
+    return selectEl.value.trim();
+  }
+  return defaultVal;
+}
+
 function openAddOperationModal() {
   if (!canEdit('operations')) {
     alert('You have Viewer access only on Operations Tracker.');
@@ -2866,6 +2946,17 @@ function openAddOperationModal() {
   }
   const defaultRequester = currentUser ? currentUser.fullName : 'Muhammad Zaharan';
   const todayStr = getTodayFormatted();
+  const availableRequesters = getAvailableRequesters();
+  const availableWorkstreams = getAvailableWorkstreams();
+
+  const requesterOptionsHtml = availableRequesters.map(r => 
+    `<option value="${r.replace(/"/g, '&quot;')}" ${r.toLowerCase() === defaultRequester.toLowerCase() ? 'selected' : ''}>${r.replace(/</g, '&lt;')}</option>`
+  ).join('');
+
+  const defaultWorkstream = 'Office Operations';
+  const workstreamOptionsHtml = availableWorkstreams.map(w => 
+    `<option value="${w.replace(/"/g, '&quot;')}" ${w.toLowerCase() === defaultWorkstream.toLowerCase() ? 'selected' : ''}>${w.replace(/</g, '&lt;')}</option>`
+  ).join('');
 
   const c = document.getElementById('modalContent');
   c.innerHTML = `
@@ -2886,12 +2977,38 @@ function openAddOperationModal() {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Requested By</label>
-            <input type="text" id="mOpsRequestedBy" value="${defaultRequester}" placeholder="e.g. Mr. Zaharan / Director" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <label class="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Requested By</span>
+              <span class="text-[10px] font-normal text-slate-400">Dropdown or Create New</span>
+            </label>
+            <select id="mOpsRequestedBy" onchange="handleSelectOrCreateNew(this, 'mOpsRequestedByCustomContainer', 'mOpsRequestedByCustom')" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer">
+              ${requesterOptionsHtml}
+              <option value="__CREATE_NEW__" class="font-bold text-emerald-600 bg-emerald-50">➕ + Create New Requester...</option>
+            </select>
+            <div id="mOpsRequestedByCustomContainer" class="hidden mt-1.5 flex items-center gap-1.5">
+              <div class="relative flex-1">
+                <input type="text" id="mOpsRequestedByCustom" placeholder="Enter new requester name..." class="w-full pl-7 pr-3 py-1.5 bg-emerald-50/50 border border-emerald-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 shadow-xs">
+                <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-600 absolute left-2 top-2"></i>
+              </div>
+              <button type="button" onclick="cancelCreateNew('mOpsRequestedBy', 'mOpsRequestedByCustomContainer', 'mOpsRequestedByCustom')" class="px-2 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 text-[11px] font-medium transition" title="Cancel & choose from list">Cancel</button>
+            </div>
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Workstream</label>
-            <input type="text" id="mOpsWorkstream" placeholder="e.g. Office Operations, IT, Secretarial" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <label class="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Workstream</span>
+              <span class="text-[10px] font-normal text-slate-400">Dropdown or Create New</span>
+            </label>
+            <select id="mOpsWorkstream" onchange="handleSelectOrCreateNew(this, 'mOpsWorkstreamCustomContainer', 'mOpsWorkstreamCustom')" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer">
+              ${workstreamOptionsHtml}
+              <option value="__CREATE_NEW__" class="font-bold text-emerald-600 bg-emerald-50">➕ + Create New Workstream...</option>
+            </select>
+            <div id="mOpsWorkstreamCustomContainer" class="hidden mt-1.5 flex items-center gap-1.5">
+              <div class="relative flex-1">
+                <input type="text" id="mOpsWorkstreamCustom" placeholder="Enter new workstream name..." class="w-full pl-7 pr-3 py-1.5 bg-emerald-50/50 border border-emerald-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 shadow-xs">
+                <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-600 absolute left-2 top-2"></i>
+              </div>
+              <button type="button" onclick="cancelCreateNew('mOpsWorkstream', 'mOpsWorkstreamCustomContainer', 'mOpsWorkstreamCustom')" class="px-2 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 text-[11px] font-medium transition" title="Cancel & choose from list">Cancel</button>
+            </div>
           </div>
         </div>
 
@@ -2956,10 +3073,24 @@ function openAddOperationModal() {
 
 async function submitAddOperation(e) {
   e.preventDefault();
+  const requestedBy = getSelectedOrCreatedValue('mOpsRequestedBy', 'mOpsRequestedByCustom', 'Executive');
+  const workstream = getSelectedOrCreatedValue('mOpsWorkstream', 'mOpsWorkstreamCustom', 'Office Operations');
+
+  if (document.getElementById('mOpsRequestedBy')?.value === '__CREATE_NEW__' && !requestedBy) {
+    alert('Please enter a name for the new Requester, or cancel to choose an existing one.');
+    document.getElementById('mOpsRequestedByCustom')?.focus();
+    return;
+  }
+  if (document.getElementById('mOpsWorkstream')?.value === '__CREATE_NEW__' && !workstream) {
+    alert('Please enter a name for the new Workstream, or cancel to choose an existing one.');
+    document.getElementById('mOpsWorkstreamCustom')?.focus();
+    return;
+  }
+
   const payload = {
     title: document.getElementById('mOpsTitle').value.trim(),
-    requestedBy: document.getElementById('mOpsRequestedBy').value.trim() || 'Executive',
-    workstream: document.getElementById('mOpsWorkstream').value.trim() || 'Office Operations',
+    requestedBy: requestedBy,
+    workstream: workstream,
     taskedDate: formatDisplayDate(document.getElementById('mOpsTaskedDate').value) || getTodayFormatted(),
     completedDate: formatDisplayDate(document.getElementById('mOpsCompletedDate').value),
     status: document.getElementById('mOpsStatus').value,
@@ -2995,6 +3126,27 @@ function openEditOperationModal(taskId) {
   const task = operationsTasks.find(t => String(t.id) === String(taskId) || String(t.no) === String(taskId));
   if (!task) return;
 
+  const currentRequester = (task.requestedBy || 'Muhammad Zaharan').trim();
+  const currentWorkstream = (task.workstream || 'Office Operations').trim();
+
+  const availableRequesters = getAvailableRequesters();
+  const availableWorkstreams = getAvailableWorkstreams();
+
+  if (currentRequester && !availableRequesters.some(r => r.toLowerCase() === currentRequester.toLowerCase())) {
+    availableRequesters.unshift(currentRequester);
+  }
+  if (currentWorkstream && !availableWorkstreams.some(w => w.toLowerCase() === currentWorkstream.toLowerCase())) {
+    availableWorkstreams.unshift(currentWorkstream);
+  }
+
+  const editRequesterOptionsHtml = availableRequesters.map(r =>
+    `<option value="${r.replace(/"/g, '&quot;')}" ${r.toLowerCase() === currentRequester.toLowerCase() ? 'selected' : ''}>${r.replace(/</g, '&lt;')}</option>`
+  ).join('');
+
+  const editWorkstreamOptionsHtml = availableWorkstreams.map(w =>
+    `<option value="${w.replace(/"/g, '&quot;')}" ${w.toLowerCase() === currentWorkstream.toLowerCase() ? 'selected' : ''}>${w.replace(/</g, '&lt;')}</option>`
+  ).join('');
+
   const c = document.getElementById('modalContent');
   c.innerHTML = `
     <div class="space-y-4 text-xs">
@@ -3019,12 +3171,38 @@ function openEditOperationModal(taskId) {
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Requested By</label>
-            <input type="text" id="mEditOpsReq" value="${task.requestedBy || ''}" placeholder="e.g. Mr. Zaharan" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <label class="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Requested By</span>
+              <span class="text-[10px] font-normal text-slate-400">Dropdown or Create New</span>
+            </label>
+            <select id="mEditOpsReq" onchange="handleSelectOrCreateNew(this, 'mEditOpsReqCustomContainer', 'mEditOpsReqCustom')" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer">
+              ${editRequesterOptionsHtml}
+              <option value="__CREATE_NEW__" class="font-bold text-emerald-600 bg-emerald-50">➕ + Create New Requester...</option>
+            </select>
+            <div id="mEditOpsReqCustomContainer" class="hidden mt-1.5 flex items-center gap-1.5">
+              <div class="relative flex-1">
+                <input type="text" id="mEditOpsReqCustom" placeholder="Enter new requester name..." class="w-full pl-7 pr-3 py-1.5 bg-emerald-50/50 border border-emerald-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 shadow-xs">
+                <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-600 absolute left-2 top-2"></i>
+              </div>
+              <button type="button" onclick="cancelCreateNew('mEditOpsReq', 'mEditOpsReqCustomContainer', 'mEditOpsReqCustom')" class="px-2 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 text-[11px] font-medium transition" title="Cancel & choose from list">Cancel</button>
+            </div>
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Workstream</label>
-            <input type="text" id="mEditOpsWorkstream" value="${task.workstream || ''}" placeholder="e.g. Office Operations" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <label class="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Workstream</span>
+              <span class="text-[10px] font-normal text-slate-400">Dropdown or Create New</span>
+            </label>
+            <select id="mEditOpsWorkstream" onchange="handleSelectOrCreateNew(this, 'mEditOpsWorkstreamCustomContainer', 'mEditOpsWorkstreamCustom')" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer">
+              ${editWorkstreamOptionsHtml}
+              <option value="__CREATE_NEW__" class="font-bold text-emerald-600 bg-emerald-50">➕ + Create New Workstream...</option>
+            </select>
+            <div id="mEditOpsWorkstreamCustomContainer" class="hidden mt-1.5 flex items-center gap-1.5">
+              <div class="relative flex-1">
+                <input type="text" id="mEditOpsWorkstreamCustom" placeholder="Enter new workstream name..." class="w-full pl-7 pr-3 py-1.5 bg-emerald-50/50 border border-emerald-300 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 shadow-xs">
+                <i data-lucide="plus" class="w-3.5 h-3.5 text-emerald-600 absolute left-2 top-2"></i>
+              </div>
+              <button type="button" onclick="cancelCreateNew('mEditOpsWorkstream', 'mEditOpsWorkstreamCustomContainer', 'mEditOpsWorkstreamCustom')" class="px-2 py-1.5 rounded-lg text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 text-[11px] font-medium transition" title="Cancel & choose from list">Cancel</button>
+            </div>
           </div>
         </div>
 
@@ -3089,10 +3267,24 @@ function openEditOperationModal(taskId) {
 
 async function submitEditOperation(e, taskId) {
   e.preventDefault();
+  const requestedBy = getSelectedOrCreatedValue('mEditOpsReq', 'mEditOpsReqCustom', 'Executive');
+  const workstream = getSelectedOrCreatedValue('mEditOpsWorkstream', 'mEditOpsWorkstreamCustom', 'Office Operations');
+
+  if (document.getElementById('mEditOpsReq')?.value === '__CREATE_NEW__' && !requestedBy) {
+    alert('Please enter a name for the new Requester, or cancel to choose an existing one.');
+    document.getElementById('mEditOpsReqCustom')?.focus();
+    return;
+  }
+  if (document.getElementById('mEditOpsWorkstream')?.value === '__CREATE_NEW__' && !workstream) {
+    alert('Please enter a name for the new Workstream, or cancel to choose an existing one.');
+    document.getElementById('mEditOpsWorkstreamCustom')?.focus();
+    return;
+  }
+
   const payload = {
     title: document.getElementById('mEditOpsTitle').value.trim(),
-    requestedBy: document.getElementById('mEditOpsReq').value.trim(),
-    workstream: document.getElementById('mEditOpsWorkstream').value.trim(),
+    requestedBy: requestedBy,
+    workstream: workstream,
     taskedDate: formatDisplayDate(document.getElementById('mEditOpsTaskedDate').value),
     completedDate: formatDisplayDate(document.getElementById('mEditOpsCompletedDate').value),
     priority: document.getElementById('mEditOpsPriority').value,
