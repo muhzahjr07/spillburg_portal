@@ -5,12 +5,16 @@ services:
     plan: free
     region: singapore
     buildCommand: python -c "import server; server.auto_sync_latest_backup_to_data(force=True)"
-    startCommand: python server.py
+    startCommand: python -c "import server; server.auto_sync_latest_backup_to_data(force=True)" && python server.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: PORTAL_DATA_DIR
         value: ./data
+      - key: FORCE_BACKUP_SYNC_ON_START
+        value: "true"
+      - key: RENDER
+        value: "true"
     # -------------------------------------------------------------------------
     # ZERO-REVERT CLOUD PERSISTENCE (OPTIONAL UPGRADE):
     # Free tier uses ephemeral disk. When upgrading to Render Starter ($7/mo),

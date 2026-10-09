@@ -330,7 +330,7 @@
     "workstream": "Operational Task",
     "taskedDate": "18-Sep-2026",
     "completedDate": "",
-    "status": "Pending",
+    "status": "In Progress",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Review the new company profile and find out shortcomings and suggestions"
@@ -442,7 +442,7 @@
     "workstream": "Digital Marketing",
     "taskedDate": "22-Sep-2026",
     "completedDate": "",
-    "status": "Pending",
+    "status": "In Progress",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Create a company profile for Spillburg Corporate Services"
@@ -474,7 +474,7 @@
     "workstream": "Operational Task",
     "taskedDate": "23-Sep-2026",
     "completedDate": "",
-    "status": "In Progress",
+    "status": "Pending",
     "priority": "High",
     "estimatedCost": "",
     "notes": "Fill the indemnity form for all clients"
@@ -725,5 +725,22 @@
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Create an Ad video based on Overseas Company Ad Video on Instagram"
+  },
+  {
+    "id": "ops_51871b",
+    "no": 46,
+    "userId": "usr_admin_zaharan",
+    "ownerUsername": "zaharan",
+    "title": "Sri Lanka USA Business Council Website Report",
+    "requestedBy": "Mr. Shameel",
+    "assignedTo": "Muhammad Zaharan",
+    "workstream": "Office Operations",
+    "type": "Operational Task",
+    "taskedDate": "08-Oct-2026",
+    "completedDate": "",
+    "status": "In Progress",
+    "priority": "Medium",
+    "estimatedCost": "",
+    "notes": "Review the website and find out shortcomings and suggestions"
   }
 ]

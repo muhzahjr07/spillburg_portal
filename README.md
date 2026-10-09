@@ -238,10 +238,10 @@ This repository is pre-configured with `render.yaml` (Render Blueprint) and `Pro
 4. Connect this GitHub repository (`company_portal`).
 5. Render detects configuration automatically:
    - **Environment**: Python 3
-   - **Build Command**: *(leave empty)*
-   - **Start Command**: `python server.py`
+   - **Build Command**: `python -c "import server; server.auto_sync_latest_backup_to_data(force=True)"` *(or leave empty)*
+   - **Start Command**: `python -c "import server; server.auto_sync_latest_backup_to_data(force=True)" && python server.py` *(or `python server.py`)*
    - **Plan**: Free
-6. Click **Deploy**. Your permanent HTTPS link will be active in under 60 seconds!
+6. Click **Deploy**. Your permanent HTTPS link will be active in under 60 seconds! Every deploy and instance load (after free-tier sleep) automatically restores all data from your latest backup.
 
 ---
 

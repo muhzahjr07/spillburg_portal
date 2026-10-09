@@ -5062,11 +5062,12 @@ function showPersistenceGuideModal() {
         </div>
 
         <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5">
-          <span class="font-bold text-emerald-800">Three Permanent Protections Now Active:</span>
+          <span class="font-bold text-emerald-800">Four Permanent Protections Now Active:</span>
           <ol class="list-decimal pl-4 space-y-1 text-emerald-700">
-            <li><strong>Auto-Commit in Push Script:</strong> Running <code>Push_To_GitHub.bat</code> automatically stages and commits your changed passwords, operations tasks, and payroll before pushing to GitHub. Render then clones your actual latest state.</li>
+            <li><strong>Render Free-Tier Deploy & Spin-Up Auto-Sync:</strong> Every Render deployment and instance wake-up automatically synchronizes data from your latest backup in <code>backup_files/</code> into the active portal database.</li>
+            <li><strong>Auto-Sync in Push Script:</strong> Running <code>Push_To_GitHub.bat</code> automatically syncs your latest backup file into the data directory before staging, committing, and pushing to GitHub.</li>
             <li><strong>1-Click Backup & Restore:</strong> Download a complete JSON snapshot anytime. If a cloud server ever restarts fresh, click Restore to bring back all accounts and tasks in 2 seconds.</li>
-            <li><strong>Persistent Cloud Volume Support:</strong> The server automatically binds to <code>PORTAL_DATA_DIR</code> or <code>/var/data</code> when a Render Persistent Disk is attached, keeping files permanent with zero restarts.</li>
+            <li><strong>Persistent Cloud Volume Support:</strong> The server automatically binds to <code>PORTAL_DATA_DIR</code> or <code>/var/data</code> when a Render Persistent Disk is attached, keeping files permanent across all container cycles.</li>
           </ol>
         </div>
       </div>

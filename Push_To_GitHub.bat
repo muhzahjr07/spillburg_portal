@@ -45,16 +45,17 @@ git branch -M main
 
 echo.
 echo ===============================================================================
-echo [PERSISTENCE STEP] Auto-saving all live passwords, tracker data, and payroll...
+echo [PERSISTENCE STEP] Auto-saving and syncing latest backup data...
 echo ===============================================================================
+python -c "import server; server.auto_sync_latest_backup_to_data(force=True)"
 git add -A
 git diff --cached --quiet
 if %ERRORLEVEL% neq 0 (
-    echo Saving modified user accounts, operations tasks, and payroll records to git...
-    git commit -m "chore: save live portal data, passwords, tracker, and payroll updates before deployment"
-    echo [OK] Live database and portal state committed!
+    echo Saving modified user accounts, operations tasks, payroll records, and backups to git...
+    git commit -m "chore: save live portal data, passwords, tracker, payroll updates, and latest backup before deployment"
+    echo [OK] Live database, backup files, and portal state committed!
 ) else (
-    echo [OK] All portal files and databases are already up to date.
+    echo [OK] All portal files, databases, and backup files are already up to date.
 )
 
 echo.

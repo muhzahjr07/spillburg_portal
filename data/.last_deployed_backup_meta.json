@@ -1,0 +1,12 @@
+{
+  "backupFile": "spillburg_portal_backup_latest.json",
+  "backupPath": "C:\\Users\\User\\Desktop\\Zaharan\\projects\\company_portal\\data\\backups\\spillburg_portal_backup_latest.json",
+  "exportTimestamp": "2026-10-09T08:04:02Z",
+  "appliedAt": "2026-10-09T08:06:22Z",
+  "operationsCount": 46,
+  "usersCount": 9,
+  "payrollPeriodsCount": 2,
+  "financialRecordsCount": 42,
+  "customerRecordsCount": 173,
+  "trigger": "force"
+}

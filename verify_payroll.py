@@ -129,5 +129,35 @@ def run_tests():
     print(" ALL PAYROLL TESTS PASSED SUCCESSFULLY! ")
     print("=" * 70)
 
+import os
+import subprocess
+import time
+
 if __name__ == "__main__":
-    run_tests()
+    try:
+        urllib.request.urlopen(f"{BASE_URL}/", timeout=2)
+        run_tests()
+    except Exception:
+        print(f"[INFO] Server not detected on {BASE_URL}. Starting temporary server instance...")
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        server_py = os.path.join(base_dir, "server.py")
+        proc = subprocess.Popen([sys.executable, server_py, "8080"])
+        ready = False
+        for _ in range(20):
+            time.sleep(0.5)
+            try:
+                with urllib.request.urlopen(f"{BASE_URL}/", timeout=1):
+                    ready = True
+                    break
+            except Exception:
+                pass
+        if not ready:
+            print("[ERROR] Server failed to start in time.")
+            proc.terminate()
+            sys.exit(1)
+        try:
+            run_tests()
+        finally:
+            print("[INFO] Terminating temporary test server...")
+            proc.terminate()
+            proc.wait()

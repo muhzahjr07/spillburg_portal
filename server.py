@@ -263,6 +263,48 @@ def save_json_file(filename, data):
     except Exception:
         pass
 
+    # Maintain continuous full snapshot in backup_files/ and data/backups/
+    if filename in ["operations.json", "users.json", "payroll_records.json", "financial_records_active.json", "financial_records.json", "customer_records_cache.json"]:
+        try:
+            auto_save_backup_snapshot()
+        except Exception:
+            pass
+
+def auto_save_backup_snapshot():
+    """
+    Saves an updated snapshot into backup_files/ and DATA_DIR/backups/
+    whenever live portal records are modified, ensuring that fresh
+    container loads or Render restarts have the latest active state.
+    """
+    try:
+        repo_backup_dir = os.path.join(BASE_DIR, "backup_files")
+        os.makedirs(repo_backup_dir, exist_ok=True)
+        
+        backup_obj = {
+            "portal": "Spillburg Holdings Corporate Portal",
+            "version": "3.0",
+            "exportTimestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "storageLocation": DATA_DIR,
+            "users": USERS if USERS else sync_users_from_disk(),
+            "operations": OPERATIONS if OPERATIONS else sync_operations_from_disk(),
+            "payroll": PAYROLL_RECORDS if PAYROLL_RECORDS else sync_payroll_from_disk(),
+            "financial_records": FINANCIAL_RECORDS if FINANCIAL_RECORDS else sync_financials_from_disk(),
+            "customer_records": CUSTOMER_RECORDS if CUSTOMER_RECORDS else load_json_file("customer_records_cache.json", [])
+        }
+        
+        # Save to backup_files/spillburg_portal_backup_latest.json
+        latest_file = os.path.join(repo_backup_dir, "spillburg_portal_backup_latest.json")
+        with open(latest_file, "w", encoding="utf-8") as f:
+            json.dump(backup_obj, f, indent=2, ensure_ascii=False)
+            
+        # Also mirror in DATA_DIR/backups
+        data_backups = os.path.join(DATA_DIR, "backups")
+        os.makedirs(data_backups, exist_ok=True)
+        with open(os.path.join(data_backups, "spillburg_portal_backup_latest.json"), "w", encoding="utf-8") as f:
+            json.dump(backup_obj, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"[AUTO_SNAPSHOT] Notice updating auto backup snapshot: {e}")
+
 def sync_users_from_disk():
     global USERS
     disk_users = load_json_file("users.json", None)
@@ -301,51 +343,89 @@ def get_latest_backup_file_path():
     for all spillburg_portal_backup_*.json files and returns:
     (latest_file_path, latest_file_name, latest_backup_dict)
     or (None, None, None) if none found.
+    
+    Accurately identifies the latest backup by prioritizing:
+    1. Canonical exportTimestamp from inside the JSON payload
+    2. Normalized timestamp extracted from filename (YYYY-MM-DDTHH-MM-SS or YYYYMMDD_HHMMSS)
+    3. File system mtime fallback
     """
     candidate_dirs = [
         os.path.join(BASE_DIR, "backup_files"),
-        os.path.join(DATA_DIR, "backups")
+        os.path.join(DATA_DIR, "backups"),
+        os.path.join(BASE_DIR, "data", "backups")
     ]
+    seen_paths = set()
     all_files = []
     for c_dir in candidate_dirs:
         if os.path.exists(c_dir) and os.path.isdir(c_dir):
             for fname in os.listdir(c_dir):
                 if fname.endswith(".json") and ("spillburg_portal_backup" in fname or "backup" in fname.lower()):
-                    fpath = os.path.join(c_dir, fname)
-                    if os.path.isfile(fpath):
+                    fpath = os.path.abspath(os.path.join(c_dir, fname))
+                    if os.path.isfile(fpath) and fpath not in seen_paths:
+                        seen_paths.add(fpath)
                         all_files.append((fname, fpath))
     
     if not all_files:
         return None, None, None
 
-    # Sort candidates by timestamp in filename or mtime
-    def backup_sort_key(item):
-        fname, fpath = item
-        match = re.search(r"(\d{4}[-_]\d{2}[-_]\d{2}[T_]?\d{0,2}[-_]?\d{0,2}[-_]?\d{0,2})", fname)
-        if match:
-            return (1, match.group(1), os.path.getmtime(fpath))
-        return (0, fname, os.path.getmtime(fpath))
-
-    all_files.sort(key=backup_sort_key, reverse=True)
-
+    parsed_candidates = []
     for fname, fpath in all_files:
         try:
             with open(fpath, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            if isinstance(data, dict) and ("operations" in data or "users" in data or "payroll" in data):
-                return fpath, fname, data
+            if not (isinstance(data, dict) and ("operations" in data or "users" in data or "payroll" in data or "financial_records" in data)):
+                continue
+
+            # 1. Canonical ISO timestamp from JSON exportTimestamp
+            raw_ts = data.get("exportTimestamp", "")
+            sort_ts = ""
+            if raw_ts and isinstance(raw_ts, str):
+                sort_ts = raw_ts.strip().replace(":", "-").replace(".", "-")
+
+            # 2. Extract timestamp from filename if missing or empty
+            if not sort_ts:
+                m1 = re.search(r"(\d{4})[-_](\d{2})[-_](\d{2})[T_](\d{2})[-_](\d{2})[-_](\d{2})", fname)
+                m2 = re.search(r"(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})", fname)
+                m3 = re.search(r"(\d{4})[-_](\d{2})[-_](\d{2})", fname)
+                if m1:
+                    sort_ts = f"{m1.group(1)}-{m1.group(2)}-{m1.group(3)}T{m1.group(4)}-{m1.group(5)}-{m1.group(6)}Z"
+                elif m2:
+                    sort_ts = f"{m2.group(1)}-{m2.group(2)}-{m2.group(3)}T{m2.group(4)}-{m2.group(5)}-{m2.group(6)}Z"
+                elif m3:
+                    sort_ts = f"{m3.group(1)}-{m3.group(2)}-{m3.group(3)}T00-00-00Z"
+
+            mtime = os.path.getmtime(fpath)
+            parsed_candidates.append({
+                "fname": fname,
+                "fpath": fpath,
+                "data": data,
+                "sort_ts": sort_ts,
+                "mtime": mtime
+            })
         except Exception as e:
             print(f"[BACKUP_SCAN] Skipped unreadable candidate {fname}: {e}")
 
-    return None, None, None
+    if not parsed_candidates:
+        return None, None, None
+
+    # Sort descending by sort_ts, then mtime, then fname
+    parsed_candidates.sort(
+        key=lambda c: (c["sort_ts"], c["mtime"], c["fname"]),
+        reverse=True
+    )
+
+    best = parsed_candidates[0]
+    return best["fpath"], best["fname"], best["data"]
 
 def auto_sync_latest_backup_to_data(force=False, target_dir=None):
     """
     Automatically detects the latest exported backup file in backup_files/
     and synchronizes users.json, operations.json, payroll_records.json,
-    financial_records_active.json, and financial_records.json into target_dir (default DATA_DIR and repo data/).
+    financial_records_active.json, financial_records.json, and customer_records_cache.json
+    into target_dir (default DATA_DIR and repo data/).
     
-    Ensures Render builds and fresh runtime spins always deploy with the latest backup data.
+    Ensures that Render deploys and free-tier instance loads/spin-ups always
+    boot with the latest backup data.
     """
     latest_path, latest_fname, backup_data = get_latest_backup_file_path()
     if not latest_path or not backup_data:
@@ -359,10 +439,14 @@ def auto_sync_latest_backup_to_data(force=False, target_dir=None):
     if target_dir and os.path.abspath(target_dir) not in [os.path.abspath(t) for t in targets]:
         targets.append(target_dir)
 
+    is_render = bool(os.environ.get("RENDER")) or bool(os.environ.get("PORTAL_DATA_DIR")) or bool(os.environ.get("RENDER_INSTANCE_ID")) or bool(os.environ.get("RENDER_SERVICE_ID"))
+    env_force = os.environ.get("FORCE_BACKUP_SYNC_ON_START", "").strip().lower() in ["true", "1", "yes"]
+
     synced_any = False
     for t_dir in targets:
         os.makedirs(t_dir, exist_ok=True)
         marker_file = os.path.join(t_dir, ".last_deployed_backup")
+        meta_file = os.path.join(t_dir, ".last_deployed_backup_meta.json")
         last_applied = ""
         if os.path.exists(marker_file):
             try:
@@ -385,9 +469,12 @@ def auto_sync_latest_backup_to_data(force=False, target_dir=None):
         backup_users = backup_data.get("users", [])
         backup_payroll = backup_data.get("payroll", {})
         backup_fin = backup_data.get("financial_records", [])
+        backup_customers = backup_data.get("customer_records", [])
 
         should_apply = (
             force or
+            env_force or
+            is_render or
             not os.path.exists(ops_disk_path) or
             last_applied != latest_fname or
             ops_disk_count < len(backup_ops)
@@ -417,11 +504,30 @@ def auto_sync_latest_backup_to_data(force=False, target_dir=None):
                     with open(os.path.join(t_dir, "financial_records.json"), "w", encoding="utf-8") as f:
                         json.dump(backup_fin, f, indent=2, ensure_ascii=False)
 
-                # 5. Write marker file
+                # 5. customer_records_cache.json (if included in backup)
+                if backup_customers and isinstance(backup_customers, list):
+                    with open(os.path.join(t_dir, "customer_records_cache.json"), "w", encoding="utf-8") as f:
+                        json.dump(backup_customers, f, indent=2, ensure_ascii=False)
+
+                # 6. Write marker and diagnostic metadata file
                 with open(marker_file, "w", encoding="utf-8") as mf:
                     mf.write(latest_fname)
 
-                print(f"[DEPLOY_SYNC] Applied latest backup '{latest_fname}' to {t_dir}: {len(backup_ops)} tasks, {len(backup_users)} users, {len(backup_payroll.get('periods', []))} payroll periods, {len(backup_fin)} financial records.")
+                with open(meta_file, "w", encoding="utf-8") as mf:
+                    json.dump({
+                        "backupFile": latest_fname,
+                        "backupPath": latest_path,
+                        "exportTimestamp": backup_data.get("exportTimestamp", ""),
+                        "appliedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "operationsCount": len(backup_ops),
+                        "usersCount": len(backup_users),
+                        "payrollPeriodsCount": len(backup_payroll.get("periods", [])) if isinstance(backup_payroll, dict) else 0,
+                        "financialRecordsCount": len(backup_fin),
+                        "customerRecordsCount": len(backup_customers) if isinstance(backup_customers, list) else 0,
+                        "trigger": "render_cloud_sync" if is_render else ("force" if force else "auto_detected")
+                    }, mf, indent=2, ensure_ascii=False)
+
+                print(f"[DEPLOY_SYNC] Applied latest backup '{latest_fname}' to {t_dir}: {len(backup_ops)} tasks, {len(backup_users)} users, {len(backup_payroll.get('periods', [])) if isinstance(backup_payroll, dict) else 0} payroll periods, {len(backup_fin)} financial records.")
                 synced_any = True
             except Exception as e:
                 print(f"[DEPLOY_SYNC] Error applying backup to {t_dir}: {e}")
@@ -433,6 +539,9 @@ def auto_sync_latest_backup_to_data(force=False, target_dir=None):
             sync_operations_from_disk()
             sync_payroll_from_disk()
             sync_financials_from_disk()
+            if "customer_records" in backup_data and isinstance(backup_data["customer_records"], list):
+                global CUSTOMER_RECORDS
+                CUSTOMER_RECORDS = backup_data["customer_records"]
         except Exception:
             pass
 
@@ -460,7 +569,7 @@ def bootstrap_persistent_data():
 
 def init_data():
     global USERS, OPERATIONS, FINANCIAL_RECORDS, CUSTOMER_RECORDS, PAYROLL_RECORDS
-    auto_sync_latest_backup_to_data()
+    auto_sync_latest_backup_to_data(force=True)
     bootstrap_persistent_data()
 
     existing_users = load_json_file("users.json", None)
@@ -1179,7 +1288,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "users": sync_users_from_disk(),
                 "operations": sync_operations_from_disk(),
                 "payroll": sync_payroll_from_disk(),
-                "financial_records": sync_financials_from_disk()
+                "financial_records": sync_financials_from_disk(),
+                "customer_records": CUSTOMER_RECORDS if CUSTOMER_RECORDS else load_json_file("customer_records_cache.json", [])
             }
             raw = json.dumps(backup_data, indent=2, ensure_ascii=False).encode("utf-8")
             ts = time.strftime("%Y%m%d_%H%M%S")
@@ -1189,6 +1299,9 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 os.makedirs(repo_backup_dir, exist_ok=True)
                 repo_backup_file = os.path.join(repo_backup_dir, f"spillburg_portal_backup_{iso_ts}.json")
                 with open(repo_backup_file, "wb") as bf:
+                    bf.write(raw)
+                # Also maintain latest pointer
+                with open(os.path.join(repo_backup_dir, "spillburg_portal_backup_latest.json"), "wb") as bf:
                     bf.write(raw)
             except Exception as e:
                 print(f"[BACKUP] Notice saving to backup_files: {e}")
@@ -1209,14 +1322,29 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 return
 
             is_persistent = (os.path.abspath(DATA_DIR) != os.path.abspath(os.path.join(BASE_DIR, "data"))) or bool(os.environ.get("PORTAL_DATA_DIR")) or os.path.exists("/var/data")
+            latest_path, latest_fname, backup_dict = get_latest_backup_file_path()
+            marker_file = os.path.join(DATA_DIR, ".last_deployed_backup")
+            last_applied = ""
+            if os.path.exists(marker_file):
+                try:
+                    with open(marker_file, "r", encoding="utf-8") as mf:
+                        last_applied = mf.read().strip()
+                except Exception:
+                    pass
+
             self.send_json({
                 "dataDir": DATA_DIR,
                 "isPersistent": is_persistent,
-                "storageType": "Persistent Cloud Volume" if is_persistent else "Local Standard Disk",
+                "storageType": "Persistent Cloud Volume" if is_persistent else "Render Free Tier (Auto-Sync Active)",
                 "usersCount": len(sync_users_from_disk()),
                 "operationsCount": len(sync_operations_from_disk()),
                 "payrollPeriodsCount": len(sync_payroll_from_disk().get("periods", [])),
                 "financialRecordsCount": len(sync_financials_from_disk()),
+                "customerRecordsCount": len(CUSTOMER_RECORDS),
+                "latestBackupFile": latest_fname or "None",
+                "latestBackupTimestamp": backup_dict.get("exportTimestamp", "") if backup_dict else "",
+                "lastAppliedBackup": last_applied or "None",
+                "autoSyncOnBoot": True,
                 "backupDir": os.path.join(DATA_DIR, "backups"),
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             })
@@ -1777,23 +1905,34 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 sync_financials_from_disk()
                 restored_stats["financialRecords"] = len(res_fin)
 
+            res_cust = body.get("customer_records")
+            if res_cust is not None and isinstance(res_cust, list):
+                save_json_file("customer_records_cache.json", res_cust)
+                global CUSTOMER_RECORDS
+                CUSTOMER_RECORDS = res_cust
+                restored_stats["customerRecords"] = len(res_cust)
+
             # Record restore snapshot into backup_files directory
             try:
                 repo_backup_dir = os.path.join(BASE_DIR, "backup_files")
                 os.makedirs(repo_backup_dir, exist_ok=True)
                 iso_ts = time.strftime("%Y-%m-%dT%H-%M-%S")
                 repo_backup_file = os.path.join(repo_backup_dir, f"spillburg_portal_backup_{iso_ts}.json")
+                snapshot_data = {
+                    "portal": "Spillburg Holdings Corporate Portal",
+                    "version": "3.0",
+                    "exportTimestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    "storageLocation": DATA_DIR,
+                    "users": sync_users_from_disk(),
+                    "operations": sync_operations_from_disk(),
+                    "payroll": sync_payroll_from_disk(),
+                    "financial_records": sync_financials_from_disk(),
+                    "customer_records": CUSTOMER_RECORDS
+                }
                 with open(repo_backup_file, "w", encoding="utf-8") as bf:
-                    json.dump({
-                        "portal": "Spillburg Holdings Corporate Portal",
-                        "version": "3.0",
-                        "exportTimestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                        "storageLocation": DATA_DIR,
-                        "users": sync_users_from_disk(),
-                        "operations": sync_operations_from_disk(),
-                        "payroll": sync_payroll_from_disk(),
-                        "financial_records": sync_financials_from_disk()
-                    }, bf, indent=2, ensure_ascii=False)
+                    json.dump(snapshot_data, bf, indent=2, ensure_ascii=False)
+                with open(os.path.join(repo_backup_dir, "spillburg_portal_backup_latest.json"), "w", encoding="utf-8") as bf:
+                    json.dump(snapshot_data, bf, indent=2, ensure_ascii=False)
             except Exception as e:
                 print(f"[RESTORE] Notice saving restored backup snapshot: {e}")
 

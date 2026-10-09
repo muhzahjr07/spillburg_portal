@@ -233,6 +233,12 @@ def test_suite():
     status, fin_res, _ = make_request("/api/financial-files", token=zaharan_token)
     assert_test(f"Financial records loaded ({len(fin_res.get('records', []))} records)", status == 200 and len(fin_res.get("records", [])) >= 40)
 
+    print("\n--- 8. Testing Render Cloud Deployment & Instance Load Backup Auto-Sync ---")
+    status, sys_status, _ = make_request("/api/system/status", token=admin_token)
+    assert_test("GET /api/system/status returns active backup sync diagnostics", status == 200 and sys_status.get("autoSyncOnBoot") is True)
+    assert_test("Latest backup file detected in system status", bool(sys_status.get("latestBackupFile") and sys_status.get("latestBackupFile") != "None"))
+    assert_test(f"Latest applied backup marker verified ({sys_status.get('lastAppliedBackup')})", bool(sys_status.get("lastAppliedBackup")))
+
     print("\n" + "=" * 75)
     print(f" FINAL TEST RESULTS: {passed} PASSED, {failed} FAILED")
     print("=" * 75)
