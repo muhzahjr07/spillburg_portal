@@ -2624,7 +2624,7 @@ async function renderAccessControl(container) {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
           <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
             <div>
               <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">1-Click Full Backup</div>
@@ -2650,12 +2650,23 @@ async function renderAccessControl(container) {
 
           <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
             <div>
+              <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">GitHub Cloud Sync</div>
+              <div class="text-xs font-semibold text-slate-700 mt-1">Auto-Push to GitHub</div>
+              <p class="text-[11px] text-slate-500 mt-1">Directly commits and pushes backup to GitHub repository (muhzahjr07/spillburg_portal) so Render restores it on every wake-up.</p>
+            </div>
+            <button id="gitSyncBtn" onclick="triggerManualGitSync()" class="mt-3 w-full py-2 px-3 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-semibold text-xs rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
+              <i data-lucide="cloud-upload" class="w-3.5 h-3.5 text-blue-600"></i> Sync to GitHub
+            </button>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+            <div>
               <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Deployment Shield</div>
-              <div class="text-xs font-semibold text-slate-700 mt-1">Why Changes Previously Reverted</div>
-              <p class="text-[11px] text-slate-500 mt-1">Free cloud containers (Render) rebuild from git on deployment. <code>Push_To_GitHub.bat</code> now auto-commits live data, and persistent storage is fully supported.</p>
+              <div class="text-xs font-semibold text-slate-700 mt-1">Cloud Sync Guide</div>
+              <p class="text-[11px] text-slate-500 mt-1">How Render free-tier auto-boot sync and GitHub API integration keep portal data permanent across all container cycles.</p>
             </div>
             <button onclick="showPersistenceGuideModal()" class="mt-3 w-full py-2 px-3 bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-semibold text-xs rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
-              <i data-lucide="info" class="w-3.5 h-3.5 text-blue-600"></i> View Persistence Guide
+              <i data-lucide="info" class="w-3.5 h-3.5 text-blue-600"></i> View Setup Guide
             </button>
           </div>
         </div>
@@ -5001,8 +5012,56 @@ async function downloadSystemBackup() {
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+
+    // Notify user of export and cloud sync
+    setTimeout(async () => {
+      try {
+        const stRes = await fetch('/api/system/status', { headers: { 'Authorization': `Bearer ${authToken}` } });
+        const stData = await stRes.json();
+        const gh = stData.githubSync || {};
+        if (gh.enabled) {
+          alert(`Backup exported!\n\nGitHub Cloud Sync: Auto-push queued to ${gh.repo || 'repository'}.\nRender will automatically maintain this latest state.`);
+        } else {
+          alert(`Backup exported successfully!\n\nNote for Render cloud: To have backup files automatically committed directly back to GitHub from Render, add GITHUB_TOKEN to your Render Environment Variables.\n\nOn your local machine, run Push_To_GitHub.bat anytime.`);
+        }
+      } catch (e) {}
+    }, 500);
   } catch (err) {
     alert('Error exporting system backup: ' + err.message);
+  }
+}
+
+async function triggerManualGitSync() {
+  const btn = document.getElementById('gitSyncBtn');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-blue-600"></i> Syncing...`;
+    if (window.lucide) lucide.createIcons();
+  }
+
+  try {
+    const res = await fetch('/api/system/git-sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      }
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(`GitHub Cloud Sync Initiated!\n\nStatus: ${data.status}\nBackup File: ${data.backupFile}\n\nYour latest data is now being synchronized to the repository.`);
+    } else {
+      alert(`GitHub Sync Notice:\n${data.status || data.message || data.error}\n\nHow to enable direct push from Render:\n1. Open your Render Dashboard -> spillburg_portal service -> Environment.\n2. Add environment variable: GITHUB_TOKEN = (your GitHub Personal Access Token).\n3. Then Render will push backups automatically!`);
+    }
+  } catch (err) {
+    alert('Failed to connect to git-sync service: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+      if (window.lucide) lucide.createIcons();
+    }
   }
 }
 
@@ -5029,7 +5088,7 @@ async function handleSystemRestoreFile(event) {
     });
     const data = await res.json();
     if (data.success) {
-      alert(`System restore successful!\nRestored: ${JSON.stringify(data.restored, null, 2)}`);
+      alert(`System restore successful!\nRestored: ${JSON.stringify(data.restored, null, 2)}\n\nState has been applied and queued for GitHub sync.`);
       await loadInitialData();
       await renderAccessControl(document.getElementById('mainContent'));
     } else {
@@ -5051,24 +5110,33 @@ function showPersistenceGuideModal() {
         </div>
         <div>
           <h3 class="font-display font-bold text-base text-slate-900">Cloud Data Persistence Architecture</h3>
-          <p class="text-xs text-slate-500">How Spillburg Holdings protects data across deployments</p>
+          <p class="text-xs text-slate-500">How Spillburg Holdings guarantees data safety across all Render restarts</p>
         </div>
       </div>
 
       <div class="space-y-3 text-xs text-slate-600 leading-relaxed">
         <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl">
-          <span class="font-bold text-amber-800">Why Data Previously Reverted:</span>
-          <p class="mt-1 text-amber-700">Cloud hosting services like Render run on ephemeral container disks. When a new deployment occurs, the old container is discarded and replaced with a fresh clone of the GitHub repository. Any password changes or tasks created were either uncommitted in git or stored only in the old container's disk, causing them to revert to default.</p>
+          <span class="font-bold text-amber-800">Why Free-Tier Cloud Containers Reset:</span>
+          <p class="mt-1 text-amber-700">Render free-tier instances sleep after 15 minutes of inactivity and run on temporary container storage. Whenever Render restarts or redeploys, it downloads a fresh clone from GitHub. Any data stored solely in the temporary container disappears.</p>
         </div>
 
-        <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5">
-          <span class="font-bold text-emerald-800">Four Permanent Protections Now Active:</span>
-          <ol class="list-decimal pl-4 space-y-1 text-emerald-700">
-            <li><strong>Render Free-Tier Deploy & Spin-Up Auto-Sync:</strong> Every Render deployment and instance wake-up automatically synchronizes data from your latest backup in <code>backup_files/</code> into the active portal database.</li>
-            <li><strong>Auto-Sync in Push Script:</strong> Running <code>Push_To_GitHub.bat</code> automatically syncs your latest backup file into the data directory before staging, committing, and pushing to GitHub.</li>
-            <li><strong>1-Click Backup & Restore:</strong> Download a complete JSON snapshot anytime. If a cloud server ever restarts fresh, click Restore to bring back all accounts and tasks in 2 seconds.</li>
-            <li><strong>Persistent Cloud Volume Support:</strong> The server automatically binds to <code>PORTAL_DATA_DIR</code> or <code>/var/data</code> when a Render Persistent Disk is attached, keeping files permanent across all container cycles.</li>
+        <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl space-y-1.5">
+          <span class="font-bold text-blue-800">How Automatic GitHub Push & Sync Operates:</span>
+          <ol class="list-decimal pl-4 space-y-1 text-blue-700">
+            <li><strong>Auto-Restore on Every Boot:</strong> Every time Render spins up from sleep or redeploys, <code>server.py</code> automatically scans <code>backup_files/</code> and synchronizes your latest backup into the live database.</li>
+            <li><strong>Cloud-to-GitHub Auto Push:</strong> When you generate a backup or restore data on Render, the server connects directly to the GitHub REST API and commits the backup to <code>muhzahjr07/spillburg_portal</code>.</li>
+            <li><strong>Zero Setup on Local Machine:</strong> Running <code>Push_To_GitHub.bat</code> automatically checks and synchronizes latest backups before committing to GitHub.</li>
           </ol>
+        </div>
+
+        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 text-slate-700">
+          <span class="font-bold text-slate-800">Enabling Direct Cloud Pushes from Render:</span>
+          <p class="text-slate-600">To allow Render to push commits directly back to your GitHub repo without running any local scripts:</p>
+          <div class="mt-1 font-mono text-[11px] bg-white p-2 rounded border border-slate-200 space-y-0.5">
+            <div>1. GitHub -> Settings -> Developer Settings -> Personal Access Tokens (Classic or Fine-Grained)</div>
+            <div>2. Generate token with "repo" scope (Contents read/write)</div>
+            <div>3. Render Dashboard -> Web Service -> Environment -> Add: <code>GITHUB_TOKEN = ghp_xxxx</code></div>
+          </div>
         </div>
       </div>
 

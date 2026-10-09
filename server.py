@@ -17,6 +17,10 @@ import time
 import copy
 import shutil
 import urllib.parse
+import urllib.request
+import urllib.error
+import base64
+import threading
 import subprocess
 import sqlite3
 import re
@@ -304,6 +308,140 @@ def auto_save_backup_snapshot():
             json.dump(backup_obj, f, indent=2, ensure_ascii=False)
     except Exception as e:
         print(f"[AUTO_SNAPSHOT] Notice updating auto backup snapshot: {e}")
+
+LAST_GITHUB_PUSH = None
+GITHUB_PUSH_STATUS = "Not configured"
+
+def push_file_to_github_api(file_path_in_repo, content_bytes, commit_message):
+    """
+    Directly commits a file to the GitHub repository using the GitHub Contents REST API.
+    Zero Git CLI required - works directly inside Render cloud containers.
+    """
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    if not token:
+        return False, "GITHUB_TOKEN not configured"
+    
+    repo = os.environ.get("GITHUB_REPO", "muhzahjr07/spillburg_portal").strip()
+    branch = os.environ.get("GITHUB_BRANCH", "main").strip()
+    clean_path = file_path_in_repo.replace("\\", "/")
+    api_url = f"https://api.github.com/repos/{repo}/contents/{clean_path}"
+    
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "Spillburg-Portal-Sync/1.0"
+    }
+    
+    sha = None
+    try:
+        req_get = urllib.request.Request(f"{api_url}?ref={branch}", headers=headers, method="GET")
+        with urllib.request.urlopen(req_get, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            sha = data.get("sha")
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            return False, f"GitHub API check failed: HTTP {e.code}"
+    except Exception as e:
+        return False, f"GitHub API check error: {e}"
+
+    b64_content = base64.b64encode(content_bytes).decode("ascii")
+    payload = {
+        "message": commit_message,
+        "content": b64_content,
+        "branch": branch
+    }
+    if sha:
+        payload["sha"] = sha
+        
+    try:
+        req_put = urllib.request.Request(
+            api_url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json", **headers},
+            method="PUT"
+        )
+        with urllib.request.urlopen(req_put, timeout=15) as resp:
+            if resp.status in [200, 201]:
+                return True, "Success"
+            return False, f"Unexpected status HTTP {resp.status}"
+    except urllib.error.HTTPError as e:
+        err_msg = e.read().decode("utf-8", errors="ignore")
+        return False, f"HTTP {e.code}: {err_msg}"
+    except Exception as e:
+        return False, str(e)
+
+def trigger_github_backup_push(backup_fname, raw_backup_bytes):
+    """
+    Pushes backup snapshot to GitHub. If GITHUB_TOKEN is set, pushes via GitHub API.
+    If running locally with git installed, triggers background git push.
+    """
+    global LAST_GITHUB_PUSH, GITHUB_PUSH_STATUS
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+
+    if not token:
+        # Check if local git repo can push
+        if shutil.which("git") and os.path.exists(os.path.join(BASE_DIR, ".git")):
+            def _bg_local_git():
+                global LAST_GITHUB_PUSH, GITHUB_PUSH_STATUS
+                try:
+                    subprocess.run(["git", "add", "backup_files/"], cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    subprocess.run(
+                        ["git", "-c", "user.name=Spillburg AutoSync", "-c", "user.email=portal@spillburg.com", "commit", "-m", f"chore(backup): auto-save backup {backup_fname}"],
+                        cwd=BASE_DIR, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
+                    proc = subprocess.run(
+                        ["git", "push", "origin", "main"],
+                        cwd=BASE_DIR,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        timeout=30
+                    )
+                    if proc.returncode == 0:
+                        LAST_GITHUB_PUSH = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        GITHUB_PUSH_STATUS = f"Local git push succeeded at {LAST_GITHUB_PUSH}"
+                        print(f"[GIT_SYNC] {GITHUB_PUSH_STATUS}")
+                    else:
+                        GITHUB_PUSH_STATUS = f"Local git push exited {proc.returncode}"
+                        print(f"[GIT_SYNC] {GITHUB_PUSH_STATUS}: {proc.stderr.strip()[:100]}")
+                except Exception as e:
+                    GITHUB_PUSH_STATUS = f"Local git push notice: {e}"
+                    print(f"[GIT_SYNC] {GITHUB_PUSH_STATUS}")
+
+            t = threading.Thread(target=_bg_local_git, daemon=True)
+            t.start()
+            GITHUB_PUSH_STATUS = "Local git commit & push queued"
+            return True, GITHUB_PUSH_STATUS
+        GITHUB_PUSH_STATUS = "GITHUB_TOKEN not configured (set in Render Dashboard for auto cloud push)"
+        return False, GITHUB_PUSH_STATUS
+
+    def _bg_push():
+        global LAST_GITHUB_PUSH, GITHUB_PUSH_STATUS
+        try:
+            success, msg = push_file_to_github_api(
+                f"backup_files/{backup_fname}",
+                raw_backup_bytes,
+                f"chore(backup): auto-sync latest backup {backup_fname}"
+            )
+            if success:
+                push_file_to_github_api(
+                    "backup_files/spillburg_portal_backup_latest.json",
+                    raw_backup_bytes,
+                    f"chore(backup): update latest pointer to {backup_fname}"
+                )
+                LAST_GITHUB_PUSH = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                GITHUB_PUSH_STATUS = f"Auto-pushed {backup_fname} to GitHub at {LAST_GITHUB_PUSH}"
+                print(f"[GITHUB_SYNC] {GITHUB_PUSH_STATUS}")
+            else:
+                GITHUB_PUSH_STATUS = f"GitHub sync failed: {msg}"
+                print(f"[GITHUB_SYNC] {GITHUB_PUSH_STATUS}")
+        except Exception as e:
+            GITHUB_PUSH_STATUS = f"GitHub sync error: {e}"
+            print(f"[GITHUB_SYNC] {GITHUB_PUSH_STATUS}")
+
+    t = threading.Thread(target=_bg_push, daemon=True)
+    t.start()
+    return True, "GitHub push queued"
 
 def sync_users_from_disk():
     global USERS
@@ -1303,6 +1441,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 # Also maintain latest pointer
                 with open(os.path.join(repo_backup_dir, "spillburg_portal_backup_latest.json"), "wb") as bf:
                     bf.write(raw)
+                # Trigger automatic GitHub cloud commit & push
+                trigger_github_backup_push(f"spillburg_portal_backup_{iso_ts}.json", raw)
             except Exception as e:
                 print(f"[BACKUP] Notice saving to backup_files: {e}")
 
@@ -1346,6 +1486,12 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "lastAppliedBackup": last_applied or "None",
                 "autoSyncOnBoot": True,
                 "backupDir": os.path.join(DATA_DIR, "backups"),
+                "githubSync": {
+                    "enabled": bool(os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")),
+                    "status": GITHUB_PUSH_STATUS,
+                    "lastPush": LAST_GITHUB_PUSH or "None",
+                    "repo": os.environ.get("GITHUB_REPO", "muhzahjr07/spillburg_portal")
+                },
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             })
             return
@@ -1933,6 +2079,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     json.dump(snapshot_data, bf, indent=2, ensure_ascii=False)
                 with open(os.path.join(repo_backup_dir, "spillburg_portal_backup_latest.json"), "w", encoding="utf-8") as bf:
                     json.dump(snapshot_data, bf, indent=2, ensure_ascii=False)
+                # Auto-sync restored state directly back to GitHub
+                trigger_github_backup_push(f"spillburg_portal_backup_{iso_ts}.json", json.dumps(snapshot_data, indent=2, ensure_ascii=False).encode("utf-8"))
             except Exception as e:
                 print(f"[RESTORE] Notice saving restored backup snapshot: {e}")
 
@@ -1941,6 +2089,49 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "message": "System data successfully restored from backup.",
                 "restored": restored_stats,
                 "preRestoreBackup": pre_backup_dir
+            })
+            return
+
+        # 3.2 System Git / Cloud Sync Trigger (Admin and Director)
+        elif path == "/api/system/git-sync":
+            user = self.get_auth_user()
+            if not user or user.get("role") not in ["admin", "director"]:
+                self.send_json({"error": "Admin or Director privileges required to trigger cloud sync"}, 403)
+                return
+
+            backup_data = {
+                "portal": "Spillburg Holdings Corporate Portal",
+                "version": "3.0",
+                "exportTimestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "storageLocation": DATA_DIR,
+                "users": sync_users_from_disk(),
+                "operations": sync_operations_from_disk(),
+                "payroll": sync_payroll_from_disk(),
+                "financial_records": sync_financials_from_disk(),
+                "customer_records": CUSTOMER_RECORDS if CUSTOMER_RECORDS else load_json_file("customer_records_cache.json", [])
+            }
+            raw = json.dumps(backup_data, indent=2, ensure_ascii=False).encode("utf-8")
+            iso_ts = time.strftime("%Y-%m-%dT%H-%M-%S")
+            backup_filename = f"spillburg_portal_backup_{iso_ts}.json"
+            try:
+                repo_backup_dir = os.path.join(BASE_DIR, "backup_files")
+                os.makedirs(repo_backup_dir, exist_ok=True)
+                repo_backup_file = os.path.join(repo_backup_dir, backup_filename)
+                with open(repo_backup_file, "wb") as bf:
+                    bf.write(raw)
+                with open(os.path.join(repo_backup_dir, "spillburg_portal_backup_latest.json"), "wb") as bf:
+                    bf.write(raw)
+            except Exception as e:
+                print(f"[GIT_SYNC] Notice saving local backup copy: {e}")
+
+            ok, msg = trigger_github_backup_push(backup_filename, raw)
+            self.send_json({
+                "success": ok,
+                "message": msg,
+                "backupFile": backup_filename,
+                "status": GITHUB_PUSH_STATUS,
+                "lastPush": LAST_GITHUB_PUSH,
+                "githubConfigured": bool(os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"))
             })
             return
 
