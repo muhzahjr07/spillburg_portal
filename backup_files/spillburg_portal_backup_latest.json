@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-09T08:35:25Z",
+  "exportTimestamp": "2026-10-09T08:54:37Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -627,7 +627,7 @@
       "workstream": "R&D",
       "taskedDate": "22-Sep-2026",
       "completedDate": "",
-      "status": "In Progress",
+      "status": "Pending",
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Research on Beneficary Ownership Gazette"
@@ -643,7 +643,7 @@
       "workstream": "Operational Task",
       "taskedDate": "23-Sep-2026",
       "completedDate": "",
-      "status": "Pending",
+      "status": "In Progress",
       "priority": "High",
       "estimatedCost": "",
       "notes": "Fill the indemnity form for all clients"
@@ -911,6 +911,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Review the website and find out shortcomings and suggestions"
+    },
+    {
+      "id": "ops_627bf3",
+      "no": 47,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Canon PG-47 Black Cartridge for Canon E470 Printer",
+      "requestedBy": "Mr. Azad",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Procurement",
+      "type": "Operational Task",
+      "taskedDate": "09-Oct-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Purchase or refill Canon PG-47 Black Cartridge for Canon E470 Printer"
     }
   ],
   "payroll": {
