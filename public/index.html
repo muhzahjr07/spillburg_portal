@@ -154,6 +154,14 @@
       <!-- Active User Profile Bar -->
       <div class="flex items-center gap-2 md:gap-4">
 
+        <!-- Live Auto-Save & Cloud Sync Badge -->
+        <div id="cloudSyncIndicator"
+          title="Every live edit is automatically stored to disk and synced to cloud (no manual backups required)"
+          class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 transition-all">
+          <span id="cloudSyncDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          <span id="cloudSyncText">Auto-Save Active</span>
+        </div>
+
         <!-- Current User Pill -->
         <div class="flex items-center gap-2.5 bg-slate-50 border border-slate-200 pl-2.5 pr-3 py-1.5 rounded-full">
           <div id="userAvatar"

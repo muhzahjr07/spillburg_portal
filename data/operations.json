@@ -458,7 +458,7 @@
     "workstream": "R&D",
     "taskedDate": "22-Sep-2026",
     "completedDate": "",
-    "status": "In Progress",
+    "status": "Pending",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Research on Beneficary Ownership Gazette"
@@ -474,7 +474,7 @@
     "workstream": "Operational Task",
     "taskedDate": "23-Sep-2026",
     "completedDate": "",
-    "status": "Pending",
+    "status": "In Progress",
     "priority": "High",
     "estimatedCost": "",
     "notes": "Fill the indemnity form for all clients"
@@ -619,7 +619,7 @@
     "type": "Operational Task",
     "taskedDate": "03-Oct-2026",
     "completedDate": "",
-    "status": "Pending",
+    "status": "In Progress",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Transfer all domains from firzan to company email."
@@ -686,8 +686,8 @@
     "workstream": "Office Operations",
     "type": "Operational Task",
     "taskedDate": "06-Oct-2026",
-    "completedDate": "",
-    "status": "Pending",
+    "completedDate": "12-Oct-2026",
+    "status": "Completed",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Find suitable hosting providers and purchase Hosting for Domain Sites"
@@ -704,7 +704,7 @@
     "type": "Operational Task",
     "taskedDate": "07-Oct-2026",
     "completedDate": "",
-    "status": "Pending",
+    "status": "In Progress",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Create a slideshow video for Spillburg Holdings, based on Mr. Shameel and Mr. Hameez LinkedIn Profiles"
@@ -721,7 +721,7 @@
     "type": "Operational Task",
     "taskedDate": "08-Oct-2026",
     "completedDate": "",
-    "status": "Pending",
+    "status": "In Progress",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Create an Ad video based on Overseas Company Ad Video on Instagram"
@@ -737,10 +737,44 @@
     "workstream": "Office Operations",
     "type": "Operational Task",
     "taskedDate": "08-Oct-2026",
+    "completedDate": "09-Oct-2026",
+    "status": "Completed",
+    "priority": "Medium",
+    "estimatedCost": "",
+    "notes": "Review the website and find out shortcomings and suggestions"
+  },
+  {
+    "id": "ops_627bf3",
+    "no": 47,
+    "userId": "usr_admin_zaharan",
+    "ownerUsername": "zaharan",
+    "title": "Canon PG-47 Black Cartridge for Canon E470 Printer",
+    "requestedBy": "Mr. Azad",
+    "assignedTo": "Muhammad Zaharan",
+    "workstream": "Procurement",
+    "type": "Operational Task",
+    "taskedDate": "09-Oct-2026",
+    "completedDate": "09-Oct-2026",
+    "status": "Completed",
+    "priority": "Medium",
+    "estimatedCost": "",
+    "notes": "Purchase or refill Canon PG-47 Black Cartridge for Canon E470 Printer"
+  },
+  {
+    "id": "ops_4958db",
+    "no": 48,
+    "userId": "usr_admin_zaharan",
+    "ownerUsername": "zaharan",
+    "title": "Research for Diploma Course in Arbitration",
+    "requestedBy": "Muhammad Zaharan",
+    "assignedTo": "Muhammad Zaharan",
+    "workstream": "R&D",
+    "type": "Operational Task",
+    "taskedDate": "02-Oct-2026",
     "completedDate": "",
     "status": "In Progress",
     "priority": "Medium",
     "estimatedCost": "",
-    "notes": "Review the website and find out shortcomings and suggestions"
+    "notes": "Research for Diploma Course in Arbitration in BASL, ICLP, details, accreditation comparison"
   }
 ]

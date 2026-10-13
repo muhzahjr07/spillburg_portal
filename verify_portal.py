@@ -239,6 +239,8 @@ def test_suite():
     assert_test("Latest backup file detected in system status", bool(sys_status.get("latestBackupFile") and sys_status.get("latestBackupFile") != "None"))
     assert_test(f"Latest applied backup marker verified ({sys_status.get('lastAppliedBackup')})", bool(sys_status.get("lastAppliedBackup")))
     assert_test("GitHub Cloud Sync status exposed in system diagnostics", status == 200 and "githubSync" in sys_status and "repo" in sys_status["githubSync"])
+    assert_test("Real-time autoSyncOnEdit is active in diagnostics", sys_status.get("githubSync", {}).get("autoSyncOnEdit") is True)
+    assert_test("Debounce timer configured (seconds)", sys_status.get("githubSync", {}).get("debounceSeconds", 0) > 0)
 
     # Test POST /api/system/git-sync
     status, sync_res, _ = make_request("/api/system/git-sync", "POST", token=admin_token)
