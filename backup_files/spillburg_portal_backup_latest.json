@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-15T05:07:37Z",
+  "exportTimestamp": "2026-10-15T05:10:53Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -79,11 +79,11 @@
     {
       "id": "usr_dir_shameel",
       "username": "shameel",
-      "password": "spillburg123",
+      "password": "Sh@123@#",
       "fullName": "Mohamed Shaameel Mohideen",
       "role": "director",
       "title": "Director/CEO",
-      "email": "shaameelmohideen@gmail.com",
+      "email": "shaameel@spillburg.com",
       "permissions": {
         "operations": "full",
         "customer_files": "full",
