@@ -1403,6 +1403,11 @@ function renderOperations(container) {
             </button>
           </div>
 
+          <!-- Report Generation Button -->
+          <button onclick="openOperationsReportModal()" class="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="file-text" class="w-4 h-4"></i> Generate Report
+          </button>
+
           <!-- Add Task Button -->
           <button onclick="openAddOperationModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5 ${!canEdit('operations') ? 'permission-locked' : ''}">
             <i data-lucide="plus" class="w-4 h-4"></i> Add Task
@@ -1807,6 +1812,9 @@ function renderOperationsTable(tasks) {
               <i data-lucide="calendar" class="w-3.5 h-3.5"></i> View All Dates
             </button>
           ` : ''}
+          <button onclick="openOperationsReportModal()" class="px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-600"></i> Generate Report
+          </button>
           <button onclick="openAddOperationModal()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 ${!canEdit('operations') ? 'permission-locked' : ''}">
             <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Task
           </button>
@@ -3357,6 +3365,1166 @@ async function deleteOperationTask(taskId) {
     }
   } catch (e) {
     alert('Error deleting task');
+  }
+}
+
+// ================= 2.1 OPERATIONS TRACKER REPORT GENERATOR =================
+let opsReportState = {
+  periodType: 'monthly', // 'daily', 'weekly', 'monthly', 'custom'
+  dailyDate: '15-Oct-2026',
+  weeklyDate: '15-Oct-2026',
+  monthlyMonth: 'oct',
+  monthlyYear: '2026',
+  customStart: '01-Oct-2026',
+  customEnd: '15-Oct-2026',
+  userScope: 'me',
+  workstream: '',
+  searchQuery: '',
+  activeTab: 'all' // 'all', 'tasked', 'completed', 'in_progress', 'pending'
+};
+
+function parseOpsReportDate(str) {
+  if (!str) return null;
+  const s = String(str).trim();
+  if (!s || s === '-' || s.toLowerCase() === 'n/a' || s.toLowerCase() === 'null') return null;
+
+  // DD-MMM-YYYY or D-MMM-YYYY (e.g. 03-Sep-2026)
+  const m1 = s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  if (m1) {
+    const d = parseInt(m1[1], 10);
+    const m = MONTH_MAP[m1[2].toLowerCase()];
+    const y = parseInt(m1[3], 10);
+    if (m !== undefined) {
+      return new Date(y, m, d, 12, 0, 0);
+    }
+  }
+
+  // YYYY-MM-DD or YYYY/MM/DD
+  const m2 = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m2) {
+    return new Date(parseInt(m2[1], 10), parseInt(m2[2], 10) - 1, parseInt(m2[3], 10), 12, 0, 0);
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY
+  const m3 = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (m3) {
+    return new Date(parseInt(m3[3], 10), parseInt(m3[2], 10) - 1, parseInt(m3[1], 10), 12, 0, 0);
+  }
+
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function formatOpsReportStandardDate(d) {
+  if (!d || isNaN(d.getTime())) return '';
+  const day = String(d.getDate()).padStart(2, '0');
+  const mon = MONTH_NAMES[d.getMonth()];
+  const yr = d.getFullYear();
+  return `${day}-${mon}-${yr}`;
+}
+
+function getOpsReportPeriodBounds(state) {
+  const pType = state.periodType || 'monthly';
+  const today = new Date(2026, 9, 15); // Anchor to current active system date: 15-Oct-2026
+  let start, end, label, badge;
+
+  if (pType === 'daily') {
+    const ref = parseOpsReportDate(state.dailyDate) || today;
+    start = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), 0, 0, 0, 0);
+    end = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate(), 23, 59, 59, 999);
+    label = `Daily Operations Report (${formatOpsReportStandardDate(start)})`;
+    badge = `Day: ${formatOpsReportStandardDate(start)}`;
+  } else if (pType === 'weekly') {
+    const ref = parseOpsReportDate(state.weeklyDate) || today;
+    const dayOfWeek = (ref.getDay() + 6) % 7; // 0 = Mon, 6 = Sun
+    const mon = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - dayOfWeek, 0, 0, 0, 0);
+    const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6, 23, 59, 59, 999);
+    start = mon;
+    end = sun;
+    label = `Weekly Operations Report (${formatOpsReportStandardDate(start)} to ${formatOpsReportStandardDate(end)})`;
+    badge = `Week: ${formatOpsReportStandardDate(start)} – ${formatOpsReportStandardDate(end)}`;
+  } else if (pType === 'custom') {
+    const s = parseOpsReportDate(state.customStart) || new Date(today.getFullYear(), today.getMonth(), 1);
+    const e = parseOpsReportDate(state.customEnd) || today;
+    start = new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, 0, 0, 0);
+    end = new Date(e.getFullYear(), e.getMonth(), e.getDate(), 23, 59, 59, 999);
+    label = `Custom Period Report (${formatOpsReportStandardDate(start)} to ${formatOpsReportStandardDate(end)})`;
+    badge = `Custom Range: ${formatOpsReportStandardDate(start)} – ${formatOpsReportStandardDate(end)}`;
+  } else { // monthly
+    const y = parseInt(state.monthlyYear || '2026', 10);
+    const mKey = (state.monthlyMonth || 'oct').toLowerCase();
+    const mIdx = MONTH_MAP[mKey] !== undefined ? MONTH_MAP[mKey] : 9;
+    start = new Date(y, mIdx, 1, 0, 0, 0, 0);
+    end = new Date(y, mIdx + 1, 0, 23, 59, 59, 999);
+    const mName = FULL_MONTH_NAMES[mIdx] || 'October';
+    label = `Monthly Operations Report – ${mName} ${y}`;
+    badge = `${mName} ${y} (${formatOpsReportStandardDate(start)} – ${formatOpsReportStandardDate(end)})`;
+  }
+
+  return { start, end, label, badge, type: pType };
+}
+
+function computeOperationsReportData(sourceTasks, state) {
+  const bounds = getOpsReportPeriodBounds(state);
+  const start = bounds.start;
+  const end = bounds.end;
+
+  let tasks = [...(sourceTasks || [])];
+
+  // User scope filter
+  if (state.userScope && state.userScope !== 'all' && state.userScope !== 'me') {
+    tasks = tasks.filter(t => t.userId === state.userScope || t.ownerUsername === state.userScope);
+  }
+
+  // Workstream filter
+  if (state.workstream) {
+    tasks = tasks.filter(t => (t.workstream || '').toLowerCase() === state.workstream.toLowerCase());
+  }
+
+  // Search filter
+  if (state.searchQuery) {
+    const q = state.searchQuery.toLowerCase().trim();
+    tasks = tasks.filter(t => 
+      (t.title || '').toLowerCase().includes(q) ||
+      (t.notes || '').toLowerCase().includes(q) ||
+      (t.requestedBy || '').toLowerCase().includes(q) ||
+      (t.workstream || '').toLowerCase().includes(q) ||
+      String(t.no || '').includes(q)
+    );
+  }
+
+  const tasked = [];
+  const completed = [];
+  const inProgress = [];
+  const pending = [];
+  const onHold = [];
+  const allTasks = [];
+
+  tasks.forEach(t => {
+    const td = parseOpsReportDate(t.taskedDate);
+    const cd = parseOpsReportDate(t.completedDate);
+    const st = (t.status || '').toLowerCase().trim();
+
+    // Check if task finished strictly before the period began
+    let completedBefore = false;
+    if (cd && cd < start) {
+      completedBefore = true;
+    } else if (!cd && st === 'completed' && td && td < start) {
+      completedBefore = true;
+    }
+
+    if (completedBefore) return;
+
+    const isTasked = !!(td && td >= start && td <= end);
+    const isCompleted = !!((cd && cd >= start && cd <= end) || (!cd && st === 'completed' && isTasked));
+    const isInProg = st === 'in progress' && (!td || td <= end);
+    const isPending = st === 'pending' && (!td || td <= end);
+    const isOnHold = st === 'on hold' && (!td || td <= end);
+
+    const item = {
+      ...t,
+      isTaskedInPeriod: isTasked,
+      isCompletedInPeriod: isCompleted,
+      isInProgressInPeriod: isInProg,
+      isPendingInPeriod: isPending,
+      isOnHoldInPeriod: isOnHold
+    };
+
+    if (isTasked) tasked.push(item);
+    if (isCompleted) completed.push(item);
+    if (isInProg) inProgress.push(item);
+    if (isPending) pending.push(item);
+    if (isOnHold) onHold.push(item);
+
+    if (isTasked || isCompleted || isInProg || isPending || isOnHold) {
+      allTasks.push(item);
+    }
+  });
+
+  const total = allTasks.length;
+  const completedCount = completed.length;
+  const completionRate = total > 0 ? ((completedCount / total) * 100).toFixed(1) : '0.0';
+
+  let totalCostNum = 0;
+  allTasks.forEach(t => {
+    const raw = String(t.estimatedCost || '').replace(/Rs\.?/gi, '').replace(/,/g, '').trim();
+    const parsed = parseFloat(raw);
+    if (!isNaN(parsed)) totalCostNum += parsed;
+  });
+
+  const workstreams = {};
+  allTasks.forEach(t => {
+    const ws = t.workstream || 'General';
+    workstreams[ws] = (workstreams[ws] || 0) + 1;
+  });
+
+  const priorities = {};
+  allTasks.forEach(t => {
+    const pri = t.priority || 'Medium';
+    priorities[pri] = (priorities[pri] || 0) + 1;
+  });
+
+  return {
+    bounds,
+    summary: {
+      total,
+      taskedCount: tasked.length,
+      completedCount,
+      inProgressCount: inProgress.length,
+      pendingCount: pending.length,
+      onHoldCount: onHold.length,
+      completionRate,
+      totalCostNum,
+      formattedTotalCost: totalCostNum > 0 ? `Rs. ${totalCostNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Rs. 0.00'
+    },
+    workstreams,
+    priorities,
+    tasked,
+    completed,
+    inProgress,
+    pending,
+    onHold,
+    allTasks
+  };
+}
+
+function openOperationsReportModal() {
+  const isDirectorOrAdmin = currentUser && ['director', 'admin'].includes(currentUser.role);
+  if (!opsReportState.userScope) {
+    opsReportState.userScope = operationsUserFilter || 'me';
+  }
+  if (!opsReportState.dailyDate) {
+    opsReportState.dailyDate = '15-Oct-2026';
+  }
+  if (!opsReportState.weeklyDate) {
+    opsReportState.weeklyDate = '15-Oct-2026';
+  }
+
+  const modalContent = document.getElementById('modalContent');
+  modalContent.className = "bg-white border border-slate-200 rounded-3xl w-full max-w-5xl max-h-[92vh] overflow-y-auto p-5 md:p-7 shadow-2xl relative fade-in";
+  
+  renderOperationsReportStudio();
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  initAllDatePickers(modalContent);
+  if (window.lucide) lucide.createIcons();
+}
+
+function renderOperationsReportStudio() {
+  const modalContent = document.getElementById('modalContent');
+  if (!modalContent) return;
+
+  const isDirectorOrAdmin = currentUser && ['director', 'admin'].includes(currentUser.role);
+  const data = computeOperationsReportData(operationsTasks, opsReportState);
+  const summary = data.summary;
+  const bounds = data.bounds;
+
+  // Filter tasks based on activeTab
+  let displayTasks = [];
+  if (opsReportState.activeTab === 'tasked') {
+    displayTasks = data.tasked;
+  } else if (opsReportState.activeTab === 'completed') {
+    displayTasks = data.completed;
+  } else if (opsReportState.activeTab === 'in_progress') {
+    displayTasks = data.inProgress;
+  } else if (opsReportState.activeTab === 'pending') {
+    displayTasks = [...data.pending, ...data.onHold];
+  } else {
+    displayTasks = data.allTasks;
+  }
+
+  // Workstream options
+  const workstreamList = [...new Set(operationsTasks.map(t => t.workstream).filter(Boolean))].sort();
+
+  // Extract available years
+  const availableYears = ['2026', '2025'];
+
+  modalContent.innerHTML = `
+    <div class="space-y-5 text-xs text-slate-800">
+
+      <!-- Modal Header with Spillburg Branding -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+        <div class="flex items-center gap-3">
+          <img src="/public/logo.png" alt="Spillburg Holdings" class="w-10 h-10 object-contain drop-shadow-xs">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="font-display font-bold text-lg text-slate-900 tracking-tight">Operations Tracker Report Generator</h3>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 uppercase tracking-wider">Audit Studio</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-0.5">
+              Comprehensive report of deliverables tasked, completed, in progress, or pending during selected periods.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Print Report Button -->
+          <button onclick="printOperationsReport()" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer" title="Print or Save as Official PDF">
+            <i data-lucide="printer" class="w-3.5 h-3.5 text-emerald-400"></i> Print / PDF
+          </button>
+          <!-- Export CSV Button -->
+          <button onclick="exportOperationsReportCSV()" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer" title="Download Excel-compatible CSV">
+            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-600"></i> Export CSV
+          </button>
+          <!-- Copy Brief Button -->
+          <button onclick="copyOperationsReportBrief()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer" title="Copy formatted executive brief to clipboard">
+            <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-600"></i> Copy Brief
+          </button>
+          <!-- Close Button -->
+          <button onclick="closeModal()" class="w-7 h-7 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition" title="Close modal">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Period Selection Controls Panel -->
+      <div class="bg-slate-50/80 p-4 rounded-2xl border border-slate-200 space-y-3.5">
+        
+        <!-- Period Type Selector Pills -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+            <button onclick="setOpsReportPeriodType('daily')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${opsReportState.periodType === 'daily' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}">
+              <i data-lucide="calendar-check" class="w-3.5 h-3.5"></i> Daily
+            </button>
+            <button onclick="setOpsReportPeriodType('weekly')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${opsReportState.periodType === 'weekly' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}">
+              <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i> Weekly
+            </button>
+            <button onclick="setOpsReportPeriodType('monthly')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${opsReportState.periodType === 'monthly' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}">
+              <i data-lucide="calendar-days" class="w-3.5 h-3.5"></i> Monthly
+            </button>
+            <button onclick="setOpsReportPeriodType('custom')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${opsReportState.periodType === 'custom' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}">
+              <i data-lucide="sliders" class="w-3.5 h-3.5"></i> Custom Range
+            </button>
+          </div>
+
+          <!-- Active Period Label Badge -->
+          <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-blue-50 text-blue-700 font-semibold border border-blue-200 text-xs">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-blue-600"></i>
+              <span>${bounds.badge}</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Dynamic Period Parameters Row -->
+        <div class="pt-1 border-t border-slate-200/70">
+          ${opsReportState.periodType === 'daily' ? `
+            <div class="flex flex-wrap items-center gap-2.5">
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-slate-700">Select Date:</span>
+                <div class="date-picker-wrapper">
+                  <input type="text" id="opsRepDailyInput" value="${opsReportState.dailyDate}" data-calendar="true" onchange="setOpsReportDailyDate(this.value)" placeholder="DD-MMM-YYYY" class="date-picker-input px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 w-36">
+                  <i data-lucide="calendar" class="date-picker-icon"></i>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-400">Quick:</span>
+                <button type="button" onclick="setOpsReportDailyDate('15-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Today (15-Oct)</button>
+                <button type="button" onclick="setOpsReportDailyDate('14-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Yesterday</button>
+                <button type="button" onclick="setOpsReportDailyDate('09-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">09-Oct-2026</button>
+                <button type="button" onclick="setOpsReportDailyDate('04-Sep-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">04-Sep-2026</button>
+              </div>
+            </div>
+          ` : (opsReportState.periodType === 'weekly' ? `
+            <div class="flex flex-wrap items-center gap-2.5">
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-slate-700">Week of Date:</span>
+                <div class="date-picker-wrapper">
+                  <input type="text" id="opsRepWeeklyInput" value="${opsReportState.weeklyDate}" data-calendar="true" onchange="setOpsReportWeeklyDate(this.value)" placeholder="DD-MMM-YYYY" class="date-picker-input px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 w-36">
+                  <i data-lucide="calendar" class="date-picker-icon"></i>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-400">Quick:</span>
+                <button type="button" onclick="setOpsReportWeeklyDate('15-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">This Week (12-18 Oct)</button>
+                <button type="button" onclick="setOpsReportWeeklyDate('08-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Last Week (05-11 Oct)</button>
+                <button type="button" onclick="setOpsReportWeeklyDate('01-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Week 1 Oct</button>
+                <button type="button" onclick="setOpsReportWeeklyDate('04-Sep-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Week 1 Sep</button>
+              </div>
+            </div>
+          ` : (opsReportState.periodType === 'custom' ? `
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-slate-700">Start Date:</span>
+                <div class="date-picker-wrapper">
+                  <input type="text" id="opsRepCustomStart" value="${opsReportState.customStart}" data-calendar="true" onchange="setOpsReportCustom(this.value, null)" placeholder="DD-MMM-YYYY" class="date-picker-input px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 w-36">
+                  <i data-lucide="calendar" class="date-picker-icon"></i>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-slate-700">End Date:</span>
+                <div class="date-picker-wrapper">
+                  <input type="text" id="opsRepCustomEnd" value="${opsReportState.customEnd}" data-calendar="true" onchange="setOpsReportCustom(null, this.value)" placeholder="DD-MMM-YYYY" class="date-picker-input px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 w-36">
+                  <i data-lucide="calendar" class="date-picker-icon"></i>
+                </div>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button type="button" onclick="setOpsReportCustom('01-Sep-2026', '30-Sep-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">September Full</button>
+                <button type="button" onclick="setOpsReportCustom('01-Oct-2026', '15-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">October MTD</button>
+              </div>
+            </div>
+          ` : `
+            <!-- Monthly Selector -->
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-slate-700">Month:</span>
+                <select id="opsRepMonthSelect" onchange="setOpsReportMonthly(this.value, null)" class="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 cursor-pointer">
+                  ${CALENDAR_MONTHS.map(m => `
+                    <option value="${m.key}" ${opsReportState.monthlyMonth === m.key ? 'selected' : ''}>${m.name}</option>
+                  `).join('')}
+                </select>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-slate-700">Year:</span>
+                <select id="opsRepYearSelect" onchange="setOpsReportMonthly(null, this.value)" class="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:outline-none focus:border-blue-500 cursor-pointer">
+                  ${availableYears.map(yr => `
+                    <option value="${yr}" ${opsReportState.monthlyYear === yr ? 'selected' : ''}>${yr}</option>
+                  `).join('')}
+                </select>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-slate-400">Quick:</span>
+                <button type="button" onclick="setOpsReportMonthly('oct', '2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">October 2026</button>
+                <button type="button" onclick="setOpsReportMonthly('sep', '2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">September 2026</button>
+              </div>
+            </div>
+          `))}
+        </div>
+
+        <!-- Scope & Secondary Filters Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-slate-200/70 text-xs">
+          <!-- User Scope Dropdown -->
+          ${isDirectorOrAdmin ? `
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Report Scope:</label>
+              <select onchange="setOpsReportScope(this.value)" class="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 cursor-pointer">
+                <option value="me" ${opsReportState.userScope === 'me' ? 'selected' : ''}>👤 My Personal Tasks</option>
+                <option value="all" ${opsReportState.userScope === 'all' ? 'selected' : ''}>👥 All Team Tasks (Company-wide)</option>
+                <option value="usr_admin_zaharan" ${opsReportState.userScope === 'usr_admin_zaharan' ? 'selected' : ''}>Muhammad Zaharan</option>
+                <option value="usr_dir_master" ${opsReportState.userScope === 'usr_dir_master' ? 'selected' : ''}>Executive Director</option>
+                <option value="usr_admin_master" ${opsReportState.userScope === 'usr_admin_master' ? 'selected' : ''}>Admin</option>
+                <option value="usr_staff_hemanthi" ${opsReportState.userScope === 'usr_staff_hemanthi' ? 'selected' : ''}>Miss Hemanthi</option>
+                <option value="usr_staff_insaaf" ${opsReportState.userScope === 'usr_staff_insaaf' ? 'selected' : ''}>Insaaf</option>
+              </select>
+            </div>
+          ` : `
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Report Scope:</label>
+              <div class="px-2.5 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700">
+                👤 Personal Deliverables (${currentUser ? currentUser.fullName : 'You'})
+              </div>
+            </div>
+          `}
+
+          <!-- Workstream Filter -->
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Workstream Filter:</label>
+            <select onchange="setOpsReportWorkstream(this.value)" class="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 cursor-pointer">
+              <option value="">All Workstreams (${workstreamList.length})</option>
+              ${workstreamList.map(w => `
+                <option value="${w}" ${opsReportState.workstream.toLowerCase() === w.toLowerCase() ? 'selected' : ''}>${w}</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <!-- In-Report Search -->
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Search Deliverables:</label>
+            <div class="relative">
+              <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+              <input type="text" value="${opsReportState.searchQuery}" oninput="handleOpsReportSearch(this.value)" placeholder="Search within report..." class="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Executive KPI Summary Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
+        <!-- 1. Total in Scope -->
+        <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
+          <div class="text-[10px] font-semibold uppercase text-slate-500 tracking-wider">Total in Scope</div>
+          <div class="text-xl font-bold font-display text-slate-900 mt-0.5">${summary.total}</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">Relevant items</div>
+        </div>
+
+        <!-- 2. Tasked in Period -->
+        <div class="bg-blue-50/60 p-3 rounded-2xl border border-blue-200 shadow-2xs">
+          <div class="text-[10px] font-semibold uppercase text-blue-700 tracking-wider">Tasked in Period</div>
+          <div class="text-xl font-bold font-display text-blue-700 mt-0.5">${summary.taskedCount}</div>
+          <div class="text-[10px] text-blue-600/80 mt-0.5">New deliverables</div>
+        </div>
+
+        <!-- 3. Completed in Period -->
+        <div class="bg-emerald-50/60 p-3 rounded-2xl border border-emerald-200 shadow-2xs">
+          <div class="text-[10px] font-semibold uppercase text-emerald-700 tracking-wider">Completed</div>
+          <div class="text-xl font-bold font-display text-emerald-700 mt-0.5">${summary.completedCount}</div>
+          <div class="text-[10px] text-emerald-600/80 mt-0.5">Finished deliverables</div>
+        </div>
+
+        <!-- 4. In Progress -->
+        <div class="bg-sky-50/60 p-3 rounded-2xl border border-sky-200 shadow-2xs">
+          <div class="text-[10px] font-semibold uppercase text-sky-700 tracking-wider">In Progress</div>
+          <div class="text-xl font-bold font-display text-sky-700 mt-0.5">${summary.inProgressCount}</div>
+          <div class="text-[10px] text-sky-600/80 mt-0.5">Active executions</div>
+        </div>
+
+        <!-- 5. Pending / On Hold -->
+        <div class="bg-amber-50/60 p-3 rounded-2xl border border-amber-200 shadow-2xs">
+          <div class="text-[10px] font-semibold uppercase text-amber-700 tracking-wider">Pending / Hold</div>
+          <div class="text-xl font-bold font-display text-amber-700 mt-0.5">${summary.pendingCount + summary.onHoldCount}</div>
+          <div class="text-[10px] text-amber-600/80 mt-0.5">${summary.pendingCount} pend &middot; ${summary.onHoldCount} hold</div>
+        </div>
+
+        <!-- 6. Completion Efficiency -->
+        <div class="bg-teal-50/60 p-3 rounded-2xl border border-teal-200 shadow-2xs">
+          <div class="text-[10px] font-semibold uppercase text-teal-700 tracking-wider">Efficiency</div>
+          <div class="text-xl font-bold font-display text-teal-700 mt-0.5">${summary.completionRate}%</div>
+          <div class="text-[10px] text-teal-600/80 mt-0.5">Completion rate</div>
+        </div>
+
+        <!-- 7. Estimated Cost -->
+        <div class="bg-purple-50/60 p-3 rounded-2xl border border-purple-200 shadow-2xs">
+          <div class="text-[10px] font-semibold uppercase text-purple-700 tracking-wider">Estimated Cost</div>
+          <div class="text-xs font-bold font-display text-purple-800 mt-1 truncate" title="${summary.formattedTotalCost}">
+            ${summary.formattedTotalCost}
+          </div>
+          <div class="text-[10px] text-purple-600/80 mt-0.5">Period budget</div>
+        </div>
+      </div>
+
+      <!-- Workstream Distribution Bar -->
+      ${Object.keys(data.workstreams).length > 0 ? `
+        <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex flex-wrap items-center gap-2 text-[11px]">
+          <span class="font-bold text-slate-600 uppercase tracking-wider text-[10px] flex items-center gap-1 shrink-0">
+            <i data-lucide="layers" class="w-3.5 h-3.5 text-blue-600"></i> Workstream Mix:
+          </span>
+          ${Object.entries(data.workstreams).map(([ws, count]) => `
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium">
+              <span>${ws}</span>
+              <span class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800">${count}</span>
+            </span>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      <!-- Status Tabs & Filter Bar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+        <div class="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-thin">
+          <button onclick="setOpsReportTab('all')" class="px-3 py-1.5 rounded-xl font-semibold transition text-xs whitespace-nowrap ${opsReportState.activeTab === 'all' ? 'bg-slate-900 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:text-slate-900'}">
+            All Items (${data.allTasks.length})
+          </button>
+          <button onclick="setOpsReportTab('tasked')" class="px-3 py-1.5 rounded-xl font-semibold transition text-xs whitespace-nowrap ${opsReportState.activeTab === 'tasked' ? 'bg-blue-600 text-white shadow-xs' : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'}">
+            Tasked in Period (${data.tasked.length})
+          </button>
+          <button onclick="setOpsReportTab('completed')" class="px-3 py-1.5 rounded-xl font-semibold transition text-xs whitespace-nowrap ${opsReportState.activeTab === 'completed' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'}">
+            Completed in Period (${data.completed.length})
+          </button>
+          <button onclick="setOpsReportTab('in_progress')" class="px-3 py-1.5 rounded-xl font-semibold transition text-xs whitespace-nowrap ${opsReportState.activeTab === 'in_progress' ? 'bg-sky-600 text-white shadow-xs' : 'bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200'}">
+            In Progress (${data.inProgress.length})
+          </button>
+          <button onclick="setOpsReportTab('pending')" class="px-3 py-1.5 rounded-xl font-semibold transition text-xs whitespace-nowrap ${opsReportState.activeTab === 'pending' ? 'bg-amber-600 text-white shadow-xs' : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'}">
+            Pending / Hold (${data.pending.length + data.onHold.length})
+          </button>
+        </div>
+
+        <div class="text-[11px] text-slate-500 font-medium shrink-0">
+          Showing <span class="font-bold text-slate-800">${displayTasks.length}</span> deliverables in report
+        </div>
+      </div>
+
+      <!-- Itemized Deliverables Table -->
+      <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+        ${displayTasks.length === 0 ? `
+          <div class="p-10 text-center space-y-2 text-slate-400">
+            <i data-lucide="folder-x" class="w-8 h-8 mx-auto text-slate-300"></i>
+            <div class="font-semibold text-slate-700 text-sm">No Deliverables Found in this Period / Tab</div>
+            <p class="text-xs text-slate-400 max-w-sm mx-auto">Try selecting another period (Daily, Weekly, or Monthly) or clearing search filters.</p>
+          </div>
+        ` : `
+          <div class="overflow-x-auto max-h-[380px] scrollbar-thin">
+            <table class="w-full text-left text-xs whitespace-nowrap">
+              <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 sticky top-0 z-10">
+                <tr>
+                  <th class="py-2.5 px-3 w-10">No.</th>
+                  <th class="py-2.5 px-3 min-w-[200px]">Task / Procurement Item</th>
+                  <th class="py-2.5 px-3">Workstream</th>
+                  <th class="py-2.5 px-3">Requested By</th>
+                  <th class="py-2.5 px-3">Tasked Date</th>
+                  <th class="py-2.5 px-3">Completed Date</th>
+                  <th class="py-2.5 px-3">Status</th>
+                  <th class="py-2.5 px-3">Priority</th>
+                  <th class="py-2.5 px-3">Cost (LKR)</th>
+                  <th class="py-2.5 px-3 min-w-[200px]">Action Notes</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${displayTasks.map(t => `
+                  <tr class="hover:bg-slate-50/80 transition">
+                    <td class="py-2 px-3 font-mono text-slate-500 font-bold">${t.no ?? t.id}</td>
+                    <td class="py-2 px-3">
+                      <div class="font-semibold text-slate-900">${t.title || 'Untitled Task'}</div>
+                      ${t.assignedTo ? `<div class="text-[10px] text-slate-400">Assignee: ${t.assignedTo}</div>` : ''}
+                    </td>
+                    <td class="py-2 px-3">
+                      <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                        ${t.workstream || 'Operations'}
+                      </span>
+                    </td>
+                    <td class="py-2 px-3 text-slate-700 font-medium">${t.requestedBy || '-'}</td>
+                    <td class="py-2 px-3 font-mono text-[11px] ${t.isTaskedInPeriod ? 'font-bold text-blue-700 bg-blue-50/60 rounded px-1.5' : 'text-slate-600'}">
+                      ${formatDisplayDate(t.taskedDate) || '-'}
+                    </td>
+                    <td class="py-2 px-3 font-mono text-[11px] ${t.isCompletedInPeriod ? 'font-bold text-emerald-700 bg-emerald-50/60 rounded px-1.5' : 'text-slate-600'}">
+                      ${formatDisplayDate(t.completedDate) || '-'}
+                    </td>
+                    <td class="py-2 px-3">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${getStatusBadgeClass(t.status)}">
+                        ${t.status || 'Pending'}
+                      </span>
+                    </td>
+                    <td class="py-2 px-3">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${getPriorityBadgeClass(t.priority)}">
+                        ${t.priority || 'Medium'}
+                      </span>
+                    </td>
+                    <td class="py-2 px-3 font-mono text-[11px] text-slate-700">
+                      ${t.estimatedCost || '-'}
+                    </td>
+                    <td class="py-2 px-3 text-slate-600 max-w-xs truncate" title="${t.notes || ''}">
+                      ${t.notes || '-'}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+
+      <!-- Executive Sign-off Preview & Footer -->
+      <div class="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px] text-slate-500">
+        <div>
+          <span class="font-semibold text-slate-700">Prepared by:</span> ${currentUser ? currentUser.fullName : 'Muhammad Zaharan'} (${currentUser ? currentUser.title : 'Management Trainee'}) &middot; 
+          <span class="font-semibold text-slate-700">Scope:</span> ${opsReportState.userScope === 'all' ? 'Company-wide' : 'Personal Deliverables'}
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="printOperationsReport()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print Official Report
+          </button>
+          <button onclick="closeModal()" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition">
+            Close
+          </button>
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
+function setOpsReportPeriodType(type) {
+  opsReportState.periodType = type;
+  renderOperationsReportStudio();
+  initAllDatePickers(document.getElementById('modalContent'));
+  if (window.lucide) lucide.createIcons();
+}
+
+function setOpsReportDailyDate(dateStr) {
+  if (dateStr) opsReportState.dailyDate = dateStr;
+  renderOperationsReportStudio();
+  initAllDatePickers(document.getElementById('modalContent'));
+  if (window.lucide) lucide.createIcons();
+}
+
+function setOpsReportWeeklyDate(dateStr) {
+  if (dateStr) opsReportState.weeklyDate = dateStr;
+  renderOperationsReportStudio();
+  initAllDatePickers(document.getElementById('modalContent'));
+  if (window.lucide) lucide.createIcons();
+}
+
+function setOpsReportMonthly(month, year) {
+  if (month) opsReportState.monthlyMonth = month;
+  if (year) opsReportState.monthlyYear = year;
+  renderOperationsReportStudio();
+  initAllDatePickers(document.getElementById('modalContent'));
+  if (window.lucide) lucide.createIcons();
+}
+
+function setOpsReportCustom(start, end) {
+  if (start) opsReportState.customStart = start;
+  if (end) opsReportState.customEnd = end;
+  renderOperationsReportStudio();
+  initAllDatePickers(document.getElementById('modalContent'));
+  if (window.lucide) lucide.createIcons();
+}
+
+function setOpsReportScope(scope) {
+  opsReportState.userScope = scope;
+  renderOperationsReportStudio();
+  initAllDatePickers(document.getElementById('modalContent'));
+  if (window.lucide) lucide.createIcons();
+}
+
+function setOpsReportWorkstream(ws) {
+  opsReportState.workstream = ws;
+  renderOperationsReportStudio();
+  initAllDatePickers(document.getElementById('modalContent'));
+  if (window.lucide) lucide.createIcons();
+}
+
+function setOpsReportTab(tab) {
+  opsReportState.activeTab = tab;
+  renderOperationsReportStudio();
+  initAllDatePickers(document.getElementById('modalContent'));
+  if (window.lucide) lucide.createIcons();
+}
+
+function handleOpsReportSearch(q) {
+  opsReportState.searchQuery = q || '';
+  renderOperationsReportStudio();
+  initAllDatePickers(document.getElementById('modalContent'));
+  if (window.lucide) lucide.createIcons();
+}
+
+// Print Official Operations Tracker Report (A4 Document with Spillburg Letterhead)
+function printOperationsReport() {
+  const data = computeOperationsReportData(operationsTasks, opsReportState);
+  const summary = data.summary;
+  const bounds = data.bounds;
+  const tasks = data.allTasks;
+
+  const printWin = window.open('', '_blank');
+  if (!printWin) {
+    alert('Please allow popups to open the official print view.');
+    return;
+  }
+
+  const generatedDateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const generatedTimeStr = new Date().toLocaleTimeString();
+  const userName = currentUser ? currentUser.fullName : 'Muhammad Zaharan';
+  const userTitle = currentUser ? currentUser.title : 'Operations & Management Trainee';
+  const userScopeDesc = opsReportState.userScope === 'all' ? 'All Team Deliverables (Company-wide)' : `${userName}'s Personal Deliverables`;
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>Operations Tracker Report - ${escapeHtml(bounds.label)} - Spillburg Holdings</title>
+      <style>
+        @page {
+          size: A4 portrait;
+          margin: 12mm 15mm;
+        }
+        * {
+          box-sizing: border-box;
+          margin: 0;
+          padding: 0;
+        }
+        body {
+          font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+          color: #0f172a;
+          background: #ffffff;
+          line-height: 1.4;
+          font-size: 11px;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .no-print-toolbar {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          background: #0f172a;
+          color: white;
+          padding: 10px 18px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-family: 'Inter', Arial, sans-serif;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        @media print {
+          .no-print-toolbar {
+            display: none !important;
+          }
+        }
+        .report-page {
+          max-width: 820px;
+          margin: 0 auto;
+          padding: 15px 0;
+        }
+        .header-table {
+          width: 100%;
+          border-bottom: 2px solid #059669;
+          padding-bottom: 12px;
+          margin-bottom: 14px;
+        }
+        .header-table td {
+          vertical-align: middle;
+        }
+        .logo-img {
+          height: 48px;
+          object-fit: contain;
+        }
+        .company-title {
+          font-size: 16px;
+          font-weight: 800;
+          color: #0f172a;
+          letter-spacing: 0.5px;
+        }
+        .report-sub {
+          font-size: 10px;
+          color: #059669;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+        .meta-box {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 10px 14px;
+          margin-bottom: 14px;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+          font-size: 10.5px;
+        }
+        .meta-item strong {
+          color: #475569;
+          font-size: 9.5px;
+          text-transform: uppercase;
+          display: block;
+          margin-bottom: 2px;
+        }
+        .kpi-grid {
+          display: grid;
+          grid-template-columns: repeat(6, 1fr);
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+        .kpi-card {
+          background: #f8fafc;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          padding: 8px;
+          text-align: center;
+        }
+        .kpi-title {
+          font-size: 8.5px;
+          text-transform: uppercase;
+          font-weight: 700;
+          color: #475569;
+        }
+        .kpi-value {
+          font-size: 16px;
+          font-weight: 800;
+          color: #0f172a;
+          margin-top: 2px;
+        }
+        .kpi-card.highlight-tasked { background: #eff6ff; border-color: #93c5fd; }
+        .kpi-card.highlight-tasked .kpi-value { color: #1d4ed8; }
+        .kpi-card.highlight-completed { background: #ecfdf5; border-color: #6ee7b7; }
+        .kpi-card.highlight-completed .kpi-value { color: #047857; }
+        .kpi-card.highlight-inprog { background: #f0f9ff; border-color: #7dd3fc; }
+        .kpi-card.highlight-inprog .kpi-value { color: #0284c7; }
+        .kpi-card.highlight-pending { background: #fffbeb; border-color: #fde68a; }
+        .kpi-card.highlight-pending .kpi-value { color: #b45309; }
+        .kpi-card.highlight-eff { background: #f0fdfa; border-color: #5eead4; }
+        .kpi-card.highlight-eff .kpi-value { color: #0d9488; }
+        
+        .section-heading {
+          font-size: 11px;
+          font-weight: 700;
+          color: #1e293b;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 6px;
+          border-left: 3px solid #059669;
+          padding-left: 6px;
+        }
+        .report-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 18px;
+          font-size: 10px;
+        }
+        .report-table th {
+          background: #f1f5f9;
+          color: #334155;
+          font-weight: 700;
+          text-align: left;
+          padding: 6px 8px;
+          border: 1px solid #cbd5e1;
+        }
+        .report-table td {
+          padding: 5px 8px;
+          border: 1px solid #e2e8f0;
+          vertical-align: top;
+        }
+        .report-table tr:nth-child(even) td {
+          background: #f8fafc;
+        }
+        .badge {
+          display: inline-block;
+          padding: 1.5px 6px;
+          border-radius: 4px;
+          font-size: 8.5px;
+          font-weight: 700;
+          text-transform: uppercase;
+        }
+        .badge-completed { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .badge-in-progress { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+        .badge-pending { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .badge-on-hold { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+        
+        .signoff-box {
+          margin-top: 30px;
+          padding-top: 15px;
+          border-top: 1px solid #cbd5e1;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 40px;
+          font-size: 10px;
+          page-break-inside: avoid;
+        }
+        .signature-line {
+          margin-top: 35px;
+          border-top: 1px dotted #94a3b8;
+          padding-top: 4px;
+          font-weight: 700;
+          color: #334155;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="no-print-toolbar">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <strong>Spillburg Holdings Portal</strong>
+          <span style="opacity: 0.8; font-size: 12px;">&bull; Operations Audit Report (${escapeHtml(bounds.badge)})</span>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button onclick="window.print()" style="background: #059669; color: white; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">Print Document</button>
+          <button onclick="window.close()" style="background: #475569; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Close</button>
+        </div>
+      </div>
+
+      <div class="report-page">
+        <!-- Header -->
+        <table class="header-table">
+          <tr>
+            <td style="width: 55px;">
+              <img src="/public/logo.png" alt="Logo" class="logo-img">
+            </td>
+            <td>
+              <div class="company-title">SPILLBURG HOLDINGS (PVT) LTD</div>
+              <div class="report-sub">Corporate Operations Tracker & Deliverables Audit Report</div>
+            </td>
+            <td style="text-align: right; font-size: 10px; color: #64748b;">
+              <div><strong>Doc Ref:</strong> SBL-OPS-${bounds.type.toUpperCase()}-${Date.now().toString().slice(-6)}</div>
+              <div><strong>Generated:</strong> ${generatedDateStr} ${generatedTimeStr}</div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Metadata Box -->
+        <div class="meta-box">
+          <div class="meta-item">
+            <strong>Reporting Period</strong>
+            <span>${escapeHtml(bounds.label)}</span>
+          </div>
+          <div class="meta-item">
+            <strong>Audited Scope</strong>
+            <span>${escapeHtml(userScopeDesc)}</span>
+          </div>
+          <div class="meta-item">
+            <strong>Prepared By</strong>
+            <span>${escapeHtml(userName)} (${escapeHtml(userTitle)})</span>
+          </div>
+        </div>
+
+        <!-- KPI Metrics Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-title">Total In Scope</div>
+            <div class="kpi-value">${summary.total}</div>
+          </div>
+          <div class="kpi-card highlight-tasked">
+            <div class="kpi-title">Tasked In Period</div>
+            <div class="kpi-value">${summary.taskedCount}</div>
+          </div>
+          <div class="kpi-card highlight-completed">
+            <div class="kpi-title">Completed</div>
+            <div class="kpi-value">${summary.completedCount}</div>
+          </div>
+          <div class="kpi-card highlight-inprog">
+            <div class="kpi-title">In Progress</div>
+            <div class="kpi-value">${summary.inProgressCount}</div>
+          </div>
+          <div class="kpi-card highlight-pending">
+            <div class="kpi-title">Pending / Hold</div>
+            <div class="kpi-value">${summary.pendingCount + summary.onHoldCount}</div>
+          </div>
+          <div class="kpi-card highlight-eff">
+            <div class="kpi-title">Completion Rate</div>
+            <div class="kpi-value">${summary.completionRate}%</div>
+          </div>
+        </div>
+
+        <!-- Deliverables Table -->
+        <div class="section-heading">Detailed Deliverables Audit (${tasks.length} Items)</div>
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th style="width: 32px; text-align: center;">No.</th>
+              <th style="width: 25%;">Task / Deliverable</th>
+              <th style="width: 14%;">Workstream</th>
+              <th style="width: 14%;">Requested By</th>
+              <th style="width: 10%;">Tasked Date</th>
+              <th style="width: 10%;">Completed Date</th>
+              <th style="width: 11%;">Status</th>
+              <th style="width: 16%;">Cost & Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tasks.length === 0 ? `
+              <tr><td colspan="8" style="text-align: center; padding: 20px; color: #94a3b8;">No deliverables recorded during this period.</td></tr>
+            ` : tasks.map(t => {
+              const statusClass = (t.status || '').toLowerCase() === 'completed' ? 'badge-completed'
+                : ((t.status || '').toLowerCase() === 'in progress' ? 'badge-in-progress'
+                : ((t.status || '').toLowerCase() === 'on hold' ? 'badge-on-hold' : 'badge-pending'));
+              return `
+                <tr>
+                  <td style="text-align: center; font-family: monospace; font-weight: bold;">${t.no ?? t.id}</td>
+                  <td>
+                    <strong>${escapeHtml(t.title || 'Untitled')}</strong>
+                    ${t.assignedTo ? `<div style="font-size: 8.5px; color: #64748b;">Assignee: ${escapeHtml(t.assignedTo)}</div>` : ''}
+                  </td>
+                  <td>${escapeHtml(t.workstream || 'Operations')}</td>
+                  <td>${escapeHtml(t.requestedBy || '-')}</td>
+                  <td style="font-family: monospace;">${escapeHtml(formatDisplayDate(t.taskedDate) || '-')}</td>
+                  <td style="font-family: monospace;">${escapeHtml(formatDisplayDate(t.completedDate) || '-')}</td>
+                  <td><span class="badge ${statusClass}">${escapeHtml(t.status || 'Pending')}</span></td>
+                  <td>
+                    ${t.estimatedCost ? `<div style="font-weight: bold; color: #047857;">${escapeHtml(t.estimatedCost)}</div>` : ''}
+                    <div style="font-size: 9px; color: #475569;">${escapeHtml(t.notes || '-')}</div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <!-- Sign-Off Section -->
+        <div class="signoff-box">
+          <div>
+            <div style="color: #64748b; font-size: 9px; text-transform: uppercase;">Prepared & Compiled By:</div>
+            <div style="margin-top: 4px; font-weight: 700; color: #0f172a;">${escapeHtml(userName)}</div>
+            <div style="color: #64748b;">${escapeHtml(userTitle)}</div>
+            <div class="signature-line">Officer Signature & Date: ______________</div>
+          </div>
+          <div>
+            <div style="color: #64748b; font-size: 9px; text-transform: uppercase;">Verified & Approved By:</div>
+            <div style="margin-top: 4px; font-weight: 700; color: #0f172a;">Executive Director / Administrator</div>
+            <div style="color: #64748b;">Spillburg Holdings (Pvt) Ltd</div>
+            <div class="signature-line">Director Signature & Stamp: ______________</div>
+          </div>
+        </div>
+
+      </div>
+
+      <script>
+        setTimeout(function() {
+          window.print();
+        }, 500);
+      </script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
+}
+
+// Export Operations Tracker Report to UTF-8 CSV
+function exportOperationsReportCSV() {
+  const data = computeOperationsReportData(operationsTasks, opsReportState);
+  const rows = [];
+  rows.push(["SPILLBURG HOLDINGS (PVT) LTD - OPERATIONS TRACKER DELIVERABLES REPORT"]);
+  rows.push([`Reporting Period: ${data.bounds.label}`]);
+  rows.push([`Generated On: ${new Date().toLocaleString()}`, `Scope: ${opsReportState.userScope}`]);
+  rows.push([]);
+  rows.push(["EXECUTIVE METRICS SUMMARY"]);
+  rows.push(["Total Deliverables in Scope", data.summary.total]);
+  rows.push(["Tasked in Period", data.summary.taskedCount]);
+  rows.push(["Completed in Period", data.summary.completedCount]);
+  rows.push(["In Progress Deliverables", data.summary.inProgressCount]);
+  rows.push(["Pending & On Hold", data.summary.pendingCount + data.summary.onHoldCount]);
+  rows.push(["Completion Efficiency Rate", `${data.summary.completionRate}%`]);
+  rows.push(["Total Estimated Expenditure", data.summary.formattedTotalCost]);
+  rows.push([]);
+  rows.push(["No.", "Task / Procurement Item", "Requested By", "Workstream", "Assigned To", "Tasked Date", "Completed Date", "Status", "Priority", "Estimated Cost (LKR)", "Notes / Action Details"]);
+  
+  data.allTasks.forEach(t => {
+    rows.push([
+      t.no ?? t.id,
+      t.title || '',
+      t.requestedBy || '',
+      t.workstream || '',
+      t.assignedTo || '',
+      t.taskedDate || '',
+      t.completedDate || '',
+      t.status || '',
+      t.priority || '',
+      t.estimatedCost || '',
+      t.notes || ''
+    ]);
+  });
+
+  const csvContent = "\uFEFF" + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const pName = opsReportState.periodType;
+  a.download = `Spillburg_Operations_Report_${pName}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Copy Formatted Executive Brief to Clipboard
+function copyOperationsReportBrief() {
+  const data = computeOperationsReportData(operationsTasks, opsReportState);
+  const text = `*SPILLBURG HOLDINGS (PVT) LTD - OPERATIONS REPORT*
+*Period:* ${data.bounds.label}
+*Scope:* ${opsReportState.userScope === 'all' ? 'All Team Deliverables (Company-wide)' : 'Personal Tracker'}
+*Generated:* ${new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+
+*EXECUTIVE SUMMARY:*
+• Total Deliverables in Scope: ${data.summary.total}
+• Tasked in Period: ${data.summary.taskedCount}
+• Completed in Period: ${data.summary.completedCount}
+• Active In Progress: ${data.summary.inProgressCount}
+• Pending / On Hold: ${data.summary.pendingCount + data.summary.onHoldCount}
+• Completion Efficiency Rate: ${data.summary.completionRate}%
+• Estimated Cost / Budget: ${data.summary.formattedTotalCost}
+
+*WORKSTREAM BREAKDOWN:*
+${Object.entries(data.workstreams).map(([ws, count]) => `• ${ws}: ${count}`).join('\n')}
+
+*KEY DELIVERABLES AUDIT:*
+${data.allTasks.slice(0, 12).map(t => `- [${t.status}] #${t.no ?? t.id} ${t.title} (${t.workstream} | Req: ${t.requestedBy || 'N/A'})`).join('\n')}
+${data.allTasks.length > 12 ? `...plus ${data.allTasks.length - 12} additional deliverables in full report.` : ''}
+`;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Executive Operations Brief successfully copied to clipboard!');
+    }).catch(() => {
+      prompt('Copy the executive brief below:', text);
+    });
+  } else {
+    prompt('Copy the executive brief below:', text);
   }
 }
 

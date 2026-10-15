@@ -24,6 +24,7 @@ import threading
 import subprocess
 import sqlite3
 import re
+import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 import payroll_excel
@@ -1267,6 +1268,212 @@ def extract_year_from_tasked_date(date_str):
     return None
 
 
+def parse_date_to_object(date_str):
+    if not date_str:
+        return None
+    s = str(date_str).strip()
+    month_map = {
+        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+        'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+    }
+    # Pattern: DD-MMM-YYYY or D-MMM-YYYY (e.g. 03-Sep-2026)
+    m1 = re.match(r"^(\d{1,2})-([A-Za-z]{3})-(\d{4})$", s)
+    if m1:
+        d = int(m1.group(1))
+        m = month_map.get(m1.group(2).lower())
+        y = int(m1.group(3))
+        if m:
+            try: return datetime.date(y, m, d)
+            except ValueError: pass
+    # Pattern: YYYY-MM-DD or YYYY/MM/DD
+    m2 = re.match(r"^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", s)
+    if m2:
+        try: return datetime.date(int(m2.group(1)), int(m2.group(2)), int(m2.group(3)))
+        except ValueError: pass
+    # Pattern: DD/MM/YYYY or DD-MM-YYYY
+    m3 = re.match(r"^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})", s)
+    if m3:
+        try: return datetime.date(int(m3.group(3)), int(m3.group(2)), int(m3.group(1)))
+        except ValueError: pass
+    return None
+
+
+def format_date_standard(dt):
+    if not dt or not isinstance(dt, (datetime.date, datetime.datetime)):
+        return ""
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    return f"{dt.day:02d}-{months[dt.month - 1]}-{dt.year}"
+
+
+def parse_cost_amount(cost_str):
+    if not cost_str:
+        return 0.0
+    s = str(cost_str).replace("Rs.", "").replace("Rs", "").replace(",", "").strip()
+    m = re.search(r"([0-9]+(?:\.[0-9]+)?)", s)
+    return float(m.group(1)) if m else 0.0
+
+
+def build_operations_period_report(base_tasks, period_type="monthly", date_param=None, start_date_param=None, end_date_param=None, month_param=None, year_param=None, week_offset=0, workstream_param=None, search_param=None):
+    today = datetime.date(2026, 10, 15)
+    if workstream_param:
+        base_tasks = [t for t in base_tasks if (t.get("workstream") or "").lower() == workstream_param.lower()]
+    if search_param:
+        q = search_param.lower().strip()
+        base_tasks = [t for t in base_tasks if q in (t.get("title") or "").lower() or q in (t.get("notes") or "").lower() or q in (t.get("requestedBy") or "").lower()]
+
+    period_type = (period_type or "monthly").lower().strip()
+    
+    # 1. Determine period date boundaries
+    if period_type == "daily":
+        ref_d = parse_date_to_object(date_param) if date_param else today
+        if not ref_d: ref_d = today
+        start_date = ref_d
+        end_date = ref_d
+        period_label = f"Daily Report: {format_date_standard(start_date)}"
+    elif period_type == "weekly":
+        ref_d = parse_date_to_object(date_param) if date_param else today
+        if not ref_d: ref_d = today
+        try:
+            offset_days = int(week_offset) * 7
+            ref_d = ref_d + datetime.timedelta(days=offset_days)
+        except Exception:
+            pass
+        day_of_week = ref_d.weekday() # 0 = Monday, 6 = Sunday
+        start_date = ref_d - datetime.timedelta(days=day_of_week)
+        end_date = start_date + datetime.timedelta(days=6)
+        period_label = f"Weekly Report: {format_date_standard(start_date)} to {format_date_standard(end_date)}"
+    elif period_type == "custom":
+        start_date = parse_date_to_object(start_date_param) if start_date_param else None
+        end_date = parse_date_to_object(end_date_param) if end_date_param else None
+        if not start_date and not end_date:
+            start_date = datetime.date(today.year, today.month, 1)
+            end_date = today
+        elif not start_date:
+            start_date = end_date - datetime.timedelta(days=30)
+        elif not end_date:
+            end_date = start_date + datetime.timedelta(days=30)
+        period_label = f"Custom Report: {format_date_standard(start_date)} to {format_date_standard(end_date)}"
+    else: # monthly
+        y = int(year_param) if year_param and str(year_param).isdigit() else today.year
+        month_map = {'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+                     'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12}
+        m = today.month
+        if month_param:
+            mp = str(month_param).lower().strip()
+            if mp.isdigit() and 1 <= int(mp) <= 12:
+                m = int(mp)
+            elif mp[:3] in month_map:
+                m = month_map[mp[:3]]
+
+        start_date = datetime.date(y, m, 1)
+        if m == 12:
+            end_date = datetime.date(y, 12, 31)
+        else:
+            end_date = datetime.date(y, m + 1, 1) - datetime.timedelta(days=1)
+        months_full = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+        period_label = f"Monthly Report: {months_full[m-1]} {y}"
+
+    # 2. Categorize tasks
+    tasked_in_p = []
+    completed_in_p = []
+    in_prog_in_p = []
+    pending_in_p = []
+    on_hold_in_p = []
+    all_in_p = []
+
+    for t in base_tasks:
+        td = parse_date_to_object(t.get("taskedDate"))
+        cd = parse_date_to_object(t.get("completedDate"))
+        st = (t.get("status") or "").strip().lower()
+
+        # Check if completed strictly before this period began
+        completed_before = False
+        if cd and cd < start_date:
+            completed_before = True
+        elif not cd and st == "completed" and td and td < start_date:
+            completed_before = True
+
+        if completed_before:
+            continue
+
+        is_tasked = (td is not None and start_date <= td <= end_date)
+        is_completed = ((cd is not None and start_date <= cd <= end_date) or (not cd and st == "completed" and is_tasked))
+        is_in_prog = (st == "in progress" and (td is None or td <= end_date))
+        is_pending = (st == "pending" and (td is None or td <= end_date))
+        is_on_hold = (st == "on hold" and (td is None or td <= end_date))
+
+        t_copy = dict(t)
+        t_copy["isTaskedInPeriod"] = is_tasked
+        t_copy["isCompletedInPeriod"] = is_completed
+        t_copy["isInProgressInPeriod"] = is_in_prog
+        t_copy["isPendingInPeriod"] = is_pending
+        t_copy["isOnHoldInPeriod"] = is_on_hold
+
+        if is_tasked: tasked_in_p.append(t_copy)
+        if is_completed: completed_in_p.append(t_copy)
+        if is_in_prog: in_prog_in_p.append(t_copy)
+        if is_pending: pending_in_p.append(t_copy)
+        if is_on_hold: on_hold_in_p.append(t_copy)
+
+        if is_tasked or is_completed or is_in_prog or is_pending or is_on_hold:
+            all_in_p.append(t_copy)
+
+    total_count = len(all_in_p)
+    comp_count = len(completed_in_p)
+    eff_rate = round((comp_count / total_count * 100), 1) if total_count else 0.0
+    total_cost = sum(parse_cost_amount(t.get("estimatedCost")) for t in all_in_p)
+
+    # Workstream breakdown
+    ws_counts = {}
+    for t in all_in_p:
+        ws = t.get("workstream") or "General"
+        ws_counts[ws] = ws_counts.get(ws, 0) + 1
+
+    # Priority breakdown
+    pri_counts = {}
+    for t in all_in_p:
+        pri = t.get("priority") or "Medium"
+        pri_counts[pri] = pri_counts.get(pri, 0) + 1
+
+    # Requester breakdown
+    req_counts = {}
+    for t in all_in_p:
+        req = t.get("requestedBy") or "Management"
+        req_counts[req] = req_counts.get(req, 0) + 1
+
+    return {
+        "period": {
+            "type": period_type,
+            "label": period_label,
+            "startDate": format_date_standard(start_date),
+            "endDate": format_date_standard(end_date),
+            "startISO": start_date.isoformat(),
+            "endISO": end_date.isoformat(),
+            "generatedAt": time.strftime("%Y-%m-%d %H:%M:%S")
+        },
+        "summary": {
+            "total": total_count,
+            "taskedCount": len(tasked_in_p),
+            "completedCount": comp_count,
+            "inProgressCount": len(in_prog_in_p),
+            "pendingCount": len(pending_in_p),
+            "onHoldCount": len(on_hold_in_p),
+            "completionRate": eff_rate,
+            "totalEstimatedCost": total_cost,
+            "formattedTotalCost": f"Rs. {total_cost:,.2f}"
+        },
+        "workstreams": ws_counts,
+        "priorities": pri_counts,
+        "requesters": req_counts,
+        "tasked": tasked_in_p,
+        "completed": completed_in_p,
+        "inProgress": in_prog_in_p,
+        "pending": pending_in_p,
+        "onHold": on_hold_in_p,
+        "allTasks": all_in_p
+    }
+
+
 def init_sqlite_db():
     os.makedirs(os.path.dirname(SQLITE_CUSTOMER_DB), exist_ok=True)
     conn = sqlite3.connect(SQLITE_CUSTOMER_DB)
@@ -1871,6 +2078,57 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "progressPercentage": pct,
                 "workstreams": workstreams
             })
+            return
+
+        elif path == "/api/operations/report":
+            user = self.require_permission("operations", "viewer")
+            if not user: return
+            sync_operations_from_disk()
+
+            for_user = query.get("forUser", [""])[0]
+            role = user.get("role", "staff")
+
+            if for_user and role in ["director", "admin"]:
+                if for_user.lower() == "all":
+                    base_tasks = list(OPERATIONS)
+                else:
+                    base_tasks = [t for t in OPERATIONS if t.get("userId") == for_user or t.get("ownerUsername") == for_user]
+            else:
+                user_tasks = [t for t in OPERATIONS if t.get("userId") == user.get("id") or t.get("ownerUsername") == user.get("username")]
+                base_tasks = user_tasks
+
+            period_type = query.get("periodType", ["monthly"])[0]
+            date_param = query.get("date", [""])[0]
+            start_date_param = query.get("startDate", [""])[0]
+            end_date_param = query.get("endDate", [""])[0]
+            month_param = query.get("month", [""])[0]
+            year_param = query.get("year", [""])[0]
+            week_offset = query.get("weekOffset", [0])[0]
+            workstream_param = query.get("workstream", [""])[0]
+            search_param = query.get("search", [""])[0]
+
+            report_data = build_operations_period_report(
+                base_tasks=base_tasks,
+                period_type=period_type,
+                date_param=date_param,
+                start_date_param=start_date_param,
+                end_date_param=end_date_param,
+                month_param=month_param,
+                year_param=year_param,
+                week_offset=week_offset,
+                workstream_param=workstream_param,
+                search_param=search_param
+            )
+
+            report_data["userScope"] = for_user if (for_user and role in ["director", "admin"]) else "me"
+            report_data["generatedByUser"] = {
+                "id": user.get("id"),
+                "username": user.get("username"),
+                "fullName": user.get("fullName", user.get("username")),
+                "role": user.get("role")
+            }
+
+            self.send_json(report_data)
             return
 
         # 5. API: Financial Files Database

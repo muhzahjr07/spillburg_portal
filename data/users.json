@@ -74,11 +74,11 @@
   {
     "id": "usr_dir_shameel",
     "username": "shameel",
-    "password": "spillburg123",
+    "password": "Sh@123@#",
     "fullName": "Mohamed Shaameel Mohideen",
     "role": "director",
     "title": "Director/CEO",
-    "email": "shaameelmohideen@gmail.com",
+    "email": "shaameel@spillburg.com",
     "permissions": {
       "operations": "full",
       "customer_files": "full",
@@ -136,7 +136,7 @@
     "permissions": {
       "operations": "viewer",
       "customer_files": "viewer",
-      "financial_files": "viewer",
+      "financial_files": "none",
       "payroll": "none",
       "user_management": "none"
     },
@@ -159,6 +159,24 @@
       "user_management": "full"
     },
     "createdAt": "2026-09-01T08:00:00Z",
+    "status": "active"
+  },
+  {
+    "id": "usr_bcc9abca",
+    "username": "staff_bilal",
+    "password": "bilal123",
+    "fullName": "Bilal Mohideen",
+    "role": "staff",
+    "title": "Operations Executive",
+    "email": "bilal@spillburg.com",
+    "permissions": {
+      "operations": "editor",
+      "customer_files": "editor",
+      "financial_files": "none",
+      "payroll": "none",
+      "user_management": "none"
+    },
+    "createdAt": "2026-10-15T05:16:00Z",
     "status": "active"
   }
 ]

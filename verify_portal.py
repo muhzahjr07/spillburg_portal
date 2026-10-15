@@ -159,6 +159,25 @@ def test_suite():
     task_mktg = next((t for t in z_tasks if "Digital Marketing" in t.get("title", "")), None)
     assert_test("Task #1 'Digital Marketing' present", task_mktg is not None and task_mktg.get("status") == "On Hold")
 
+    # 5.1 Operations Tracker Report Generation (Daily, Weekly, Monthly)
+    print("\n--- 5.1 Testing Operations Tracker Report Generation (Daily, Weekly, Monthly) ---")
+    status, rep_daily, _ = make_request("/api/operations/report?periodType=daily&date=04-Sep-2026", token=zaharan_token)
+    assert_test("GET /api/operations/report (Daily) returns HTTP 200", status == 200)
+    assert_test("Daily report contains summary metrics and categorized deliverables", status == 200 and "summary" in rep_daily and "tasked" in rep_daily and "period" in rep_daily)
+    assert_test("Daily report accurately calculated tasked deliverables", rep_daily.get("summary", {}).get("taskedCount", 0) >= 3)
+
+    status, rep_weekly, _ = make_request("/api/operations/report?periodType=weekly&date=04-Sep-2026", token=zaharan_token)
+    assert_test("GET /api/operations/report (Weekly) returns HTTP 200", status == 200)
+    assert_test("Weekly report accurately calculated period bounds", rep_weekly.get("period", {}).get("type") == "weekly")
+
+    status, rep_monthly, _ = make_request("/api/operations/report?periodType=monthly&month=sep&year=2026", token=zaharan_token)
+    assert_test("GET /api/operations/report (Monthly) returns HTTP 200", status == 200)
+    assert_test("Monthly report contains tasked, completed, in progress, pending deliverables",
+                status == 200 and rep_monthly.get("summary", {}).get("taskedCount", 0) > 0 and
+                rep_monthly.get("summary", {}).get("completedCount", 0) > 0 and
+                rep_monthly.get("summary", {}).get("completionRate", 0) > 0)
+    assert_test("Monthly report calculates financial expenditure", rep_monthly.get("summary", {}).get("totalEstimatedCost", 0) > 0)
+
     # 6. Admin User Management CRUD & Permissions
     print("\n--- 6. Testing Admin User Management & Permission Control ---")
     # Staff cannot create users
