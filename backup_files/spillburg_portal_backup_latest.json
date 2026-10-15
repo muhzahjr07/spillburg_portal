@@ -1,8 +1,8 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-13T05:43:27Z",
-  "storageLocation": "C:\\Users\\User\\Desktop\\Zaharan\\projects\\company_portal\\data",
+  "exportTimestamp": "2026-10-15T05:35:37Z",
+  "storageLocation": "C:\\Users\\User\\Desktop\\Spillburg Admin\\projects\\company_portal\\data",
   "users": [
     {
       "id": "usr_dir_master",
@@ -79,11 +79,11 @@
     {
       "id": "usr_dir_shameel",
       "username": "shameel",
-      "password": "spillburg123",
+      "password": "Sh@123@#",
       "fullName": "Mohamed Shaameel Mohideen",
       "role": "director",
       "title": "Director/CEO",
-      "email": "shaameelmohideen@gmail.com",
+      "email": "shaameel@spillburg.com",
       "permissions": {
         "operations": "full",
         "customer_files": "full",
@@ -141,7 +141,7 @@
       "permissions": {
         "operations": "viewer",
         "customer_files": "viewer",
-        "financial_files": "viewer",
+        "financial_files": "none",
         "payroll": "none",
         "user_management": "none"
       },
@@ -165,9 +165,44 @@
       },
       "createdAt": "2026-09-01T08:00:00Z",
       "status": "active"
+    },
+    {
+      "id": "usr_bcc9abca",
+      "username": "staff_bilal",
+      "password": "bilal123",
+      "fullName": "Bilal Mohideen",
+      "role": "staff",
+      "title": "Operations Executive",
+      "email": "bilal@spillburg.com",
+      "permissions": {
+        "operations": "editor",
+        "customer_files": "editor",
+        "financial_files": "none",
+        "payroll": "none",
+        "user_management": "none"
+      },
+      "createdAt": "2026-10-15T05:16:00Z",
+      "status": "active"
     }
   ],
   "operations": [
+    {
+      "id": "ops_b02114",
+      "no": 1,
+      "userId": "usr_bcc9abca",
+      "ownerUsername": "staff_bilal",
+      "title": "Spillburg Portal Onboarding - Operations Executive",
+      "requestedBy": "System Administrator",
+      "assignedTo": "Bilal Mohideen",
+      "workstream": "Personal Tasks",
+      "type": "Onboarding",
+      "taskedDate": "15-Oct-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Welcome to Spillburg Holdings. Review your assigned registers and manage your personal deliverables."
+    },
     {
       "id": "ops_001",
       "no": 1,
@@ -945,6 +980,74 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Research for Diploma Course in Arbitration in BASL, ICLP, details, accreditation comparison"
+    },
+    {
+      "id": "ops_1c3c03",
+      "no": 49,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Report on Birthday Party Event Locations",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Personal Tasks",
+      "type": "Operational Task",
+      "taskedDate": "14-Oct-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Prepare a report with contact details on Birthday Party Event Locations with cost"
+    },
+    {
+      "id": "ops_b0f5b0",
+      "no": 50,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Facebook and LinkedIn Page for Spillburg Corporate Services",
+      "requestedBy": "Muhammad Zaharan",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Digital Marketing",
+      "type": "Operational Task",
+      "taskedDate": "14-Oct-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Create a Facebook and LinkedIn Page for Spillburg Corporate Services and send link to spytLabs"
+    },
+    {
+      "id": "ops_099654",
+      "no": 51,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Spillburg Logistics 1 Website",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Digital Marketing",
+      "type": "Operational Task",
+      "taskedDate": "14-Oct-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Low",
+      "estimatedCost": "",
+      "notes": "Create a website Spillburg Logistics 1"
+    },
+    {
+      "id": "ops_378b5f",
+      "no": 52,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Create new 3 emails for Zaharan, Bilal, Insaaf",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Office Operations",
+      "type": "Operational Task",
+      "taskedDate": "18-Sep-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "Low",
+      "estimatedCost": "",
+      "notes": "cordinate with haritha to create new 3 emails, bilal@spillburg.com, insaaf@spillburg.com, zaharan@spillburg.com"
     }
   ],
   "payroll": {
