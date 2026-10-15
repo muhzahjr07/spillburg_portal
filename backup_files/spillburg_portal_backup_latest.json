@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-15T05:16:08Z",
+  "exportTimestamp": "2026-10-15T05:19:22Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1031,6 +1031,23 @@
       "priority": "Low",
       "estimatedCost": "",
       "notes": "Create a website Spillburg Logistics 1"
+    },
+    {
+      "id": "ops_378b5f",
+      "no": 52,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Create new 3 emails for Zaharan, Bilal, Insaaf",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Office Operations",
+      "type": "Operational Task",
+      "taskedDate": "18-Sep-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "Low",
+      "estimatedCost": "",
+      "notes": "cordinate with haritha to create new 3 emails, bilal@spillburg.com, insaaf@spillburg.com, zaharan@spillburg.com"
     }
   ],
   "payroll": {
