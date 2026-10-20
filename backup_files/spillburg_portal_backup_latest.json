@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-15T06:19:57Z",
+  "exportTimestamp": "2026-10-20T04:53:02Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -980,23 +980,6 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Research for Diploma Course in Arbitration in BASL, ICLP, details, accreditation comparison"
-    },
-    {
-      "id": "ops_1c3c03",
-      "no": 49,
-      "userId": "usr_admin_zaharan",
-      "ownerUsername": "zaharan",
-      "title": "Report on Birthday Party Event Locations",
-      "requestedBy": "Mr. Shameel",
-      "assignedTo": "Muhammad Zaharan",
-      "workstream": "Personal Tasks",
-      "type": "Operational Task",
-      "taskedDate": "14-Oct-2026",
-      "completedDate": "",
-      "status": "In Progress",
-      "priority": "Medium",
-      "estimatedCost": "",
-      "notes": "Prepare a report with contact details on Birthday Party Event Locations with cost"
     },
     {
       "id": "ops_b0f5b0",
