@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-21T07:04:01Z",
+  "exportTimestamp": "2026-10-21T07:05:46Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1133,6 +1133,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Cordinate with Anisa and create a website for slfbc\nNotes - SL FR - Localization"
+    },
+    {
+      "id": "ops_af7402",
+      "no": 59,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Create Welcome and Featured posts for spillburg corporate and logistics socials",
+      "requestedBy": "Muhammad Zaharan",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Digital Marketing",
+      "type": "Operational Task",
+      "taskedDate": "21-Oct-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "need to create only after creation of logos"
     }
   ],
   "payroll": {
