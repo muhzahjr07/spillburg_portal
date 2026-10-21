@@ -847,11 +847,14 @@ async function loadInitialData() {
     const opsUrl = operationsUserFilter && operationsUserFilter !== 'me' ? `/api/operations?forUser=${encodeURIComponent(operationsUserFilter)}` : '/api/operations';
     const statsUrl = operationsUserFilter && operationsUserFilter !== 'me' ? `/api/operations/stats?forUser=${encodeURIComponent(operationsUserFilter)}` : '/api/operations/stats';
 
-    const [opsRes, custRes, finRes, statsRes] = await Promise.all([
+    const canLoadUsers = isAdmin() || (currentUser && ['director', 'admin'].includes(currentUser.role));
+
+    const [opsRes, custRes, finRes, statsRes, uData] = await Promise.all([
       fetch(opsUrl, { headers }).then(r => r.ok ? r.json() : { tasks: [] }),
       fetch('/api/customer-files', { headers }).then(r => r.ok ? r.json() : { records: [] }),
       fetch('/api/financial-files', { headers }).then(r => r.ok ? r.json() : { records: [] }),
-      fetch(statsUrl, { headers }).then(r => r.ok ? r.json() : {})
+      fetch(statsUrl, { headers }).then(r => r.ok ? r.json() : {}),
+      canLoadUsers ? fetch('/api/users', { headers }).then(r => r.ok ? r.json() : { users: [] }).catch(() => ({ users: [] })) : Promise.resolve({ users: [] })
     ]);
 
     operationsTasks = (opsRes.tasks || []).map(t => ({
@@ -869,14 +872,8 @@ async function loadInitialData() {
     }));
     operationsStats = statsRes || {};
 
-    if (isAdmin()) {
-      try {
-        const uRes = await fetch('/api/users', { headers });
-        if (uRes.ok) {
-          const uData = await uRes.json();
-          usersList = uData.users || [];
-        }
-      } catch (err) {}
+    if (uData && Array.isArray(uData.users) && uData.users.length > 0) {
+      usersList = uData.users;
     }
 
     // Update sidebar counters
@@ -925,6 +922,15 @@ async function switchView(viewName) {
       renderDashboard(container);
       break;
     case 'operations':
+      if (isAdmin() && (!usersList || usersList.length === 0)) {
+        try {
+          const uRes = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${authToken}` } });
+          if (uRes.ok) {
+            const uData = await uRes.json();
+            if (uData.users) usersList = uData.users;
+          }
+        } catch (e) {}
+      }
       renderOperations(container);
       break;
     case 'customer-files':
@@ -1319,9 +1325,95 @@ function renderDashboard(container) {
 }
 
 // ================= 2. OPERATIONS TRACKER (UNIQUE PER USER) =================
+function getOperationsUserFilterOptions(currentFilter, isReport = false) {
+  let html = `
+    <option value="me" ${currentFilter === 'me' ? 'selected' : ''}>👤 My Personal Tasks</option>
+    <option value="all" ${currentFilter === 'all' ? 'selected' : ''}>${isReport ? '👥 All Team Tasks (Company-wide)' : '👥 All Team Tasks'}</option>
+  `;
+
+  // Collect all unique users from usersList, default accounts, and operationsTasks
+  const userMap = new Map();
+
+  if (Array.isArray(usersList)) {
+    usersList.forEach(u => {
+      if (u && u.id) {
+        userMap.set(u.id, {
+          id: u.id,
+          username: u.username || '',
+          fullName: u.fullName || u.username || u.id,
+          role: u.role || 'staff'
+        });
+      }
+    });
+  }
+
+  // Fallback default system accounts if usersList is still loading
+  const defaultAccounts = [
+    { id: 'usr_dir_master', username: 'director', fullName: 'Executive Director', role: 'director' },
+    { id: 'usr_admin_master', username: 'admin', fullName: 'System Administrator', role: 'admin' },
+    { id: 'usr_admin_zaharan', username: 'zaharan', fullName: 'Muhammad Zaharan', role: 'admin' },
+    { id: 'usr_dir_shameel', username: 'shameel', fullName: 'Mohamed Shaameel Mohideen', role: 'director' },
+    { id: 'usr_dir_hameez', username: 'hameez', fullName: 'Mohamed Hussain Kariapper Hameez', role: 'director' },
+    { id: 'usr_staff_hemanthi', username: 'staff_hemanthi', fullName: 'Miss Hemanthi', role: 'staff' },
+    { id: 'usr_staff_insaaf', username: 'staff_insaaf', fullName: 'Insaaf', role: 'staff' },
+    { id: 'usr_staff_editor', username: 'staff_editor', fullName: 'Staff Member (Editor)', role: 'staff' },
+    { id: 'usr_staff_viewer', username: 'staff_viewer', fullName: 'Staff Member (Viewer)', role: 'staff' },
+    { id: 'usr_bcc9abca', username: 'staff_bilal', fullName: 'Bilal Mohideen', role: 'staff' }
+  ];
+
+  defaultAccounts.forEach(da => {
+    if (!userMap.has(da.id)) {
+      userMap.set(da.id, da);
+    }
+  });
+
+  // Also include any user appearing in operationsTasks
+  if (Array.isArray(operationsTasks)) {
+    operationsTasks.forEach(t => {
+      if (t.userId && !userMap.has(t.userId)) {
+        userMap.set(t.userId, {
+          id: t.userId,
+          username: t.ownerUsername || '',
+          fullName: t.assignedTo || t.ownerUsername || t.userId,
+          role: 'staff'
+        });
+      }
+    });
+  }
+
+  const sortedUsers = Array.from(userMap.values()).sort((a, b) => {
+    return (a.fullName || '').localeCompare(b.fullName || '');
+  });
+
+  sortedUsers.forEach(u => {
+    const isSelected = currentFilter === u.id || (currentFilter && currentFilter.toLowerCase() === (u.username || '').toLowerCase());
+    html += `<option value="${escapeHtml(u.id)}" ${isSelected ? 'selected' : ''}>${escapeHtml(u.fullName)}</option>`;
+  });
+
+  return html;
+}
+
 function renderOperations(container) {
   const isDirectorOrAdmin = currentUser && ['director', 'admin'].includes(currentUser.role);
   
+  // Resolve display name for the currently filtered user (if specific user selected)
+  let selectedUserName = 'Filtered User';
+  if (operationsUserFilter === 'all') {
+    selectedUserName = 'All Team Members';
+  } else if (operationsUserFilter === 'me') {
+    selectedUserName = currentUser ? currentUser.fullName : 'You';
+  } else {
+    const foundU = (usersList || []).find(u => u.id === operationsUserFilter || u.username === operationsUserFilter);
+    if (foundU) {
+      selectedUserName = foundU.fullName || foundU.username;
+    } else {
+      const foundT = (operationsTasks || []).find(t => t.userId === operationsUserFilter || t.ownerUsername === operationsUserFilter);
+      if (foundT && foundT.assignedTo) {
+        selectedUserName = foundT.assignedTo;
+      }
+    }
+  }
+
   // Calculate Tracker Status Row exactly matching Google Sheet / Screenshot 2
   const total = operationsTasks.length;
   const pending = operationsTasks.filter(t => (t.status || '').toLowerCase() === 'pending').length;
@@ -1366,11 +1458,11 @@ function renderOperations(container) {
           <div class="flex items-center gap-2">
             <h2 class="font-display font-bold text-xl text-slate-900">Operations Tracker</h2>
             <span class="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-              ${operationsUserFilter === 'all' ? 'All Team Tasks' : (operationsUserFilter === 'me' ? 'My Personal Tasks' : 'Filtered User Tasks')}
+              ${operationsUserFilter === 'all' ? 'All Team Tasks' : (operationsUserFilter === 'me' ? 'My Personal Tasks' : `${escapeHtml(selectedUserName)}'s Tasks`)}
             </span>
           </div>
           <p class="text-xs text-slate-500 mt-1">
-            ${operationsUserFilter === 'all' ? 'Viewing combined tasks across all company personnel' : (operationsUserFilter === 'me' ? `Personal task log for ${currentUser ? currentUser.fullName : 'You'}` : 'Viewing specific user deliverables')} &middot; Live synchronized with Google Sheet
+            ${operationsUserFilter === 'all' ? 'Viewing combined tasks across all company personnel' : (operationsUserFilter === 'me' ? `Personal task log for ${currentUser ? currentUser.fullName : 'You'}` : `Viewing deliverables assigned to ${escapeHtml(selectedUserName)}`)} &middot; Live synchronized with Google Sheet
           </p>
         </div>
 
@@ -1380,15 +1472,7 @@ function renderOperations(container) {
             <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
               <span class="text-slate-500 font-medium">Viewing:</span>
               <select onchange="changeOperationsUserFilter(this.value)" class="bg-transparent text-slate-800 font-semibold focus:outline-none cursor-pointer">
-                <option value="me" ${operationsUserFilter === 'me' ? 'selected' : ''}>👤 My Personal Tasks</option>
-                <option value="all" ${operationsUserFilter === 'all' ? 'selected' : ''}>👥 All Team Tasks</option>
-                <option value="usr_admin_zaharan" ${operationsUserFilter === 'usr_admin_zaharan' ? 'selected' : ''}>Muhammad Zaharan</option>
-                <option value="usr_dir_master" ${operationsUserFilter === 'usr_dir_master' ? 'selected' : ''}>Executive Director</option>
-                <option value="usr_admin_master" ${operationsUserFilter === 'usr_admin_master' ? 'selected' : ''}>Admin</option>
-                <option value="usr_staff_hemanthi" ${operationsUserFilter === 'usr_staff_hemanthi' ? 'selected' : ''}>Miss Hemanthi</option>
-                <option value="usr_staff_insaaf" ${operationsUserFilter === 'usr_staff_insaaf' ? 'selected' : ''}>Insaaf</option>
-                <option value="usr_staff_editor" ${operationsUserFilter === 'usr_staff_editor' ? 'selected' : ''}>Staff Editor</option>
-                <option value="usr_staff_viewer" ${operationsUserFilter === 'usr_staff_viewer' ? 'selected' : ''}>Staff Viewer</option>
+                ${getOperationsUserFilterOptions(operationsUserFilter)}
               </select>
             </div>
           ` : ''}
@@ -2901,8 +2985,8 @@ function getAvailableRequesters() {
     }
   });
   if (currentUser && currentUser.fullName) set.add(currentUser.fullName);
-  if (typeof systemUsers !== 'undefined' && Array.isArray(systemUsers)) {
-    systemUsers.forEach(u => {
+  if (Array.isArray(usersList)) {
+    usersList.forEach(u => {
       if (u.fullName) set.add(u.fullName);
     });
   }
@@ -2981,6 +3065,42 @@ function openAddOperationModal() {
   const availableRequesters = getAvailableRequesters();
   const availableWorkstreams = getAvailableWorkstreams();
 
+  const isPrivileged = isAdmin() || (currentUser && ['director', 'admin'].includes(currentUser.role));
+  let ownerOptionsHtml = '';
+  if (isPrivileged) {
+    const userMap = new Map();
+    if (Array.isArray(usersList)) {
+      usersList.forEach(u => {
+        if (u && u.id) userMap.set(u.id, { id: u.id, fullName: u.fullName || u.username || u.id });
+      });
+    }
+    const defaultAccounts = [
+      { id: 'usr_dir_master', fullName: 'Executive Director' },
+      { id: 'usr_admin_master', fullName: 'System Administrator' },
+      { id: 'usr_admin_zaharan', fullName: 'Muhammad Zaharan' },
+      { id: 'usr_dir_shameel', fullName: 'Mohamed Shaameel Mohideen' },
+      { id: 'usr_dir_hameez', fullName: 'Mohamed Hussain Kariapper Hameez' },
+      { id: 'usr_staff_hemanthi', fullName: 'Miss Hemanthi' },
+      { id: 'usr_staff_insaaf', fullName: 'Insaaf' },
+      { id: 'usr_staff_editor', fullName: 'Staff Member (Editor)' },
+      { id: 'usr_staff_viewer', fullName: 'Staff Member (Viewer)' },
+      { id: 'usr_bcc9abca', fullName: 'Bilal Mohideen' }
+    ];
+    defaultAccounts.forEach(da => {
+      if (!userMap.has(da.id)) userMap.set(da.id, da);
+    });
+
+    const sortedUsers = Array.from(userMap.values()).sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+    let selectedOwnerId = (currentUser ? currentUser.id : 'usr_admin_zaharan');
+    if (operationsUserFilter && operationsUserFilter !== 'all' && operationsUserFilter !== 'me') {
+      selectedOwnerId = operationsUserFilter;
+    }
+
+    ownerOptionsHtml = sortedUsers.map(u => 
+      `<option value="${escapeHtml(u.id)}" ${u.id === selectedOwnerId ? 'selected' : ''}>${escapeHtml(u.fullName)}</option>`
+    ).join('');
+  }
+
   const requesterOptionsHtml = availableRequesters.map(r => 
     `<option value="${r.replace(/"/g, '&quot;')}" ${r.toLowerCase() === defaultRequester.toLowerCase() ? 'selected' : ''}>${r.replace(/</g, '&lt;')}</option>`
   ).join('');
@@ -3006,6 +3126,18 @@ function openAddOperationModal() {
           <label class="block font-semibold text-slate-700 mb-1">Task / Procurement Item *</label>
           <input type="text" id="mOpsTitle" required placeholder="e.g. Purchase Heavy-duty Stapler & Pins" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
         </div>
+
+        ${isPrivileged ? `
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Assign To / Deliverable Workspace *</span>
+              <span class="text-[10px] font-normal text-slate-400">User's workspace where this item is tracked</span>
+            </label>
+            <select id="mOpsOwnerUser" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer">
+              ${ownerOptionsHtml}
+            </select>
+          </div>
+        ` : ''}
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -3131,6 +3263,11 @@ async function submitAddOperation(e) {
     notes: document.getElementById('mOpsNotes').value.trim()
   };
 
+  const ownerSelect = document.getElementById('mOpsOwnerUser');
+  if (ownerSelect && ownerSelect.value) {
+    payload.userId = ownerSelect.value;
+  }
+
   try {
     const res = await fetch('/api/operations', {
       method: 'POST',
@@ -3163,6 +3300,39 @@ function openEditOperationModal(taskId) {
 
   const availableRequesters = getAvailableRequesters();
   const availableWorkstreams = getAvailableWorkstreams();
+
+  const isPrivileged = isAdmin() || (currentUser && ['director', 'admin'].includes(currentUser.role));
+  let editOwnerOptionsHtml = '';
+  if (isPrivileged) {
+    const userMap = new Map();
+    if (Array.isArray(usersList)) {
+      usersList.forEach(u => {
+        if (u && u.id) userMap.set(u.id, { id: u.id, fullName: u.fullName || u.username || u.id });
+      });
+    }
+    const defaultAccounts = [
+      { id: 'usr_dir_master', fullName: 'Executive Director' },
+      { id: 'usr_admin_master', fullName: 'System Administrator' },
+      { id: 'usr_admin_zaharan', fullName: 'Muhammad Zaharan' },
+      { id: 'usr_dir_shameel', fullName: 'Mohamed Shaameel Mohideen' },
+      { id: 'usr_dir_hameez', fullName: 'Mohamed Hussain Kariapper Hameez' },
+      { id: 'usr_staff_hemanthi', fullName: 'Miss Hemanthi' },
+      { id: 'usr_staff_insaaf', fullName: 'Insaaf' },
+      { id: 'usr_staff_editor', fullName: 'Staff Member (Editor)' },
+      { id: 'usr_staff_viewer', fullName: 'Staff Member (Viewer)' },
+      { id: 'usr_bcc9abca', fullName: 'Bilal Mohideen' }
+    ];
+    defaultAccounts.forEach(da => {
+      if (!userMap.has(da.id)) userMap.set(da.id, da);
+    });
+
+    const sortedUsers = Array.from(userMap.values()).sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+    const taskOwnerId = task.userId || (currentUser ? currentUser.id : 'usr_admin_zaharan');
+
+    editOwnerOptionsHtml = sortedUsers.map(u =>
+      `<option value="${escapeHtml(u.id)}" ${u.id === taskOwnerId ? 'selected' : ''}>${escapeHtml(u.fullName)}</option>`
+    ).join('');
+  }
 
   if (currentRequester && !availableRequesters.some(r => r.toLowerCase() === currentRequester.toLowerCase())) {
     availableRequesters.unshift(currentRequester);
@@ -3200,6 +3370,18 @@ function openEditOperationModal(taskId) {
           <label class="block font-semibold text-slate-700 mb-1">Task / Procurement Item *</label>
           <input type="text" id="mEditOpsTitle" required value="${task.title || ''}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
         </div>
+
+        ${isPrivileged ? `
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Assign To / Deliverable Workspace</span>
+              <span class="text-[10px] font-normal text-slate-400">User's workspace where this item is tracked</span>
+            </label>
+            <select id="mEditOpsOwnerUser" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 cursor-pointer">
+              ${editOwnerOptionsHtml}
+            </select>
+          </div>
+        ` : ''}
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
@@ -3324,6 +3506,11 @@ async function submitEditOperation(e, taskId) {
     estimatedCost: document.getElementById('mEditOpsCost').value.trim(),
     notes: document.getElementById('mEditOpsNotes').value.trim()
   };
+
+  const editOwnerSelect = document.getElementById('mEditOpsOwnerUser');
+  if (editOwnerSelect && editOwnerSelect.value) {
+    payload.userId = editOwnerSelect.value;
+  }
 
   try {
     const res = await fetch(`/api/operations/${taskId}`, {
@@ -3797,13 +3984,7 @@ function renderOperationsReportStudio() {
             <div>
               <label class="block text-[11px] font-semibold text-slate-600 mb-1">Report Scope:</label>
               <select onchange="setOpsReportScope(this.value)" class="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:outline-none focus:border-blue-500 cursor-pointer">
-                <option value="me" ${opsReportState.userScope === 'me' ? 'selected' : ''}>👤 My Personal Tasks</option>
-                <option value="all" ${opsReportState.userScope === 'all' ? 'selected' : ''}>👥 All Team Tasks (Company-wide)</option>
-                <option value="usr_admin_zaharan" ${opsReportState.userScope === 'usr_admin_zaharan' ? 'selected' : ''}>Muhammad Zaharan</option>
-                <option value="usr_dir_master" ${opsReportState.userScope === 'usr_dir_master' ? 'selected' : ''}>Executive Director</option>
-                <option value="usr_admin_master" ${opsReportState.userScope === 'usr_admin_master' ? 'selected' : ''}>Admin</option>
-                <option value="usr_staff_hemanthi" ${opsReportState.userScope === 'usr_staff_hemanthi' ? 'selected' : ''}>Miss Hemanthi</option>
-                <option value="usr_staff_insaaf" ${opsReportState.userScope === 'usr_staff_insaaf' ? 'selected' : ''}>Insaaf</option>
+                ${getOperationsUserFilterOptions(opsReportState.userScope, true)}
               </select>
             </div>
           ` : `

@@ -1793,6 +1793,34 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     return u
         return None
 
+    def resolve_scoped_operations(self, for_user, user):
+        sync_users_from_disk()
+        sync_operations_from_disk()
+        role = user.get("role", "staff")
+        if for_user and role in ["director", "admin"]:
+            if for_user.lower() == "all":
+                return list(OPERATIONS)
+            target_u = next((u for u in USERS if u.get("id") == for_user or u.get("username").lower() == for_user.lower()), None)
+            target_id = target_u.get("id") if target_u else for_user
+            target_uname = target_u.get("username").lower() if target_u else for_user.lower()
+            target_fname = target_u.get("fullName", "").lower() if target_u else ""
+            return [
+                t for t in OPERATIONS
+                if t.get("userId") == target_id
+                or (t.get("ownerUsername") and t.get("ownerUsername").lower() == target_uname)
+                or (target_fname and t.get("assignedTo") and t.get("assignedTo").lower() == target_fname)
+            ]
+        else:
+            u_id = user.get("id")
+            u_uname = (user.get("username") or "").lower()
+            u_fname = (user.get("fullName") or "").lower()
+            return [
+                t for t in OPERATIONS
+                if t.get("userId") == u_id
+                or (t.get("ownerUsername") and t.get("ownerUsername").lower() == u_uname)
+                or (u_fname and t.get("assignedTo") and t.get("assignedTo").lower() == u_fname)
+            ]
+
     def require_permission(self, module, required_level="editor"):
         user = self.get_auth_user()
         if not user:
@@ -1996,18 +2024,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             month_param = query.get("month", [""])[0].strip().lower()
             year_param = query.get("year", [""])[0].strip().lower()
             for_user = query.get("forUser", [""])[0]
-            role = user.get("role", "staff")
 
-            # User scoping: Director & Admin can inspect all or specific users;
-            # by default (and always for staff), return strictly the user's personal tasks.
-            if for_user and role in ["director", "admin"]:
-                if for_user.lower() == "all":
-                    base_tasks = list(OPERATIONS)
-                else:
-                    base_tasks = [t for t in OPERATIONS if t.get("userId") == for_user or t.get("ownerUsername") == for_user]
-            else:
-                user_tasks = [t for t in OPERATIONS if t.get("userId") == user.get("id") or t.get("ownerUsername") == user.get("username")]
-                base_tasks = user_tasks
+            base_tasks = self.resolve_scoped_operations(for_user, user)
 
             filtered = base_tasks
             if search:
@@ -2045,16 +2063,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             sync_operations_from_disk()
 
             for_user = query.get("forUser", [""])[0]
-            role = user.get("role", "staff")
-
-            if for_user and role in ["director", "admin"]:
-                if for_user.lower() == "all":
-                    base_tasks = list(OPERATIONS)
-                else:
-                    base_tasks = [t for t in OPERATIONS if t.get("userId") == for_user or t.get("ownerUsername") == for_user]
-            else:
-                user_tasks = [t for t in OPERATIONS if t.get("userId") == user.get("id") or t.get("ownerUsername") == user.get("username")]
-                base_tasks = user_tasks
+            base_tasks = self.resolve_scoped_operations(for_user, user)
 
             total = len(base_tasks)
             pending = sum(1 for t in base_tasks if t.get("status") == "Pending")
@@ -2086,16 +2095,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             sync_operations_from_disk()
 
             for_user = query.get("forUser", [""])[0]
-            role = user.get("role", "staff")
-
-            if for_user and role in ["director", "admin"]:
-                if for_user.lower() == "all":
-                    base_tasks = list(OPERATIONS)
-                else:
-                    base_tasks = [t for t in OPERATIONS if t.get("userId") == for_user or t.get("ownerUsername") == for_user]
-            else:
-                user_tasks = [t for t in OPERATIONS if t.get("userId") == user.get("id") or t.get("ownerUsername") == user.get("username")]
-                base_tasks = user_tasks
+            base_tasks = self.resolve_scoped_operations(for_user, user)
 
             period_type = query.get("periodType", ["monthly"])[0]
             date_param = query.get("date", [""])[0]
@@ -2120,7 +2120,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 search_param=search_param
             )
 
-            report_data["userScope"] = for_user if (for_user and role in ["director", "admin"]) else "me"
+            report_data["userScope"] = for_user if (for_user and user.get("role") in ["director", "admin"]) else "me"
             report_data["generatedByUser"] = {
                 "id": user.get("id"),
                 "username": user.get("username"),
@@ -2722,17 +2722,30 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             user = self.require_permission("operations", "editor")
             if not user: return
             sync_operations_from_disk()
+            sync_users_from_disk()
 
-            user_tasks = [t for t in OPERATIONS if t.get("userId") == user.get("id")]
+            target_user_id = user.get("id")
+            target_username = user.get("username")
+            target_fullname = user.get("fullName", "Self")
+
+            req_user_id = body.get("userId")
+            if req_user_id and user.get("role") in ["director", "admin"]:
+                tu = next((u for u in USERS if u.get("id") == req_user_id or u.get("username").lower() == str(req_user_id).lower()), None)
+                if tu:
+                    target_user_id = tu.get("id")
+                    target_username = tu.get("username")
+                    target_fullname = tu.get("fullName", target_username)
+
+            user_tasks = [t for t in OPERATIONS if t.get("userId") == target_user_id]
             new_no = max([t.get("no", 0) for t in user_tasks] or [0]) + 1
             new_task = {
                 "id": f"ops_{uuid.uuid4().hex[:6]}",
                 "no": new_no,
-                "userId": user.get("id"),
-                "ownerUsername": user.get("username"),
+                "userId": target_user_id,
+                "ownerUsername": target_username,
                 "title": body.get("title", "Untitled Task"),
                 "requestedBy": body.get("requestedBy", user.get("fullName", "Self")),
-                "assignedTo": body.get("assignedTo", user.get("fullName", "Self")),
+                "assignedTo": body.get("assignedTo", target_fullname),
                 "workstream": body.get("workstream", "Office Operations"),
                 "type": body.get("type", "Operational Task"),
                 "taskedDate": body.get("taskedDate", time.strftime("%d-%b-%Y")),
@@ -3028,6 +3041,16 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             if user.get("role") not in ["director", "admin"] and target.get("userId") != user.get("id"):
                 self.send_json({"error": "Access Denied: You can only edit your own tasks"}, 403)
                 return
+
+            if user.get("role") in ["director", "admin"] and "userId" in body:
+                req_uid = body["userId"]
+                sync_users_from_disk()
+                matched_u = next((u for u in USERS if u.get("id") == req_uid or u.get("username") == req_uid), None)
+                if matched_u:
+                    target["userId"] = matched_u.get("id")
+                    target["ownerUsername"] = matched_u.get("username")
+                    if "assignedTo" not in body or not body.get("assignedTo"):
+                        target["assignedTo"] = matched_u.get("fullName") or matched_u.get("username")
 
             for key in ["title", "requestedBy", "assignedTo", "workstream", "type", "taskedDate", "completedDate", "status", "priority", "estimatedCost", "notes"]:
                 if key in body:
