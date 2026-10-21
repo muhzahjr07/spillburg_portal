@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-20T12:05:54Z",
+  "exportTimestamp": "2026-10-21T04:46:21Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -816,7 +816,7 @@
       "no": 39,
       "userId": "usr_admin_zaharan",
       "ownerUsername": "zaharan",
-      "title": "Transfer of All Domains",
+      "title": "Transfer of All Domains & Hosting",
       "requestedBy": "Mr. Shameel",
       "assignedTo": "Muhammad Zaharan",
       "workstream": "Operational Task",
@@ -826,7 +826,7 @@
       "status": "In Progress",
       "priority": "Medium",
       "estimatedCost": "",
-      "notes": "Transfer all domains from firzan to company email."
+      "notes": "Transfer all domains and hostings from firzan to company email."
     },
     {
       "id": "ops_7986ba",
