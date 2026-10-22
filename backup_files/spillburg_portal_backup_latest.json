@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-22T10:37:21Z",
+  "exportTimestamp": "2026-10-22T10:38:38Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -2019,7 +2019,7 @@
             "shortName": "Kushani Amanda",
             "position": "QA ENGINEER",
             "gbpSalary": 1539.15,
-            "workDays": "17 D",
+            "workDays": "",
             "earnedGbp": 872.19,
             "epf12Gbp": 104,
             "etf3Gbp": 26,
@@ -2030,11 +2030,13 @@
             "tinNo": "108022086",
             "idNo": "908114167V",
             "dateJoined": "14.09.2026",
-            "specialAllowance": 0,
+            "specialAllowance": 0.0,
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 44155
+            "apit": 44155.0,
+            "lkrSalary": 0.0,
+            "earnedLkr": 0.0
           }
         ]
       }
