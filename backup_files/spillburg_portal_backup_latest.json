@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-22T10:30:53Z",
+  "exportTimestamp": "2026-10-22T10:37:21Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1196,8 +1196,8 @@
       "workstream": "Office Operations",
       "type": "Operational Task",
       "taskedDate": "22-Oct-2026",
-      "completedDate": "",
-      "status": "Pending",
+      "completedDate": "22-Oct-2026",
+      "status": "Completed",
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Apply to Workshop on Recent Changes to Taxation on 23rd October 2026 and send a google calendar invite"
