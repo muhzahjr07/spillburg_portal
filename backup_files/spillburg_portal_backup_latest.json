@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-22T10:38:55Z",
+  "exportTimestamp": "2026-10-22T10:39:23Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -2020,7 +2020,7 @@
             "position": "QA ENGINEER",
             "gbpSalary": 1539.15,
             "workDays": "",
-            "earnedGbp": 0.0,
+            "earnedGbp": 1539.15,
             "epf12Gbp": 104,
             "etf3Gbp": 26,
             "totalGbp": 1002.19,
