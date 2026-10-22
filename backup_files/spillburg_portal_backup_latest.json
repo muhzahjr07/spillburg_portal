@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-22T06:25:56Z",
+  "exportTimestamp": "2026-10-22T06:45:37Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1150,6 +1150,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "need to create only after creation of logos"
+    },
+    {
+      "id": "ops_51d7fb",
+      "no": 60,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Company Profile For Spillburg Logistics 1",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Designing & Editing",
+      "type": "Operational Task",
+      "taskedDate": "22-Oct-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "create a unique Company Profile For Spillburg Logistics 1"
     }
   ],
   "payroll": {
