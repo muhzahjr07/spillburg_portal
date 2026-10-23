@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-23T10:24:06Z",
+  "exportTimestamp": "2026-10-23T10:24:55Z",
   "storageLocation": "C:\\Users\\User\\Desktop\\Spillburg Admin\\projects\\company_portal\\data",
   "users": [
     {
@@ -1289,10 +1289,16 @@
         "authorizedCompany": "Spillburg Holdings (pvt)Ltd",
         "checkedBy": "Hemanthi Basnayake",
         "checkedTitle": "Accountant",
-        "payrollYearPeriod": "2026-2027"
+        "payrollYearPeriod": "2026-2027",
+        "parentGroup": "Apadmi Group Ltd",
+        "parentAddress": "Manchester,\nUnited Kingdom.",
+        "epfRegNo": "8483/C",
+        "etfRegNo": "ETF-66291",
+        "foreignCurrency": "GBP",
+        "swiftCode": "NTBLLKLX"
       }
     ],
-    "activePeriodId": "period_8f9a05",
+    "activePeriodId": "period_2026_09",
     "periods": [
       {
         "id": "period_2026_09",
@@ -1565,7 +1571,13 @@
             "loan": 0,
             "apit": 44155
           }
-        ]
+        ],
+        "invoiceNo": "INV-2026-09-01",
+        "bankCharges": 50.0,
+        "epfRegNo": "8483/C",
+        "etfRegNo": "ETF-66291",
+        "epfChequeNo": "CHQ-890214",
+        "etfChequeNo": "ETF-CHQ-7721"
       },
       {
         "id": "period_2026_08",
@@ -2113,7 +2125,13 @@
             "loan": 0.0,
             "apit": null
           }
-        ]
+        ],
+        "invoiceNo": "INV-2026-10-01",
+        "bankCharges": 50.0,
+        "epfRegNo": "8483/C",
+        "etfRegNo": "ETF-66291",
+        "epfChequeNo": "CHQ-890215",
+        "etfChequeNo": "ETF-CHQ-7722"
       }
     ]
   },
