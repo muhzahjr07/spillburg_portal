@@ -673,7 +673,7 @@ span.flatpickr-weekday {
 .staff-cost-sheet {
   position: relative;
   min-height: 1140px;
-  padding: 125px 60px 110px 60px;
+  padding: 135px 55px 95px 55px;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   line-height: 1.45;
@@ -688,7 +688,7 @@ span.flatpickr-weekday {
 .staff-cost-sheet.no-letterhead {
   background-image: none !important;
   background-color: #ffffff !important;
-  padding: 35px 60px;
+  padding: 40px 55px;
 }
 
 .staff-cost-main-table {
@@ -711,98 +711,107 @@ span.flatpickr-weekday {
   vertical-align: middle;
 }
 
-/* EPF Form C Presentation (Official Central Bank of Sri Lanka Form C) */
-.form-c-container {
-  width: 100%;
-  max-width: 1060px;
-  margin: 0 auto;
-  background: #ffffff;
-  border: 1px solid #94a3b8;
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-  padding: 16px 20px;
-  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-  font-size: 10px;
-  color: #000000;
-  box-sizing: border-box;
+/* Portrait Government Form Sheets (Official Statutory Form C & Form R-4 Overlays) */
+.form-portrait-scroll-wrapper {
+  overflow-x: auto;
+  display: flex;
+  justify-content: center;
+  padding: 16px 8px 32px 8px;
+  background: #e2e8f0;
+  border-radius: 14px;
 }
 
-.form-c-legal-sheet {
-  background: #ffffff;
-  color: #000000;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.form-c-legal-table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1.5px solid #000;
-  font-size: 9.5px;
-}
-
-.form-c-legal-table th {
-  border: 1px solid #000;
-  background-color: #f1f5f9;
-  padding: 3.5px 5px;
-  text-align: center;
-  font-weight: 700;
-  vertical-align: middle;
-  color: #000;
-}
-
-.form-c-legal-table td {
-  border: 1px solid #000;
-  padding: 2.8px 5px;
-  vertical-align: middle;
-  color: #000;
-}
-
-/* ETF Form R4 Presentation (Official Employees' Trust Fund Board Continuous Form) */
-.form-r4-container {
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
-  background: #ffffff;
-  border: 1px solid #94a3b8;
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-  padding: 18px 22px;
-  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-  font-size: 10px;
-  color: #000000;
-  box-sizing: border-box;
+.form-c-portrait-sheet {
   position: relative;
-}
-
-.form-r4-legal-sheet {
-  background: #ffffff;
-  color: #000000;
-  width: 100%;
+  width: 800px;
+  height: 1035px;
+  background-image: url('/public/form_c_page1.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center top;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  background-color: #ffffff;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
-.form-r4-legal-table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1.5px solid #000;
-  font-size: 9px;
+.form-r4-portrait-sheet {
+  position: relative;
+  width: 800px;
+  height: 926px;
+  background-image: url('/public/form_r4_page1.png');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center top;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 
-.form-r4-legal-table th {
-  border: 1px solid #000;
-  background-color: #f1f5f9;
-  padding: 3px 5px;
-  text-align: center;
+.form-overlay-input {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed rgba(37, 99, 235, 0.35);
+  background: rgba(255, 255, 255, 0.55);
+  font-family: 'Courier New', Courier, monospace;
   font-weight: 700;
-  vertical-align: middle;
-  color: #000;
+  font-size: 11px;
+  color: #0f172a;
+  padding: 0 3px;
+  outline: none;
+  transition: all 0.15s ease;
+  z-index: 5;
 }
 
-.form-r4-legal-table td {
-  border: 1px solid #000;
-  padding: 2.5px 5px;
-  vertical-align: middle;
-  color: #000;
+.form-overlay-input:hover {
+  border-color: #2563eb;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.form-overlay-input:focus {
+  border: 1.5px solid #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+  z-index: 20;
+}
+
+.form-overlay-textarea {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed rgba(37, 99, 235, 0.35);
+  background: rgba(255, 255, 255, 0.55);
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 700;
+  font-size: 11px;
+  color: #0f172a;
+  padding: 4px;
+  resize: none;
+  outline: none;
+  line-height: 1.35;
+  transition: all 0.15s ease;
+  z-index: 5;
+}
+
+.form-overlay-textarea:hover {
+  border-color: #2563eb;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.form-overlay-textarea:focus {
+  border: 1.5px solid #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+  z-index: 20;
+}
+
+/* Staff cost letterhead helpers */
+.staff-cost-sheet .plain-paper-only {
+  display: none !important;
+}
+.staff-cost-sheet.no-letterhead .plain-paper-only {
+  display: block !important;
 }
 
