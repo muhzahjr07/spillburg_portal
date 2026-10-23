@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-23T05:03:47Z",
+  "exportTimestamp": "2026-10-23T05:09:34Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1235,6 +1235,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Create a shared calendar with Mr. Shaameel to schedule events and appointments"
+    },
+    {
+      "id": "ops_35f1a6",
+      "no": 65,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "EPF, ETF Letter and Client Cost Letter Generation in Spillburg Portal",
+      "requestedBy": "Miss. Hemanthi",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Designing & Editing",
+      "type": "Operational Task",
+      "taskedDate": "22-Oct-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Create EPF, ETF Letter and Client Cost Letter generation in Spillburg Portal"
     }
   ],
   "payroll": {
