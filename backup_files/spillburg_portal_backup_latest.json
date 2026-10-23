@@ -1,13 +1,8 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-<<<<<<< HEAD
-  "exportTimestamp": "2026-10-23T10:24:55Z",
-  "storageLocation": "C:\\Users\\User\\Desktop\\Spillburg Admin\\projects\\company_portal\\data",
-=======
-  "exportTimestamp": "2026-10-23T10:17:57Z",
+  "exportTimestamp": "2026-10-23T11:07:55Z",
   "storageLocation": "/opt/render/project/src/data",
->>>>>>> 4296bcb1d8bf7843225b4b9e55ee222c32db5916
   "users": [
     {
       "id": "usr_dir_master",
@@ -1137,7 +1132,7 @@
       "status": "Pending",
       "priority": "Medium",
       "estimatedCost": "",
-      "notes": "Cordinate with Anisa and create a website for slfbc\nNotes - SL FR - Localization\nwhen doing the srii lanka france business council website check MEDEF International,  Business France India, Sri Lanka embassy in France,  IFCCI websited"
+      "notes": "Cordinate with Anisa and create a website for slfbc\nNotes - SL FR - Localization"
     },
     {
       "id": "ops_af7402",
@@ -1253,27 +1248,10 @@
       "type": "Operational Task",
       "taskedDate": "22-Oct-2026",
       "completedDate": "",
-      "status": "In Progress",
+      "status": "Pending",
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Create EPF, ETF Letter and Client Cost Letter generation in Spillburg Portal"
-    },
-    {
-      "id": "ops_7722a7",
-      "no": 66,
-      "userId": "usr_admin_zaharan",
-      "ownerUsername": "zaharan",
-      "title": "Attanagala Waste Management Report",
-      "requestedBy": "Mr. Azad",
-      "assignedTo": "Muhammad Zaharan",
-      "workstream": "Designing & Editing",
-      "type": "Operational Task",
-      "taskedDate": "23-Oct-2026",
-      "completedDate": "23-Oct-2026",
-      "status": "Completed",
-      "priority": "Low",
-      "estimatedCost": "",
-      "notes": "create a report on Attanagala Waste Management based on images and raw data."
     }
   ],
   "payroll": {
@@ -1294,13 +1272,7 @@
         "authorizedCompany": "Spillburg Holdings (pvt)Ltd",
         "checkedBy": "Hemanthi Basnayake",
         "checkedTitle": "Accountant",
-        "payrollYearPeriod": "2026-2027",
-        "parentGroup": "Apadmi Group Ltd",
-        "parentAddress": "Manchester,\nUnited Kingdom.",
-        "epfRegNo": "8483/C",
-        "etfRegNo": "ETF-66291",
-        "foreignCurrency": "GBP",
-        "swiftCode": "NTBLLKLX"
+        "payrollYearPeriod": "2026-2027"
       }
     ],
     "activePeriodId": "period_8f9a05",
@@ -1576,13 +1548,7 @@
             "loan": 0,
             "apit": 44155
           }
-        ],
-        "invoiceNo": "INV-2026-09-01",
-        "bankCharges": 50.0,
-        "epfRegNo": "8483/C",
-        "etfRegNo": "ETF-66291",
-        "epfChequeNo": "CHQ-890214",
-        "etfChequeNo": "ETF-CHQ-7721"
+        ]
       },
       {
         "id": "period_2026_08",
@@ -2077,7 +2043,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 117347.0
+            "apit": 119777
           },
           {
             "id": "emp_696168",
@@ -2130,17 +2096,7 @@
             "loan": 0.0,
             "apit": null
           }
-<<<<<<< HEAD
-        ],
-        "invoiceNo": "INV-2026-10-01",
-        "bankCharges": 50.0,
-        "epfRegNo": "8483/C",
-        "etfRegNo": "ETF-66291",
-        "epfChequeNo": "CHQ-890215",
-        "etfChequeNo": "ETF-CHQ-7722"
-=======
         ]
->>>>>>> 4296bcb1d8bf7843225b4b9e55ee222c32db5916
       }
     ]
   },
