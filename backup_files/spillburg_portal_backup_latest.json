@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-23T09:24:07Z",
+  "exportTimestamp": "2026-10-23T10:11:23Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -2060,7 +2060,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 119777
+            "apit": 117347.0
           },
           {
             "id": "emp_696168",
