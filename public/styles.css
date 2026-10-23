@@ -657,4 +657,153 @@ span.flatpickr-weekday {
   }
 }
 
+/* Staff Cost Summary Sheet (Matching Staff cost summary.pdf on letterhead) */
+.staff-cost-container {
+  width: 100%;
+  max-width: 840px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.staff-cost-sheet {
+  position: relative;
+  min-height: 1120px;
+  padding: 135px 58px 120px 58px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #111827;
+  background-image: url('/public/spillburg_letterhead.jpg');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center top;
+}
+
+.staff-cost-sheet.no-letterhead {
+  background-image: none !important;
+  background-color: #ffffff !important;
+  padding: 35px 58px;
+}
+
+.staff-cost-sheet table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 11px;
+}
+
+.staff-cost-sheet table th {
+  text-align: left;
+  padding: 4px 6px;
+  font-weight: 700;
+  border-top: 1px solid #000;
+  border-bottom: 1px solid #000;
+  color: #000;
+}
+
+.staff-cost-sheet table td {
+  padding: 2.8px 6px;
+  color: #111;
+  vertical-align: middle;
+}
+
+.staff-cost-sheet tr.total-row td {
+  border-top: 1px solid #000;
+  border-bottom: 3px double #000;
+  font-weight: 700;
+}
+
+/* EPF Form C Presentation */
+.form-c-container {
+  width: 100%;
+  max-width: 940px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  padding: 24px 28px;
+  font-family: "Calibri", "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  color: #000000;
+  box-sizing: border-box;
+}
+
+.form-c-header-box {
+  border: 1.5px solid #000;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.form-c-header-box td, .form-c-header-box th {
+  border: 1px solid #000;
+  padding: 3px 6px;
+}
+
+.form-c-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  border: 1.5px solid #000;
+  font-size: 11px;
+}
+
+.form-c-table th {
+  border: 1px solid #000;
+  background-color: #f8fafc;
+  padding: 4px 6px;
+  text-align: center;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.form-c-table td {
+  border: 1px solid #000;
+  padding: 3.5px 6px;
+  vertical-align: middle;
+}
+
+/* ETF Form R4 Presentation */
+.form-r4-container {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  padding: 24px 28px;
+  font-family: "Calibri", "Segoe UI", Arial, sans-serif;
+  font-size: 11px;
+  color: #000000;
+  box-sizing: border-box;
+}
+
+.form-r4-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  border: 1.5px solid #000;
+  font-size: 11px;
+}
+
+.form-r4-table th {
+  border: 1px solid #000;
+  background-color: #f8fafc;
+  padding: 4px 6px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.form-r4-table td {
+  border: 1px solid #000;
+  padding: 3.5px 6px;
+  vertical-align: middle;
+}
+
 

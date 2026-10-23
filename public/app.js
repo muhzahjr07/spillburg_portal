@@ -24,12 +24,21 @@ let selectedPayrollCompanyId = null;
 let currentPayrollSubTab = 'sheet'; // 'sheet', 'letter', 'slips', 'staff'
 let activePayslipEmployeeId = null;
 let bankLetterheadEnabled = true;
+let staffCostLetterheadEnabled = true;
 
 function toggleBankLetterhead(enabled) {
   bankLetterheadEnabled = !!enabled;
   const sheet = document.querySelector('.bank-letter-sheet');
   if (sheet) {
     sheet.classList.toggle('no-letterhead', !bankLetterheadEnabled);
+  }
+}
+
+function toggleStaffCostLetterhead(enabled) {
+  staffCostLetterheadEnabled = !!enabled;
+  const sheet = document.querySelector('.staff-cost-sheet');
+  if (sheet) {
+    sheet.classList.toggle('no-letterhead', !staffCostLetterheadEnabled);
   }
 }
 
@@ -3556,19 +3565,37 @@ async function deleteOperationTask(taskId) {
 }
 
 // ================= 2.1 OPERATIONS TRACKER REPORT GENERATOR =================
-let opsReportState = {
-  periodType: 'monthly', // 'daily', 'weekly', 'monthly', 'custom'
-  dailyDate: '15-Oct-2026',
-  weeklyDate: '15-Oct-2026',
-  monthlyMonth: 'oct',
-  monthlyYear: '2026',
-  customStart: '01-Oct-2026',
-  customEnd: '15-Oct-2026',
-  userScope: 'me',
-  workstream: '',
-  searchQuery: '',
-  activeTab: 'all' // 'all', 'tasked', 'completed', 'in_progress', 'pending'
-};
+function formatOpsReportStandardDate(d) {
+  if (!d || isNaN(d.getTime())) return '';
+  const day = String(d.getDate()).padStart(2, '0');
+  const mon = MONTH_NAMES[d.getMonth()];
+  const yr = d.getFullYear();
+  return `${day}-${mon}-${yr}`;
+}
+
+function getOpsReportDynamicInitialState() {
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const mon = MONTH_NAMES[now.getMonth()];
+  const yr = now.getFullYear();
+  const todayFormatted = `${day}-${mon}-${yr}`;
+  const firstDayMonth = `01-${mon}-${yr}`;
+  return {
+    periodType: 'daily', // 'daily', 'weekly', 'monthly', 'custom'
+    dailyDate: todayFormatted,
+    weeklyDate: todayFormatted,
+    monthlyMonth: (mon || 'oct').toLowerCase(),
+    monthlyYear: String(yr),
+    customStart: firstDayMonth,
+    customEnd: todayFormatted,
+    userScope: 'me',
+    workstream: '',
+    searchQuery: '',
+    activeTab: 'all' // 'all', 'tasked', 'completed', 'in_progress', 'pending'
+  };
+}
+
+let opsReportState = getOpsReportDynamicInitialState();
 
 function parseOpsReportDate(str) {
   if (!str) return null;
@@ -3602,17 +3629,9 @@ function parseOpsReportDate(str) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-function formatOpsReportStandardDate(d) {
-  if (!d || isNaN(d.getTime())) return '';
-  const day = String(d.getDate()).padStart(2, '0');
-  const mon = MONTH_NAMES[d.getMonth()];
-  const yr = d.getFullYear();
-  return `${day}-${mon}-${yr}`;
-}
-
 function getOpsReportPeriodBounds(state) {
-  const pType = state.periodType || 'monthly';
-  const today = new Date(2026, 9, 15); // Anchor to current active system date: 15-Oct-2026
+  const pType = state.periodType || 'daily';
+  const today = new Date(); // Dynamically anchor to current day
   let start, end, label, badge;
 
   if (pType === 'daily') {
@@ -3638,12 +3657,12 @@ function getOpsReportPeriodBounds(state) {
     label = `Custom Period Report (${formatOpsReportStandardDate(start)} to ${formatOpsReportStandardDate(end)})`;
     badge = `Custom Range: ${formatOpsReportStandardDate(start)} – ${formatOpsReportStandardDate(end)}`;
   } else { // monthly
-    const y = parseInt(state.monthlyYear || '2026', 10);
-    const mKey = (state.monthlyMonth || 'oct').toLowerCase();
-    const mIdx = MONTH_MAP[mKey] !== undefined ? MONTH_MAP[mKey] : 9;
+    const y = parseInt(state.monthlyYear || String(today.getFullYear()), 10);
+    const mKey = (state.monthlyMonth || MONTH_NAMES[today.getMonth()]).toLowerCase();
+    const mIdx = MONTH_MAP[mKey] !== undefined ? MONTH_MAP[mKey] : today.getMonth();
     start = new Date(y, mIdx, 1, 0, 0, 0, 0);
     end = new Date(y, mIdx + 1, 0, 23, 59, 59, 999);
-    const mName = FULL_MONTH_NAMES[mIdx] || 'October';
+    const mName = FULL_MONTH_NAMES[mIdx] || 'Current Month';
     label = `Monthly Operations Report – ${mName} ${y}`;
     badge = `${mName} ${y} (${formatOpsReportStandardDate(start)} – ${formatOpsReportStandardDate(end)})`;
   }
@@ -3780,11 +3799,13 @@ function openOperationsReportModal() {
   if (!opsReportState.userScope) {
     opsReportState.userScope = operationsUserFilter || 'me';
   }
+  const now = new Date();
+  const todayStr = formatOpsReportStandardDate(now);
   if (!opsReportState.dailyDate) {
-    opsReportState.dailyDate = '15-Oct-2026';
+    opsReportState.dailyDate = todayStr;
   }
   if (!opsReportState.weeklyDate) {
-    opsReportState.weeklyDate = '15-Oct-2026';
+    opsReportState.weeklyDate = todayStr;
   }
 
   const modalContent = document.getElementById('modalContent');
@@ -3822,8 +3843,45 @@ function renderOperationsReportStudio() {
   // Workstream options
   const workstreamList = [...new Set(operationsTasks.map(t => t.workstream).filter(Boolean))].sort();
 
-  // Extract available years
-  const availableYears = ['2026', '2025'];
+  // Dynamic date helpers for Quick filters
+  const now = new Date();
+  const todayStr = formatOpsReportStandardDate(now);
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  const yesterdayStr = formatOpsReportStandardDate(yesterday);
+  const twoDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2);
+  const twoDaysAgoStr = formatOpsReportStandardDate(twoDaysAgo);
+  const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+  const sevenDaysAgoStr = formatOpsReportStandardDate(sevenDaysAgo);
+
+  // Dynamic weekly bounds
+  const curDayOfWeek = (now.getDay() + 6) % 7; // 0=Mon, 6=Sun
+  const thisMon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - curDayOfWeek);
+  const thisSun = new Date(thisMon.getFullYear(), thisMon.getMonth(), thisMon.getDate() + 6);
+  const thisWeekLabel = `This Week (${thisMon.getDate()}-${thisSun.getDate()} ${MONTH_NAMES[thisSun.getMonth()]})`;
+
+  const lastMon = new Date(thisMon.getFullYear(), thisMon.getMonth(), thisMon.getDate() - 7);
+  const lastSun = new Date(lastMon.getFullYear(), lastMon.getMonth(), lastMon.getDate() + 6);
+  const lastWeekLabel = `Last Week (${lastMon.getDate()}-${lastSun.getDate()} ${MONTH_NAMES[lastSun.getMonth()]})`;
+
+  const prevMon = new Date(lastMon.getFullYear(), lastMon.getMonth(), lastMon.getDate() - 7);
+  const prevSun = new Date(prevMon.getFullYear(), prevMon.getMonth(), prevMon.getDate() + 6);
+  const prevWeekLabel = `2 Wks Ago (${prevMon.getDate()}-${prevSun.getDate()} ${MONTH_NAMES[prevSun.getMonth()]})`;
+
+  // Dynamic monthly & custom bounds
+  const startOfCurMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+  const curMonthKey = MONTH_NAMES[now.getMonth()].toLowerCase();
+  const curMonthName = FULL_MONTH_NAMES[now.getMonth()];
+  const curYear = now.getFullYear();
+  const curYearStr = String(curYear);
+  const prevMonthKey = MONTH_NAMES[startOfPrevMonth.getMonth()].toLowerCase();
+  const prevMonthName = FULL_MONTH_NAMES[startOfPrevMonth.getMonth()];
+  const prevMonthYearStr = String(startOfPrevMonth.getFullYear());
+  const thirtyDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+
+  // Extract available years dynamically
+  const availableYears = [String(curYear), String(curYear - 1), String(curYear - 2)];
 
   modalContent.innerHTML = `
     <div class="space-y-5 text-xs text-slate-800">
@@ -3905,10 +3963,10 @@ function renderOperationsReportStudio() {
               </div>
               <div class="flex items-center gap-1.5">
                 <span class="text-slate-400">Quick:</span>
-                <button type="button" onclick="setOpsReportDailyDate('15-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Today (15-Oct)</button>
-                <button type="button" onclick="setOpsReportDailyDate('14-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Yesterday</button>
-                <button type="button" onclick="setOpsReportDailyDate('09-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">09-Oct-2026</button>
-                <button type="button" onclick="setOpsReportDailyDate('04-Sep-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">04-Sep-2026</button>
+                <button type="button" onclick="setOpsReportDailyDate('${todayStr}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Today (${now.getDate()}-${MONTH_NAMES[now.getMonth()]})</button>
+                <button type="button" onclick="setOpsReportDailyDate('${yesterdayStr}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Yesterday</button>
+                <button type="button" onclick="setOpsReportDailyDate('${twoDaysAgoStr}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">${twoDaysAgoStr}</button>
+                <button type="button" onclick="setOpsReportDailyDate('${sevenDaysAgoStr}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">7 Days Ago</button>
               </div>
             </div>
           ` : (opsReportState.periodType === 'weekly' ? `
@@ -3922,10 +3980,10 @@ function renderOperationsReportStudio() {
               </div>
               <div class="flex items-center gap-1.5">
                 <span class="text-slate-400">Quick:</span>
-                <button type="button" onclick="setOpsReportWeeklyDate('15-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">This Week (12-18 Oct)</button>
-                <button type="button" onclick="setOpsReportWeeklyDate('08-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Last Week (05-11 Oct)</button>
-                <button type="button" onclick="setOpsReportWeeklyDate('01-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Week 1 Oct</button>
-                <button type="button" onclick="setOpsReportWeeklyDate('04-Sep-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Week 1 Sep</button>
+                <button type="button" onclick="setOpsReportWeeklyDate('${todayStr}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">${thisWeekLabel}</button>
+                <button type="button" onclick="setOpsReportWeeklyDate('${formatOpsReportStandardDate(lastMon)}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">${lastWeekLabel}</button>
+                <button type="button" onclick="setOpsReportWeeklyDate('${formatOpsReportStandardDate(prevMon)}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">${prevWeekLabel}</button>
+                <button type="button" onclick="setOpsReportWeeklyDate('${formatOpsReportStandardDate(startOfPrevMonth)}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Last Month</button>
               </div>
             </div>
           ` : (opsReportState.periodType === 'custom' ? `
@@ -3945,8 +4003,9 @@ function renderOperationsReportStudio() {
                 </div>
               </div>
               <div class="flex items-center gap-1.5">
-                <button type="button" onclick="setOpsReportCustom('01-Sep-2026', '30-Sep-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">September Full</button>
-                <button type="button" onclick="setOpsReportCustom('01-Oct-2026', '15-Oct-2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">October MTD</button>
+                <button type="button" onclick="setOpsReportCustom('${formatOpsReportStandardDate(startOfCurMonth)}', '${todayStr}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">${curMonthName} MTD</button>
+                <button type="button" onclick="setOpsReportCustom('${formatOpsReportStandardDate(startOfPrevMonth)}', '${formatOpsReportStandardDate(endOfPrevMonth)}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">${prevMonthName} Full</button>
+                <button type="button" onclick="setOpsReportCustom('${formatOpsReportStandardDate(thirtyDaysAgo)}', '${todayStr}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Last 30 Days</button>
               </div>
             </div>
           ` : `
@@ -3970,8 +4029,8 @@ function renderOperationsReportStudio() {
               </div>
               <div class="flex items-center gap-1.5">
                 <span class="text-slate-400">Quick:</span>
-                <button type="button" onclick="setOpsReportMonthly('oct', '2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">October 2026</button>
-                <button type="button" onclick="setOpsReportMonthly('sep', '2026')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">September 2026</button>
+                <button type="button" onclick="setOpsReportMonthly('${curMonthKey}', '${curYearStr}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">${curMonthName} ${curYearStr}</button>
+                <button type="button" onclick="setOpsReportMonthly('${prevMonthKey}', '${prevMonthYearStr}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">${prevMonthName} ${prevMonthYearStr}</button>
               </div>
             </div>
           `))}
@@ -6972,6 +7031,24 @@ async function renderPayroll(container) {
             <span>Staff Payroll Sheet (Dual Table)</span>
           </button>
 
+          <button onclick="switchPayrollSubTab('staffcost')" id="paytab-staffcost"
+            class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'staffcost' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+            <i data-lucide="receipt" class="w-3.5 h-3.5"></i>
+            <span>Staff Cost Summary (Recharge Invoice)</span>
+          </button>
+
+          <button onclick="switchPayrollSubTab('epf')" id="paytab-epf"
+            class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'epf' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+            <i data-lucide="landmark" class="w-3.5 h-3.5"></i>
+            <span>EPF Form C (Central Bank)</span>
+          </button>
+
+          <button onclick="switchPayrollSubTab('etf')" id="paytab-etf"
+            class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'etf' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+            <span>ETF Form R4 (Trust Fund)</span>
+          </button>
+
           <button onclick="switchPayrollSubTab('letter')" id="paytab-letter"
             class="px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition ${currentPayrollSubTab === 'letter' ? 'bg-teal-600 text-white shadow-sm' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
             <i data-lucide="mail" class="w-3.5 h-3.5"></i>
@@ -7008,7 +7085,7 @@ async function renderPayroll(container) {
 
 function switchPayrollSubTab(tab) {
   currentPayrollSubTab = tab;
-  ['sheet', 'letter', 'slips', 'staff'].forEach(t => {
+  ['sheet', 'staffcost', 'epf', 'etf', 'letter', 'slips', 'staff'].forEach(t => {
     const btn = document.getElementById(`paytab-${t}`);
     if (btn) {
       if (t === tab) {
@@ -7028,6 +7105,12 @@ function renderActivePayrollSubTab() {
 
   if (currentPayrollSubTab === 'sheet') {
     renderPayrollSheet(container);
+  } else if (currentPayrollSubTab === 'staffcost') {
+    renderStaffCostSummary(container);
+  } else if (currentPayrollSubTab === 'epf') {
+    renderEpfFormC(container);
+  } else if (currentPayrollSubTab === 'etf') {
+    renderEtfFormR4(container);
   } else if (currentPayrollSubTab === 'letter') {
     renderBankRequestLetter(container);
   } else if (currentPayrollSubTab === 'slips') {
@@ -7325,6 +7408,522 @@ function renderPayrollSheet(container) {
             </tbody>
           </table>
         `}
+
+      </div>
+
+    </div>
+  `;
+}
+
+// ---------------- 1B. STAFF COST SUMMARY (RECHARGE INVOICE) ----------------
+function renderStaffCostSummary(container) {
+  const p = activePayrollPeriod;
+  if (!p) {
+    container.innerHTML = '<div class="p-8 text-center text-slate-500">No active payroll period selected.</div>';
+    return;
+  }
+  const emps = p.employees || [];
+  const totals = p.totals || {};
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const foreignCurr = currentComp.foreignCurrency || 'GBP';
+  const currSign = foreignCurr === 'GBP' ? '£' : (foreignCurr === 'USD' ? '$' : (foreignCurr === 'EUR' ? '€' : foreignCurr + ' '));
+
+  let sumCost = 0;
+  let sumEpf12 = 0;
+  let sumEtf3 = 0;
+  let sumTotalCost = 0;
+
+  const empRows = emps.map((e, idx) => {
+    const cost = Number(e.earnedSalaryForeign || e.grossSalaryForeign || 0);
+    const epf12 = Number(e.epf12Foreign || (cost * 0.12));
+    const etf3 = Number(e.etf3Foreign || (cost * 0.03));
+    const totalCost = cost + epf12 + etf3;
+
+    sumCost += cost;
+    sumEpf12 += epf12;
+    sumEtf3 += etf3;
+    sumTotalCost += totalCost;
+
+    return {
+      no: idx + 1,
+      name: e.name,
+      cost,
+      epf12,
+      etf3,
+      totalCost
+    };
+  });
+
+  if (totals.sumEarnedForeign) sumCost = Number(totals.sumEarnedForeign);
+  if (totals.sumEpf12Foreign) sumEpf12 = Number(totals.sumEpf12Foreign);
+  if (totals.sumEtf3Foreign) sumEtf3 = Number(totals.sumEtf3Foreign);
+  if (totals.sumTotalCostForeign) sumTotalCost = Number(totals.sumTotalCostForeign);
+  else sumTotalCost = sumCost + sumEpf12 + sumEtf3;
+
+  const bankCharges = p.bankCharges !== undefined ? Number(p.bankCharges) : 50.00;
+  const grandTotalPayable = sumTotalCost + bankCharges;
+  const invoiceNo = p.invoiceNo || 'INV-2026-09-01';
+  const invoiceDate = p.letterDate || p.date || '30.09.2026';
+
+  container.innerHTML = `
+    <div class="space-y-4 fade-in">
+      
+      <!-- Toolbar -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="text-xs font-bold text-slate-800">Staff Cost Summary (Recharge Invoice)</h3>
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">${escapeHtml(invoiceNo)}</span>
+          </div>
+          <p class="text-[11px] text-slate-500">Official cross-border recharge invoice to ${escapeHtml(currentComp.parentGroup || 'Apadmi Group Ltd')} on Spillburg Letterhead</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Letterhead Toggle -->
+          <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition border border-slate-200">
+            <input type="checkbox" id="toggleStaffCostLetterheadPreview" ${staffCostLetterheadEnabled ? 'checked' : ''} onchange="toggleStaffCostLetterhead(this.checked)" class="rounded text-teal-600 focus:ring-teal-500">
+            <span>Use Letterhead</span>
+          </label>
+
+          <button onclick="printStaffCostSummary()"
+            class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            <span>Print Recharge Invoice</span>
+          </button>
+
+          <button onclick="exportStaffCostCsv()"
+            class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Export CSV</span>
+          </button>
+
+          <button onclick="openEditStaffCostModal()"
+            class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+            <span>Edit Invoice Details</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Visual Preview of Staff Cost Summary on Letterhead -->
+      <div class="staff-cost-container">
+        <div class="staff-cost-sheet ${staffCostLetterheadEnabled ? '' : 'no-letterhead'}">
+
+          <!-- Date -->
+          <div style="text-align: right; margin-bottom: 12px; font-weight: 600; font-size: 11px;">
+            Date: ${escapeHtml(invoiceDate)}
+          </div>
+
+          <!-- Addressee: Parent Group & Company -->
+          <div style="line-height: 1.4; margin-bottom: 20px;">
+            <div style="font-weight: 700; color: #0f172a; font-size: 13px;">${escapeHtml(currentComp.parentGroup || 'Apadmi Group Ltd')}</div>
+            <div style="font-weight: 600; color: #334155;">${escapeHtml(currentComp.name || 'Apadmi SL (Private) Limited')}</div>
+            <div style="color: #64748b; font-size: 11px;">${(currentComp.parentAddress || 'Manchester,\nUnited Kingdom.').split('\n').map(l => escapeHtml(l)).join('<br>')}</div>
+          </div>
+
+          <!-- Invoice Title / Subject -->
+          <div style="margin-bottom: 14px; padding-bottom: 6px; border-bottom: 1.5px solid #0f172a; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+              <div style="font-size: 13px; font-weight: 800; color: #0f172a; letter-spacing: 0.3px; text-transform: uppercase;">
+                INVOICE: RECHARGE OF STAFF COST FOR THE MONTH OF ${escapeHtml(p.month ? p.month.toUpperCase() : 'SEPTEMBER 2026')}
+              </div>
+              <div style="font-size: 10.5px; color: #475569; font-weight: 600; margin-top: 2px;">
+                Invoice Reference: <span style="font-family: monospace; color: #0f172a; font-weight: 700;">${escapeHtml(invoiceNo)}</span>
+              </div>
+            </div>
+            <div style="text-align: right; font-size: 11px; color: #475569;">
+              Currency: <span style="font-weight: 700; color: #0f172a;">${escapeHtml(foreignCurr)} (${currSign})</span>
+            </div>
+          </div>
+
+          <!-- Staff Cost Table -->
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 38px; text-align: center;">No</th>
+                <th>Employee Name</th>
+                <th style="text-align: right; width: 110px;">Cost (${currSign})</th>
+                <th style="text-align: right; width: 105px;">EPF 12% (${currSign})</th>
+                <th style="text-align: right; width: 95px;">ETF 3% (${currSign})</th>
+                <th style="text-align: right; width: 120px;">Total Cost (${currSign})</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${empRows.map(r => `
+                <tr>
+                  <td style="text-align: center; color: #64748b;">${r.no}</td>
+                  <td style="font-weight: 600; color: #0f172a;">${escapeHtml(r.name)}</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(r.cost, 2)}</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(r.epf12, 2)}</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(r.etf3, 2)}</td>
+                  <td style="text-align: right; font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums;">${formatMoney(r.totalCost, 2)}</td>
+                </tr>
+              `).join('')}
+
+              <tr class="total-row">
+                <td colspan="2" style="text-align: right; font-weight: 700; text-transform: uppercase; padding-right: 12px;">Total</td>
+                <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumCost, 2)}</td>
+                <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEpf12, 2)}</td>
+                <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEtf3, 2)}</td>
+                <td style="text-align: right; font-variant-numeric: tabular-nums; color: #0f172a;">${formatMoney(sumTotalCost, 2)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Settlement Account & Total Summary -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-top: 18px;">
+            <div style="flex: 1; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 14px; background-color: #f8fafc; font-size: 10.5px;">
+              <div style="font-weight: 700; color: #0f172a; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Remittance &amp; Banking Settlement Details</div>
+              <div style="line-height: 1.5; color: #334155;">
+                <div><strong>Account Name:</strong> ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')}</div>
+                <div><strong>Account Number:</strong> <span style="font-family: monospace; font-weight: 700;">${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')}</span></div>
+                <div><strong>Bank &amp; Branch:</strong> ${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC')} &bull; ${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')}</div>
+                <div><strong>Swift Code:</strong> <span style="font-family: monospace; font-weight: 700;">${escapeHtml(currentComp.swiftCode || 'NTBLLKLX')}</span></div>
+              </div>
+            </div>
+
+            <div style="width: 250px; border: 1.5px solid #0f172a; border-radius: 6px; padding: 10px 14px; background-color: #ffffff; font-size: 11px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 5px; color: #334155;">
+                <span>Staff Cost Total:</span>
+                <span style="font-weight: 600;">${currSign}${formatMoney(sumTotalCost, 2)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 6px; color: #334155; padding-bottom: 5px; border-bottom: 1px dashed #cbd5e1;">
+                <span>Bank Charges:</span>
+                <span style="font-weight: 600;">${currSign}${formatMoney(bankCharges, 2)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; color: #0f172a;">
+                <span>Total Amount Due:</span>
+                <span class="double-underline">${currSign}${formatMoney(grandTotalPayable, 2)}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Signatures -->
+          <div style="display: flex; justify-content: space-between; margin-top: 45px; padding: 0 20px;">
+            <div style="text-align: center;">
+              <div style="width: 170px; border-top: 1px solid #475569; margin-bottom: 5px;"></div>
+              <div style="font-weight: 700; color: #0f172a; font-size: 11px;">Prepared by</div>
+              <div style="font-size: 10px; color: #64748b;">Accountant</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="width: 170px; border-top: 1px solid #475569; margin-bottom: 5px;"></div>
+              <div style="font-weight: 700; color: #0f172a; font-size: 11px;">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
+              <div style="font-size: 10px; color: #64748b;">Director &middot; Spillburg Holdings</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
+// ---------------- 1C. EPF FORM C (CENTRAL BANK OF SRI LANKA) ----------------
+function renderEpfFormC(container) {
+  const p = activePayrollPeriod;
+  if (!p) {
+    container.innerHTML = '<div class="p-8 text-center text-slate-500">No active payroll period selected.</div>';
+    return;
+  }
+  const emps = p.employees || [];
+  const totals = p.totals || {};
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+
+  const epfRegNo = p.epfRegNo || currentComp.epfRegNo || '8483/C';
+  const epfChequeNo = p.epfChequeNo || 'CHQ-890214';
+  const remittanceDate = p.letterDate || p.date || '30.09.2026';
+
+  container.innerHTML = `
+    <div class="space-y-4 fade-in">
+      
+      <!-- Toolbar -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="text-xs font-bold text-slate-800">Employees' Provident Fund (Form "C")</h3>
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">Reg: ${escapeHtml(epfRegNo)}</span>
+          </div>
+          <p class="text-[11px] text-slate-500">Central Bank of Sri Lanka &bull; Monthly Contribution Return under EPF Act No. 15 of 1958</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="printEpfFormC()"
+            class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            <span>Print Form C (Landscape)</span>
+          </button>
+
+          <button onclick="exportEpfFormCCsv()"
+            class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Export CSV</span>
+          </button>
+
+          <button onclick="openEditEpfModal()"
+            class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+            <span>Edit EPF Details</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- EPF Form C Presentation -->
+      <div class="form-c-container overflow-x-auto">
+        <!-- Form C Official Header -->
+        <div style="text-align: center; margin-bottom: 14px; border-bottom: 2px solid #000; padding-bottom: 8px;">
+          <div style="font-size: 14px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
+            CENTRAL BANK OF SRI LANKA - EMPLOYEES' PROVIDENT FUND
+          </div>
+          <div style="font-size: 13px; font-weight: 700; margin-top: 2px;">
+            FORM "C" - MONTHLY CONTRIBUTION RETURN
+          </div>
+          <div style="font-size: 10px; color: #334155;">
+            (Under the provisions of the Employees' Provident Fund Act No. 15 of 1958 and amendments thereto)
+          </div>
+        </div>
+
+        <!-- Employer & Remittance Summary Box -->
+        <table class="form-c-header-box" style="margin-bottom: 12px; font-size: 11px;">
+          <tr>
+            <td style="width: 25%; font-weight: 700; background-color: #f8fafc;">Employer's EPF Reg. No:</td>
+            <td style="width: 25%; font-family: monospace; font-weight: 700; font-size: 12px; color: #1e3a8a;">${escapeHtml(epfRegNo)}</td>
+            <td style="width: 25%; font-weight: 700; background-color: #f8fafc;">Contribution Month &amp; Year:</td>
+            <td style="width: 25%; font-weight: 700;">${escapeHtml(p.month || 'September 2026')}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; background-color: #f8fafc;">Employer's Name:</td>
+            <td colspan="3" style="font-weight: 700;">${escapeHtml(currentComp.name || 'APADMI SL (PRIVATE) LIMITED')}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; background-color: #f8fafc;">Address of Employer:</td>
+            <td colspan="3">${escapeHtml(currentComp.address || 'Spillburg House, No 67/1, Borella, Colombo 08, Sri Lanka')}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; background-color: #f8fafc;">Cheque / Payment Ref:</td>
+            <td style="font-family: monospace; font-weight: 600;">${escapeHtml(epfChequeNo)}</td>
+            <td style="font-weight: 700; background-color: #f8fafc;">Total Remittance (20%):</td>
+            <td style="font-weight: 800; font-size: 12px; color: #047857;">Rs ${formatMoney(totals.sumEpf20Lkr, 2)}</td>
+          </tr>
+        </table>
+
+        <!-- Member Contributions Table -->
+        <table class="form-c-table">
+          <thead>
+            <tr>
+              <th style="width: 75px;">Member / EPF No.</th>
+              <th style="text-align: left;">Name of Member</th>
+              <th style="width: 120px;">National Identity Card (NIC)</th>
+              <th style="width: 125px; text-align: right;">Total Earnings (Rs)</th>
+              <th style="width: 125px; text-align: right;">Total Contribution 20% (Rs)</th>
+              <th style="width: 120px; text-align: right;">Employer 12% (Rs)</th>
+              <th style="width: 120px; text-align: right;">Member 8% (Rs)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${emps.map((e, idx) => {
+              const gross = e.grossSalaryLkr || 0;
+              const epf12 = e.epf12Lkr || (gross * 0.12);
+              const epf8 = e.epf8Lkr || (gross * 0.08);
+              const epf20 = e.epf20Lkr || (epf12 + epf8);
+              const memberNo = e.epfNo || e.memberNo || (idx + 1);
+              return `
+                <tr>
+                  <td style="text-align: center; font-family: monospace; font-weight: 600;">${escapeHtml(memberNo)}</td>
+                  <td style="font-weight: 600;">${escapeHtml(e.name)}</td>
+                  <td style="text-align: center; font-family: monospace;">${escapeHtml(e.idNo)}</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(gross, 2)}</td>
+                  <td style="text-align: right; font-weight: 600; font-variant-numeric: tabular-nums;">${formatMoney(epf20, 2)}</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(epf12, 2)}</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(epf8, 2)}</td>
+                </tr>
+              `;
+            }).join('')}
+
+            <tr style="background-color: #f1f5f9; font-weight: 800; border-top: 2px solid #000; border-bottom: 2px solid #000;">
+              <td colspan="3" style="text-align: right; padding-right: 12px; text-transform: uppercase;">Totals:</td>
+              <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(totals.sumGrossLkr, 2)}</td>
+              <td style="text-align: right; font-variant-numeric: tabular-nums; color: #047857;">${formatMoney(totals.sumEpf20Lkr, 2)}</td>
+              <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(totals.sumEpf12Lkr, 2)}</td>
+              <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(totals.sumEpf8Lkr, 2)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Statutory Certification Declaration -->
+        <div style="border: 1px solid #000; padding: 10px 14px; margin-top: 14px; font-size: 10.5px; background-color: #fafafa;">
+          <div style="font-weight: 700; margin-bottom: 3px;">DECLARATION BY EMPLOYER:</div>
+          <div style="line-height: 1.4; text-align: justify; margin-bottom: 24px;">
+            I certify that the information given above is correct and complete, and that the contributions remitted are in respect of all employees eligible to join the Employees' Provident Fund for the said period in accordance with the provisions of the Employees' Provident Fund Act No. 15 of 1958.
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; padding-top: 10px;">
+            <div>
+              <div>Date: <span style="font-weight: 600;">${escapeHtml(remittanceDate)}</span></div>
+              <div style="margin-top: 4px; font-size: 10px; color: #64748b;">Official Seal / Rubber Stamp</div>
+            </div>
+
+            <div style="text-align: center;">
+              <div style="width: 200px; border-top: 1px solid #000; margin-bottom: 4px;"></div>
+              <div style="font-weight: 700;">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
+              <div style="font-size: 10px; color: #475569;">Signature of Employer / Authorized Officer</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  `;
+}
+
+// ---------------- 1D. ETF FORM R4 (EMPLOYEES' TRUST FUND BOARD) ----------------
+function renderEtfFormR4(container) {
+  const p = activePayrollPeriod;
+  if (!p) {
+    container.innerHTML = '<div class="p-8 text-center text-slate-500">No active payroll period selected.</div>';
+    return;
+  }
+  const emps = p.employees || [];
+  const totals = p.totals || {};
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+
+  const etfRegNo = p.etfRegNo || currentComp.etfRegNo || 'ETF-66291';
+  const etfChequeNo = p.etfChequeNo || 'ETF-CHQ-7721';
+  const remittanceDate = p.letterDate || p.date || '30.09.2026';
+
+  container.innerHTML = `
+    <div class="space-y-4 fade-in">
+      
+      <!-- Toolbar -->
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="text-xs font-bold text-slate-800">Employees' Trust Fund (Form R - 4)</h3>
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">Reg: ${escapeHtml(etfRegNo)}</span>
+          </div>
+          <p class="text-[11px] text-slate-500">Employees' Trust Fund Board &bull; Monthly Remittance Form under ETF Act No. 46 of 1980</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="printEtfFormR4()"
+            class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            <span>Print Form R-4</span>
+          </button>
+
+          <button onclick="exportEtfFormR4Csv()"
+            class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Export CSV</span>
+          </button>
+
+          <button onclick="openEditEtfModal()"
+            class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+            <span>Edit ETF Details</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ETF Form R4 Presentation -->
+      <div class="form-r4-container overflow-x-auto">
+        <!-- Form Header -->
+        <div style="text-align: center; margin-bottom: 14px; border-bottom: 2px solid #000; padding-bottom: 8px;">
+          <div style="font-size: 14px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
+            EMPLOYEES' TRUST FUND BOARD
+          </div>
+          <div style="font-size: 13px; font-weight: 700; margin-top: 2px;">
+            MONTHLY REMITTANCE FORM (FORM R - 4)
+          </div>
+          <div style="font-size: 10px; color: #334155;">
+            (Form prescribed under Section 16 of the Employees' Trust Fund Act No. 46 of 1980)
+          </div>
+        </div>
+
+        <!-- Remittance & Employer Box -->
+        <table class="form-r4-table" style="margin-bottom: 12px; font-size: 11px;">
+          <tr>
+            <td style="width: 25%; font-weight: 700; background-color: #f8fafc;">Employer ETF Reg. No:</td>
+            <td style="width: 25%; font-family: monospace; font-weight: 700; font-size: 12px; color: #4338ca;">${escapeHtml(etfRegNo)}</td>
+            <td style="width: 25%; font-weight: 700; background-color: #f8fafc;">Remittance Month &amp; Year:</td>
+            <td style="width: 25%; font-weight: 700;">${escapeHtml(p.month || 'September 2026')}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; background-color: #f8fafc;">Employer's Business Name:</td>
+            <td colspan="3" style="font-weight: 700;">${escapeHtml(currentComp.name || 'APADMI SL (PRIVATE) LIMITED')}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; background-color: #f8fafc;">Address of Employer:</td>
+            <td colspan="3">${escapeHtml(currentComp.address || 'Colombo, Sri Lanka')}</td>
+          </tr>
+          <tr>
+            <td style="font-weight: 700; background-color: #f8fafc;">Cheque / Draft / Ref No:</td>
+            <td style="font-family: monospace; font-weight: 600;">${escapeHtml(etfChequeNo)}</td>
+            <td style="font-weight: 700; background-color: #f8fafc;">Total 3% Remittance:</td>
+            <td style="font-weight: 800; font-size: 12px; color: #4338ca;">Rs ${formatMoney(totals.sumEtf3Lkr, 2)}</td>
+          </tr>
+        </table>
+
+        <!-- Member Remittance Breakdown Table -->
+        <table class="form-r4-table">
+          <thead>
+            <tr>
+              <th style="width: 45px;">Serial</th>
+              <th style="text-align: left;">Name of Member</th>
+              <th style="width: 95px;">Member EPF/ETF No</th>
+              <th style="width: 120px;">NIC Number</th>
+              <th style="width: 130px; text-align: right;">Total Earnings (Rs)</th>
+              <th style="width: 130px; text-align: right;">Contribution 3% (Rs)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${emps.map((e, idx) => {
+              const gross = e.grossSalaryLkr || 0;
+              const etf3 = e.etf3Lkr || (gross * 0.03);
+              const memberNo = e.epfNo || e.memberNo || (idx + 1);
+              return `
+                <tr>
+                  <td style="text-align: center; color: #64748b;">${idx + 1}</td>
+                  <td style="font-weight: 600;">${escapeHtml(e.name)}</td>
+                  <td style="text-align: center; font-family: monospace;">${escapeHtml(memberNo)}</td>
+                  <td style="text-align: center; font-family: monospace;">${escapeHtml(e.idNo)}</td>
+                  <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(gross, 2)}</td>
+                  <td style="text-align: right; font-weight: 600; font-variant-numeric: tabular-nums;">${formatMoney(etf3, 2)}</td>
+                </tr>
+              `;
+            }).join('')}
+
+            <tr style="background-color: #f1f5f9; font-weight: 800; border-top: 2px solid #000; border-bottom: 2px solid #000;">
+              <td colspan="4" style="text-align: right; padding-right: 12px; text-transform: uppercase;">
+                Total (${emps.length} Members):
+              </td>
+              <td style="text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(totals.sumGrossLkr, 2)}</td>
+              <td style="text-align: right; font-variant-numeric: tabular-nums; color: #4338ca;">${formatMoney(totals.sumEtf3Lkr, 2)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Declaration & Signatures -->
+        <div style="border: 1px solid #000; padding: 10px 14px; margin-top: 14px; font-size: 10.5px; background-color: #fafafa;">
+          <div style="font-weight: 700; margin-bottom: 3px;">DECLARATION BY EMPLOYER:</div>
+          <div style="line-height: 1.4; text-align: justify; margin-bottom: 24px;">
+            I hereby certify that the particulars furnished above in respect of all employees eligible for membership in the Employees' Trust Fund are true, accurate and complete, and that the remittance enclosed covers the 3% contribution due for the stated period.
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; padding-top: 10px;">
+            <div>
+              <div>Date: <span style="font-weight: 600;">${escapeHtml(remittanceDate)}</span></div>
+              <div style="margin-top: 4px; font-size: 10px; color: #64748b;">Official Stamp of Employer</div>
+            </div>
+
+            <div style="text-align: center;">
+              <div style="width: 200px; border-top: 1px solid #000; margin-bottom: 4px;"></div>
+              <div style="font-weight: 700;">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
+              <div style="font-size: 10px; color: #475569;">Signature of Authorized Officer</div>
+            </div>
+          </div>
+        </div>
 
       </div>
 
@@ -8438,6 +9037,245 @@ async function submitBankDetails(e) {
     } else {
       const err = await res.json();
       alert('Error updating bank details: ' + (err.error || 'Server error'));
+    }
+  } catch (err) {
+    alert('Connection error: ' + err.message);
+  }
+}
+
+// 3. Staff Cost Summary Edit Modal
+function openEditStaffCostModal() {
+  if (!activePayrollPeriod) return;
+  const p = activePayrollPeriod;
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || {};
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Edit Staff Cost Recharge Details</h3>
+          <p class="text-[11px] text-slate-500">Invoice reference, bank processing charges, and parent company presentation.</p>
+        </div>
+        <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitStaffCostDetails(event)" class="space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Invoice Number</label>
+            <input type="text" id="staffCostInvoiceNo" value="${escapeHtml(p.invoiceNo || 'INV-2026-09-01')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Invoice Date</label>
+            <input type="text" id="staffCostDate" value="${escapeHtml(p.letterDate || p.date || '30.09.2026')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Bank Processing Charges (£)</label>
+            <input type="number" step="0.01" id="staffCostBankCharges" value="${p.bankCharges !== undefined ? p.bankCharges : 50.00}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Parent Group Entity</label>
+            <input type="text" id="staffCostParentGroup" value="${escapeHtml(currentComp.parentGroup || 'Apadmi Group Ltd')}"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold shadow-xs transition">
+            Save Recharge Details
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function submitStaffCostDetails(e) {
+  e.preventDefault();
+  const payload = {
+    id: activePayrollPeriod.id,
+    invoiceNo: document.getElementById('staffCostInvoiceNo').value.trim(),
+    letterDate: document.getElementById('staffCostDate').value.trim(),
+    bankCharges: parseFloat(document.getElementById('staffCostBankCharges').value) || 0
+  };
+
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      closeModal();
+      await refreshPayrollData();
+    } else {
+      const err = await res.json();
+      alert('Error updating recharge details: ' + (err.error || 'Server error'));
+    }
+  } catch (err) {
+    alert('Connection error: ' + err.message);
+  }
+}
+
+// 4. EPF Form C Edit Modal
+function openEditEpfModal() {
+  if (!activePayrollPeriod) return;
+  const p = activePayrollPeriod;
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || {};
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Edit EPF Form C Return Details</h3>
+          <p class="text-[11px] text-slate-500">Central Bank registration number and cheque remittance reference.</p>
+        </div>
+        <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitEpfDetails(event)" class="space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Employer EPF Reg. No.</label>
+            <input type="text" id="epfRegNoInput" value="${escapeHtml(p.epfRegNo || currentComp.epfRegNo || '8483/C')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Cheque / Payment Ref.</label>
+            <input type="text" id="epfChequeNoInput" value="${escapeHtml(p.epfChequeNo || 'CHQ-890214')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold shadow-xs transition">
+            Save EPF Details
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function submitEpfDetails(e) {
+  e.preventDefault();
+  const payload = {
+    id: activePayrollPeriod.id,
+    epfRegNo: document.getElementById('epfRegNoInput').value.trim(),
+    epfChequeNo: document.getElementById('epfChequeNoInput').value.trim()
+  };
+
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      closeModal();
+      await refreshPayrollData();
+    } else {
+      const err = await res.json();
+      alert('Error updating EPF details: ' + (err.error || 'Server error'));
+    }
+  } catch (err) {
+    alert('Connection error: ' + err.message);
+  }
+}
+
+// 5. ETF Form R4 Edit Modal
+function openEditEtfModal() {
+  if (!activePayrollPeriod) return;
+  const p = activePayrollPeriod;
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || {};
+  const c = document.getElementById('modalContent');
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Edit ETF Form R-4 Return Details</h3>
+          <p class="text-[11px] text-slate-500">Trust Fund Board registration number and remittance cheque reference.</p>
+        </div>
+        <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form onsubmit="submitEtfDetails(event)" class="space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Employer ETF Reg. No.</label>
+            <input type="text" id="etfRegNoInput" value="${escapeHtml(p.etfRegNo || currentComp.etfRegNo || 'ETF-66291')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Cheque / Payment Ref.</label>
+            <input type="text" id="etfChequeNoInput" value="${escapeHtml(p.etfChequeNo || 'ETF-CHQ-7721')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-3.5 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold shadow-xs transition">
+            Save ETF Details
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function submitEtfDetails(e) {
+  e.preventDefault();
+  const payload = {
+    id: activePayrollPeriod.id,
+    etfRegNo: document.getElementById('etfRegNoInput').value.trim(),
+    etfChequeNo: document.getElementById('etfChequeNoInput').value.trim()
+  };
+
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      closeModal();
+      await refreshPayrollData();
+    } else {
+      const err = await res.json();
+      alert('Error updating ETF details: ' + (err.error || 'Server error'));
     }
   } catch (err) {
     alert('Connection error: ' + err.message);
@@ -10056,5 +10894,783 @@ function exportPayrollExcel() {
 function exportPayrollCsv() {
   if (!activePayrollPeriod) return;
   window.location.href = `/api/payroll/export-csv?periodId=${encodeURIComponent(activePayrollPeriod.id)}`;
+}
+
+// ---------------- STAFF COST SUMMARY PRINT & EXPORT ----------------
+function printStaffCostSummary() {
+  const p = activePayrollPeriod;
+  if (!p) return;
+  const emps = p.employees || [];
+  const totals = p.totals || {};
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const foreignCurr = currentComp.foreignCurrency || 'GBP';
+  const currSign = foreignCurr === 'GBP' ? '£' : (foreignCurr === 'USD' ? '$' : (foreignCurr === 'EUR' ? '€' : foreignCurr + ' '));
+
+  let sumCost = 0;
+  let sumEpf12 = 0;
+  let sumEtf3 = 0;
+  let sumTotalCost = 0;
+
+  const empRows = emps.map((e, idx) => {
+    const cost = Number(e.earnedSalaryForeign || e.grossSalaryForeign || 0);
+    const epf12 = Number(e.epf12Foreign || (cost * 0.12));
+    const etf3 = Number(e.etf3Foreign || (cost * 0.03));
+    const totalCost = cost + epf12 + etf3;
+
+    sumCost += cost;
+    sumEpf12 += epf12;
+    sumEtf3 += etf3;
+    sumTotalCost += totalCost;
+
+    return {
+      no: idx + 1,
+      name: e.name,
+      cost,
+      epf12,
+      etf3,
+      totalCost
+    };
+  });
+
+  if (totals.sumEarnedForeign) sumCost = Number(totals.sumEarnedForeign);
+  if (totals.sumEpf12Foreign) sumEpf12 = Number(totals.sumEpf12Foreign);
+  if (totals.sumEtf3Foreign) sumEtf3 = Number(totals.sumEtf3Foreign);
+  if (totals.sumTotalCostForeign) sumTotalCost = Number(totals.sumTotalCostForeign);
+  else sumTotalCost = sumCost + sumEpf12 + sumEtf3;
+
+  const bankCharges = p.bankCharges !== undefined ? Number(p.bankCharges) : 50.00;
+  const grandTotalPayable = sumTotalCost + bankCharges;
+  const invoiceNo = p.invoiceNo || 'INV-2026-09-01';
+  const invoiceDate = p.letterDate || p.date || '30.09.2026';
+
+  const printWin = window.open('', '_blank');
+  if (!printWin) {
+    alert('Please allow popups to open the print view.');
+    return;
+  }
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Staff Cost Summary - ${escapeHtml(p.month)} - Spillburg Holdings</title>
+      <style>
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+        * {
+          box-sizing: border-box;
+        }
+        body {
+          font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+          margin: 0;
+          padding: 0;
+          background: #fff;
+          color: #000;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        ${staffCostLetterheadEnabled ? `
+        .letterhead-header {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 42mm;
+          z-index: 10;
+          pointer-events: none;
+        }
+        .letterhead-header img {
+          width: 100%;
+          height: 42mm;
+          object-fit: cover;
+          object-position: top;
+          display: block;
+        }
+
+        .letterhead-footer {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          height: 34mm;
+          z-index: 10;
+          pointer-events: none;
+        }
+        .letterhead-footer img {
+          width: 100%;
+          height: 34mm;
+          object-fit: cover;
+          object-position: bottom;
+          display: block;
+        }
+
+        .print-layout-table {
+          width: 100%;
+          border-collapse: collapse;
+          border: none;
+        }
+        .print-layout-table > thead > tr > td {
+          height: 44mm;
+          padding: 0;
+          border: none;
+        }
+        .print-layout-table > tfoot > tr > td {
+          height: 36mm;
+          padding: 0;
+          border: none;
+        }
+        .print-layout-table > tbody > tr > td {
+          padding: 0 18mm;
+          border: none;
+          vertical-align: top;
+        }
+        ` : `
+        .print-layout-table {
+          width: 100%;
+          border-collapse: collapse;
+          border: none;
+        }
+        .print-layout-table > tbody > tr > td {
+          padding: 15mm 18mm;
+          border: none;
+          vertical-align: top;
+        }
+        `}
+
+        .doc-content {
+          font-size: 8.5pt;
+          line-height: 1.4;
+          color: #111;
+        }
+
+        table.cost-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 10px 0;
+          font-size: 8.5pt;
+        }
+        table.cost-table th {
+          border-top: 1.5px solid #000;
+          border-bottom: 1.5px solid #000;
+          padding: 4px 6px;
+          font-weight: bold;
+          text-align: left;
+        }
+        table.cost-table td {
+          padding: 3px 6px;
+          border-bottom: 0.5px solid #ddd;
+        }
+        table.cost-table tr.total-row td {
+          border-top: 1.5px solid #000;
+          border-bottom: 3px double #000;
+          font-weight: bold;
+          padding-top: 5px;
+          padding-bottom: 5px;
+        }
+        .double-underline {
+          border-bottom: 3px double #000;
+        }
+      </style>
+    </head>
+    <body>
+      ${staffCostLetterheadEnabled ? `
+      <div class="letterhead-header">
+        <img src="/public/letterhead_header.png" alt="Header">
+      </div>
+      <div class="letterhead-footer">
+        <img src="/public/letterhead_footer.png" alt="Footer">
+      </div>
+      ` : ''}
+
+      <table class="print-layout-table">
+        ${staffCostLetterheadEnabled ? `
+        <thead><tr><td></td></tr></thead>
+        <tfoot><tr><td></td></tr></tfoot>
+        ` : ''}
+        <tbody>
+          <tr>
+            <td>
+              <div class="doc-content">
+                <div style="text-align: right; margin-bottom: 10px; font-weight: bold;">
+                  Date: ${escapeHtml(invoiceDate)}
+                </div>
+
+                <div style="line-height: 1.35; margin-bottom: 16px;">
+                  <div style="font-weight: bold; font-size: 10pt;">${escapeHtml(currentComp.parentGroup || 'Apadmi Group Ltd')}</div>
+                  <div style="font-weight: bold;">${escapeHtml(currentComp.name || 'Apadmi SL (Private) Limited')}</div>
+                  <div style="color: #444;">${(currentComp.parentAddress || 'Manchester,\nUnited Kingdom.').split('\n').map(l => escapeHtml(l)).join('<br>')}</div>
+                </div>
+
+                <div style="margin-bottom: 12px; padding-bottom: 4px; border-bottom: 1.5px solid #000; display: flex; justify-content: space-between; align-items: flex-end;">
+                  <div>
+                    <div style="font-size: 10.5pt; font-weight: bold; text-transform: uppercase;">
+                      INVOICE: RECHARGE OF STAFF COST FOR THE MONTH OF ${escapeHtml(p.month ? p.month.toUpperCase() : 'SEPTEMBER 2026')}
+                    </div>
+                    <div style="font-size: 8pt; color: #333; margin-top: 2px;">
+                      Invoice Reference: <strong>${escapeHtml(invoiceNo)}</strong>
+                    </div>
+                  </div>
+                  <div style="font-size: 8pt;">
+                    Currency: <strong>${escapeHtml(foreignCurr)} (${currSign})</strong>
+                  </div>
+                </div>
+
+                <table class="cost-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 32px; text-align: center;">No</th>
+                      <th>Employee Name</th>
+                      <th style="text-align: right; width: 90px;">Cost (${currSign})</th>
+                      <th style="text-align: right; width: 85px;">EPF 12% (${currSign})</th>
+                      <th style="text-align: right; width: 80px;">ETF 3% (${currSign})</th>
+                      <th style="text-align: right; width: 100px;">Total Cost (${currSign})</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${empRows.map(r => `
+                      <tr>
+                        <td style="text-align: center;">${r.no}</td>
+                        <td style="font-weight: bold;">${escapeHtml(r.name)}</td>
+                        <td style="text-align: right;">${formatMoney(r.cost, 2)}</td>
+                        <td style="text-align: right;">${formatMoney(r.epf12, 2)}</td>
+                        <td style="text-align: right;">${formatMoney(r.etf3, 2)}</td>
+                        <td style="text-align: right; font-weight: bold;">${formatMoney(r.totalCost, 2)}</td>
+                      </tr>
+                    `).join('')}
+
+                    <tr class="total-row">
+                      <td colspan="2" style="text-align: right; font-weight: bold; text-transform: uppercase; padding-right: 10px;">Total</td>
+                      <td style="text-align: right;">${formatMoney(sumCost, 2)}</td>
+                      <td style="text-align: right;">${formatMoney(sumEpf12, 2)}</td>
+                      <td style="text-align: right;">${formatMoney(sumEtf3, 2)}</td>
+                      <td style="text-align: right;">${formatMoney(sumTotalCost, 2)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 15px; margin-top: 14px;">
+                  <div style="flex: 1; border: 1px solid #999; border-radius: 4px; padding: 8px 12px; background: #fafafa; font-size: 8pt; line-height: 1.45;">
+                    <div style="font-weight: bold; text-transform: uppercase; margin-bottom: 3px;">Remittance &amp; Banking Details</div>
+                    <div><strong>Account Name:</strong> ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')}</div>
+                    <div><strong>Account Number:</strong> ${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')}</div>
+                    <div><strong>Bank:</strong> ${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC')} (${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')})</div>
+                    <div><strong>Swift Code:</strong> ${escapeHtml(currentComp.swiftCode || 'NTBLLKLX')}</div>
+                  </div>
+
+                  <div style="width: 220px; border: 1.5px solid #000; border-radius: 4px; padding: 8px 12px; font-size: 8.5pt;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                      <span>Staff Cost Subtotal:</span>
+                      <span style="font-weight: bold;">${currSign}${formatMoney(sumTotalCost, 2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px; padding-bottom: 4px; border-bottom: 1px dashed #999;">
+                      <span>Bank Charges:</span>
+                      <span style="font-weight: bold;">${currSign}${formatMoney(bankCharges, 2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 9.5pt; font-weight: bold;">
+                      <span>Total Due:</span>
+                      <span class="double-underline">${currSign}${formatMoney(grandTotalPayable, 2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; margin-top: 35px; padding: 0 15px;">
+                  <div style="text-align: center;">
+                    <div style="width: 150px; border-top: 1px solid #000; margin-bottom: 4px;"></div>
+                    <div style="font-weight: bold;">Prepared by</div>
+                    <div style="font-size: 7.5pt; color: #555;">Accountant</div>
+                  </div>
+                  <div style="text-align: center;">
+                    <div style="width: 150px; border-top: 1px solid #000; margin-bottom: 4px;"></div>
+                    <div style="font-weight: bold;">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
+                    <div style="font-size: 7.5pt; color: #555;">Director &middot; Spillburg Holdings</div>
+                  </div>
+                </div>
+
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <script>
+        window.onload = function() {
+          setTimeout(function() { window.print(); }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
+}
+
+function exportStaffCostCsv() {
+  const p = activePayrollPeriod;
+  if (!p) return;
+  const emps = p.employees || [];
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const foreignCurr = currentComp.foreignCurrency || 'GBP';
+
+  const rows = [];
+  rows.push(["SPILLBURG HOLDINGS (PVT) LTD - STAFF COST RECHARGE INVOICE"]);
+  rows.push([`Month: ${p.month || ''}`, `Invoice Ref: ${p.invoiceNo || 'INV-2026-09-01'}`]);
+  rows.push([`Entity: ${currentComp.name || ''}`, `Parent: ${currentComp.parentGroup || 'Apadmi Group Ltd'}`]);
+  rows.push([`Date: ${p.letterDate || p.date || ''}`, `Currency: ${foreignCurr}`]);
+  rows.push([]);
+  rows.push(["No.", "Employee Name", `Cost (${foreignCurr})`, `EPF 12% (${foreignCurr})`, `ETF 3% (${foreignCurr})`, `Total Cost (${foreignCurr})`]);
+
+  let sumCost = 0, sumEpf12 = 0, sumEtf3 = 0, sumTotalCost = 0;
+
+  emps.forEach((e, idx) => {
+    const cost = Number(e.earnedSalaryForeign || e.grossSalaryForeign || 0);
+    const epf12 = Number(e.epf12Foreign || (cost * 0.12));
+    const etf3 = Number(e.etf3Foreign || (cost * 0.03));
+    const totalCost = cost + epf12 + etf3;
+
+    sumCost += cost;
+    sumEpf12 += epf12;
+    sumEtf3 += etf3;
+    sumTotalCost += totalCost;
+
+    rows.push([idx + 1, e.name, cost.toFixed(2), epf12.toFixed(2), etf3.toFixed(2), totalCost.toFixed(2)]);
+  });
+
+  const bankCharges = p.bankCharges !== undefined ? Number(p.bankCharges) : 50.00;
+  const grandTotal = sumTotalCost + bankCharges;
+
+  rows.push([]);
+  rows.push(["", "TOTAL STAFF COST", sumCost.toFixed(2), sumEpf12.toFixed(2), sumEtf3.toFixed(2), sumTotalCost.toFixed(2)]);
+  rows.push(["", "BANK CHARGES", "", "", "", bankCharges.toFixed(2)]);
+  rows.push(["", "GRAND TOTAL DUE", "", "", "", grandTotal.toFixed(2)]);
+
+  const csvContent = "\uFEFF" + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Staff_Cost_Summary_${(p.month || 'payroll').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---------------- EPF FORM C PRINT & EXPORT ----------------
+function printEpfFormC() {
+  const p = activePayrollPeriod;
+  if (!p) return;
+  const emps = p.employees || [];
+  const totals = p.totals || {};
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const epfRegNo = p.epfRegNo || currentComp.epfRegNo || '8483/C';
+  const epfChequeNo = p.epfChequeNo || 'CHQ-890214';
+  const remittanceDate = p.letterDate || p.date || '30.09.2026';
+
+  const printWin = window.open('', '_blank');
+  if (!printWin) {
+    alert('Please allow popups to open the print view.');
+    return;
+  }
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>EPF Form C - ${escapeHtml(p.month)} - Central Bank of Sri Lanka</title>
+      <style>
+        @page {
+          size: A4 landscape;
+          margin: 10mm;
+        }
+        * {
+          box-sizing: border-box;
+        }
+        body {
+          font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+          margin: 0;
+          padding: 0;
+          background: #fff;
+          color: #000;
+          font-size: 8.5pt;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .header-box {
+          border: 1.5px solid #000;
+          border-collapse: collapse;
+          width: 100%;
+          margin-bottom: 8px;
+        }
+        .header-box td {
+          border: 1px solid #000;
+          padding: 3px 6px;
+        }
+        .data-table {
+          width: 100%;
+          border-collapse: collapse;
+          border: 1.5px solid #000;
+          margin-bottom: 10px;
+        }
+        .data-table th, .data-table td {
+          border: 1px solid #000;
+          padding: 3.5px 6px;
+        }
+        .data-table th {
+          background-color: #f0f0f0;
+          font-weight: bold;
+          text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <div style="text-align: center; margin-bottom: 8px;">
+        <div style="font-size: 11pt; font-weight: bold; text-transform: uppercase;">
+          CENTRAL BANK OF SRI LANKA - EMPLOYEES' PROVIDENT FUND
+        </div>
+        <div style="font-size: 9.5pt; font-weight: bold;">
+          FORM "C" - MONTHLY CONTRIBUTION RETURN (ACT NO. 15 OF 1958)
+        </div>
+      </div>
+
+      <table class="header-box">
+        <tr>
+          <td style="width: 25%; font-weight: bold; background: #f9f9f9;">Employer's EPF Reg. No:</td>
+          <td style="width: 25%; font-family: monospace; font-weight: bold; font-size: 9.5pt;">${escapeHtml(epfRegNo)}</td>
+          <td style="width: 25%; font-weight: bold; background: #f9f9f9;">Contribution Month &amp; Year:</td>
+          <td style="width: 25%; font-weight: bold;">${escapeHtml(p.month || 'September 2026')}</td>
+        </tr>
+        <tr>
+          <td style="font-weight: bold; background: #f9f9f9;">Employer's Name:</td>
+          <td colspan="3" style="font-weight: bold;">${escapeHtml(currentComp.name || 'APADMI SL (PRIVATE) LIMITED')}</td>
+        </tr>
+        <tr>
+          <td style="font-weight: bold; background: #f9f9f9;">Address of Employer:</td>
+          <td colspan="3">${escapeHtml(currentComp.address || 'Spillburg House, No 67/1, Borella, Colombo 08, Sri Lanka')}</td>
+        </tr>
+        <tr>
+          <td style="font-weight: bold; background: #f9f9f9;">Cheque / Payment Ref:</td>
+          <td style="font-family: monospace;">${escapeHtml(epfChequeNo)}</td>
+          <td style="font-weight: bold; background: #f9f9f9;">Total Remittance (20%):</td>
+          <td style="font-weight: bold; font-size: 9.5pt;">Rs ${formatMoney(totals.sumEpf20Lkr, 2)}</td>
+        </tr>
+      </table>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 65px;">Member No.</th>
+            <th style="text-align: left;">Name of Member</th>
+            <th style="width: 100px;">NIC Number</th>
+            <th style="width: 110px; text-align: right;">Total Earnings (Rs)</th>
+            <th style="width: 110px; text-align: right;">Total Contrib. 20% (Rs)</th>
+            <th style="width: 105px; text-align: right;">Employer 12% (Rs)</th>
+            <th style="width: 105px; text-align: right;">Member 8% (Rs)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${emps.map((e, idx) => {
+            const gross = e.grossSalaryLkr || 0;
+            const epf12 = e.epf12Lkr || (gross * 0.12);
+            const epf8 = e.epf8Lkr || (gross * 0.08);
+            const epf20 = e.epf20Lkr || (epf12 + epf8);
+            const memberNo = e.epfNo || e.memberNo || (idx + 1);
+            return `
+              <tr>
+                <td style="text-align: center; font-family: monospace; font-weight: bold;">${escapeHtml(memberNo)}</td>
+                <td style="font-weight: bold;">${escapeHtml(e.name)}</td>
+                <td style="text-align: center; font-family: monospace;">${escapeHtml(e.idNo)}</td>
+                <td style="text-align: right;">${formatMoney(gross, 2)}</td>
+                <td style="text-align: right; font-weight: bold;">${formatMoney(epf20, 2)}</td>
+                <td style="text-align: right;">${formatMoney(epf12, 2)}</td>
+                <td style="text-align: right;">${formatMoney(epf8, 2)}</td>
+              </tr>
+            `;
+          }).join('')}
+
+          <tr style="background-color: #f0f0f0; font-weight: bold;">
+            <td colspan="3" style="text-align: right; padding-right: 10px; text-transform: uppercase;">Totals:</td>
+            <td style="text-align: right;">${formatMoney(totals.sumGrossLkr, 2)}</td>
+            <td style="text-align: right;">${formatMoney(totals.sumEpf20Lkr, 2)}</td>
+            <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, 2)}</td>
+            <td style="text-align: right;">${formatMoney(totals.sumEpf8Lkr, 2)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="border: 1px solid #000; padding: 6px 10px; font-size: 7.5pt;">
+        <div style="font-weight: bold; margin-bottom: 2px;">DECLARATION BY EMPLOYER:</div>
+        <div style="line-height: 1.35; margin-bottom: 16px;">
+          I certify that the information given above is correct and complete, and that the contributions remitted are in respect of all employees eligible to join the Employees' Provident Fund for the said period in accordance with the provisions of the Employees' Provident Fund Act No. 15 of 1958.
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+          <div>
+            <div>Date: <strong>${escapeHtml(remittanceDate)}</strong></div>
+            <div style="font-size: 7pt; color: #555; margin-top: 2px;">Official Rubber Stamp</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="width: 180px; border-top: 1px solid #000; margin-bottom: 2px;"></div>
+            <div style="font-weight: bold;">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
+            <div style="font-size: 7pt; color: #333;">Signature of Employer / Authorized Officer</div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        window.onload = function() {
+          setTimeout(function() { window.print(); }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
+}
+
+function exportEpfFormCCsv() {
+  const p = activePayrollPeriod;
+  if (!p) return;
+  const emps = p.employees || [];
+  const totals = p.totals || {};
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+
+  const rows = [];
+  rows.push(["CENTRAL BANK OF SRI LANKA - EMPLOYEES' PROVIDENT FUND (FORM C)"]);
+  rows.push([`Employer EPF Reg No: ${p.epfRegNo || currentComp.epfRegNo || '8483/C'}`, `Period: ${p.month || ''}`]);
+  rows.push([`Employer Name: ${currentComp.name || ''}`, `Cheque No: ${p.epfChequeNo || ''}`]);
+  rows.push([]);
+  rows.push(["Member No.", "Member Name", "NIC No.", "Total Earnings (LKR)", "Total Contrib 20% (LKR)", "Employer 12% (LKR)", "Member 8% (LKR)"]);
+
+  emps.forEach((e, idx) => {
+    const gross = Number(e.grossSalaryLkr || 0);
+    const epf12 = Number(e.epf12Lkr || (gross * 0.12));
+    const epf8 = Number(e.epf8Lkr || (gross * 0.08));
+    const epf20 = Number(e.epf20Lkr || (epf12 + epf8));
+    const memberNo = e.epfNo || e.memberNo || (idx + 1);
+
+    rows.push([memberNo, e.name, e.idNo, gross.toFixed(2), epf20.toFixed(2), epf12.toFixed(2), epf8.toFixed(2)]);
+  });
+
+  rows.push([]);
+  rows.push(["", "TOTALS", "", (totals.sumGrossLkr || 0).toFixed(2), (totals.sumEpf20Lkr || 0).toFixed(2), (totals.sumEpf12Lkr || 0).toFixed(2), (totals.sumEpf8Lkr || 0).toFixed(2)]);
+
+  const csvContent = "\uFEFF" + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `EPF_Form_C_${(p.month || 'payroll').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ---------------- ETF FORM R4 PRINT & EXPORT ----------------
+function printEtfFormR4() {
+  const p = activePayrollPeriod;
+  if (!p) return;
+  const emps = p.employees || [];
+  const totals = p.totals || {};
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const etfRegNo = p.etfRegNo || currentComp.etfRegNo || 'ETF-66291';
+  const etfChequeNo = p.etfChequeNo || 'ETF-CHQ-7721';
+  const remittanceDate = p.letterDate || p.date || '30.09.2026';
+
+  const printWin = window.open('', '_blank');
+  if (!printWin) {
+    alert('Please allow popups to open the print view.');
+    return;
+  }
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>ETF Form R-4 - ${escapeHtml(p.month)} - Employees' Trust Fund Board</title>
+      <style>
+        @page {
+          size: A4 portrait;
+          margin: 10mm;
+        }
+        * {
+          box-sizing: border-box;
+        }
+        body {
+          font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+          margin: 0;
+          padding: 0;
+          background: #fff;
+          color: #000;
+          font-size: 8.5pt;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .header-box {
+          border: 1.5px solid #000;
+          border-collapse: collapse;
+          width: 100%;
+          margin-bottom: 8px;
+        }
+        .header-box td {
+          border: 1px solid #000;
+          padding: 3px 6px;
+        }
+        .data-table {
+          width: 100%;
+          border-collapse: collapse;
+          border: 1.5px solid #000;
+          margin-bottom: 10px;
+        }
+        .data-table th, .data-table td {
+          border: 1px solid #000;
+          padding: 3.5px 6px;
+        }
+        .data-table th {
+          background-color: #f0f0f0;
+          font-weight: bold;
+          text-align: center;
+        }
+      </style>
+    </head>
+    <body>
+      <div style="text-align: center; margin-bottom: 8px;">
+        <div style="font-size: 11pt; font-weight: bold; text-transform: uppercase;">
+          EMPLOYEES' TRUST FUND BOARD
+        </div>
+        <div style="font-size: 9.5pt; font-weight: bold;">
+          MONTHLY REMITTANCE FORM (FORM R - 4)
+        </div>
+        <div style="font-size: 7.5pt; color: #444;">
+          (Prescribed under Section 16 of the Employees' Trust Fund Act No. 46 of 1980)
+        </div>
+      </div>
+
+      <table class="header-box">
+        <tr>
+          <td style="width: 25%; font-weight: bold; background: #f9f9f9;">Employer ETF Reg. No:</td>
+          <td style="width: 25%; font-family: monospace; font-weight: bold; font-size: 9.5pt;">${escapeHtml(etfRegNo)}</td>
+          <td style="width: 25%; font-weight: bold; background: #f9f9f9;">Remittance Period:</td>
+          <td style="width: 25%; font-weight: bold;">${escapeHtml(p.month || 'September 2026')}</td>
+        </tr>
+        <tr>
+          <td style="font-weight: bold; background: #f9f9f9;">Employer's Business Name:</td>
+          <td colspan="3" style="font-weight: bold;">${escapeHtml(currentComp.name || 'APADMI SL (PRIVATE) LIMITED')}</td>
+        </tr>
+        <tr>
+          <td style="font-weight: bold; background: #f9f9f9;">Address of Employer:</td>
+          <td colspan="3">${escapeHtml(currentComp.address || 'Colombo, Sri Lanka')}</td>
+        </tr>
+        <tr>
+          <td style="font-weight: bold; background: #f9f9f9;">Cheque / Payment Ref:</td>
+          <td style="font-family: monospace;">${escapeHtml(etfChequeNo)}</td>
+          <td style="font-weight: bold; background: #f9f9f9;">Total 3% Remittance:</td>
+          <td style="font-weight: bold; font-size: 9.5pt;">Rs ${formatMoney(totals.sumEtf3Lkr, 2)}</td>
+        </tr>
+      </table>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 40px;">Serial</th>
+            <th style="text-align: left;">Name of Member</th>
+            <th style="width: 90px;">Member EPF/ETF No</th>
+            <th style="width: 105px;">NIC Number</th>
+            <th style="width: 120px; text-align: right;">Total Earnings (Rs)</th>
+            <th style="width: 120px; text-align: right;">Contribution 3% (Rs)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${emps.map((e, idx) => {
+            const gross = e.grossSalaryLkr || 0;
+            const etf3 = e.etf3Lkr || (gross * 0.03);
+            const memberNo = e.epfNo || e.memberNo || (idx + 1);
+            return `
+              <tr>
+                <td style="text-align: center;">${idx + 1}</td>
+                <td style="font-weight: bold;">${escapeHtml(e.name)}</td>
+                <td style="text-align: center; font-family: monospace;">${escapeHtml(memberNo)}</td>
+                <td style="text-align: center; font-family: monospace;">${escapeHtml(e.idNo)}</td>
+                <td style="text-align: right;">${formatMoney(gross, 2)}</td>
+                <td style="text-align: right; font-weight: bold;">${formatMoney(etf3, 2)}</td>
+              </tr>
+            `;
+          }).join('')}
+
+          <tr style="background-color: #f0f0f0; font-weight: bold;">
+            <td colspan="4" style="text-align: right; padding-right: 10px; text-transform: uppercase;">
+              Total (${emps.length} Members):
+            </td>
+            <td style="text-align: right;">${formatMoney(totals.sumGrossLkr, 2)}</td>
+            <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 2)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="border: 1px solid #000; padding: 6px 10px; font-size: 7.5pt;">
+        <div style="font-weight: bold; margin-bottom: 2px;">DECLARATION BY EMPLOYER:</div>
+        <div style="line-height: 1.35; margin-bottom: 16px;">
+          I hereby certify that the particulars furnished above in respect of all employees eligible for membership in the Employees' Trust Fund are true, accurate and complete, and that the remittance enclosed covers the 3% contribution due for the stated period.
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+          <div>
+            <div>Date: <strong>${escapeHtml(remittanceDate)}</strong></div>
+            <div style="font-size: 7pt; color: #555; margin-top: 2px;">Official Rubber Stamp</div>
+          </div>
+          <div style="text-align: center;">
+            <div style="width: 180px; border-top: 1px solid #000; margin-bottom: 2px;"></div>
+            <div style="font-weight: bold;">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
+            <div style="font-size: 7pt; color: #333;">Signature of Authorized Officer</div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        window.onload = function() {
+          setTimeout(function() { window.print(); }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
+}
+
+function exportEtfFormR4Csv() {
+  const p = activePayrollPeriod;
+  if (!p) return;
+  const emps = p.employees || [];
+  const totals = p.totals || {};
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+
+  const rows = [];
+  rows.push(["EMPLOYEES' TRUST FUND BOARD (FORM R - 4)"]);
+  rows.push([`Employer ETF Reg No: ${p.etfRegNo || currentComp.etfRegNo || 'ETF-66291'}`, `Period: ${p.month || ''}`]);
+  rows.push([`Employer Name: ${currentComp.name || ''}`, `Cheque No: ${p.etfChequeNo || ''}`]);
+  rows.push([]);
+  rows.push(["Serial No.", "Member Name", "EPF/ETF No.", "NIC No.", "Total Earnings (LKR)", "Contribution 3% (LKR)"]);
+
+  emps.forEach((e, idx) => {
+    const gross = Number(e.grossSalaryLkr || 0);
+    const etf3 = Number(e.etf3Lkr || (gross * 0.03));
+    const memberNo = e.epfNo || e.memberNo || (idx + 1);
+
+    rows.push([idx + 1, e.name, memberNo, e.idNo, gross.toFixed(2), etf3.toFixed(2)]);
+  });
+
+  rows.push([]);
+  rows.push(["", "TOTALS", `Members: ${emps.length}`, "", (totals.sumGrossLkr || 0).toFixed(2), (totals.sumEtf3Lkr || 0).toFixed(2)]);
+
+  const csvContent = "\uFEFF" + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ETF_Form_R4_${(p.month || 'payroll').replace(/\s+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 

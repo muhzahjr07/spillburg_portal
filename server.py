@@ -946,7 +946,7 @@ def bootstrap_persistent_data():
 
 def init_data():
     global USERS, OPERATIONS, FINANCIAL_RECORDS, CUSTOMER_RECORDS, PAYROLL_RECORDS
-    auto_sync_latest_backup_to_data(force=True)
+    auto_sync_latest_backup_to_data(force=False)
     bootstrap_persistent_data()
 
     existing_users = load_json_file("users.json", None)
@@ -2886,6 +2886,10 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "localCurrency": "LKR",
                 "currencyMode": body.get("currencyMode") or (comp.get("currencyMode") if comp else "dual") or "dual",
                 "status": status,
+                "invoiceNo": body.get("invoiceNo", "SBH001"),
+                "bankCharges": float(body.get("bankCharges", 50.0)),
+                "epfChequeNo": body.get("epfChequeNo", "DIRECT DEBIT / SLIPS"),
+                "etfChequeNo": body.get("etfChequeNo", "DIRECT DEBIT / SLIPS"),
                 "checkedBy": body.get("checkedBy", (comp.get("checkedBy") if comp else "Hemanthi Basnayake")),
                 "checkedTitle": body.get("checkedTitle", (comp.get("checkedTitle") if comp else "Accountant")),
                 "authorizedSignatory": body.get("authorizedSignatory", (comp.get("authorizedSignatory") if comp else "Shaameel Mohideen")),
@@ -2969,7 +2973,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 target_comp = {"id": comp_id}
                 comps.append(target_comp)
             
-            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate"]:
+            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate", "parentGroup", "epfRegNo", "etfRegNo"]:
                 if k in body:
                     target_comp[k] = body[k]
             
@@ -3126,9 +3130,9 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Period not found"}, 404)
                 return
 
-            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName"]:
+            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "invoiceNo", "bankCharges", "epfChequeNo", "etfChequeNo"]:
                 if k in body:
-                    if k == "exchangeRate":
+                    if k in ["exchangeRate", "bankCharges"]:
                         target_period[k] = float(body[k])
                     else:
                         target_period[k] = body[k]

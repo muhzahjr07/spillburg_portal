@@ -1,11 +1,11 @@
 {
   "backupFile": "spillburg_portal_backup_latest.json",
   "backupPath": "C:\\Users\\User\\Desktop\\Spillburg Admin\\projects\\company_portal\\data\\backups\\spillburg_portal_backup_latest.json",
-  "exportTimestamp": "2026-10-21T08:00:57Z",
-  "appliedAt": "2026-10-21T08:01:07Z",
-  "operationsCount": 59,
+  "exportTimestamp": "2026-10-23T10:20:13Z",
+  "appliedAt": "2026-10-23T10:22:44Z",
+  "operationsCount": 66,
   "usersCount": 10,
-  "payrollPeriodsCount": 2,
+  "payrollPeriodsCount": 3,
   "financialRecordsCount": 42,
   "customerRecordsCount": 173,
   "trigger": "force"
