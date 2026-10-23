@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-23T11:09:12Z",
+  "exportTimestamp": "2026-10-23T11:10:51Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1183,7 +1183,7 @@
       "status": "In Progress",
       "priority": "Medium",
       "estimatedCost": "",
-      "notes": "Apply for Director & Corporate Leadership Programme with CA"
+      "notes": "Apply for Director & Corporate Leadership Programme with CA. \nNotes - register after 29th"
     },
     {
       "id": "ops_06d51c",
