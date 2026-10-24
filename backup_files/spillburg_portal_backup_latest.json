@@ -1,8 +1,13 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
+<<<<<<< HEAD
   "exportTimestamp": "2026-10-24T06:24:16Z",
   "storageLocation": "C:\\Users\\User\\Desktop\\Spillburg Admin\\projects\\company_portal\\data",
+=======
+  "exportTimestamp": "2026-10-24T06:19:39Z",
+  "storageLocation": "/opt/render/project/src/data",
+>>>>>>> d3c7a3b98ca3c08bafff8126236137122d7e4bed
   "users": [
     {
       "id": "usr_dir_master",
@@ -823,7 +828,7 @@
       "type": "Operational Task",
       "taskedDate": "03-Oct-2026",
       "completedDate": "",
-      "status": "In Progress",
+      "status": "On Hold",
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Transfer all domains and hostings from firzan to company email.\nUpdate - all except vacations hosting transfered"
@@ -1254,7 +1259,11 @@
       "notes": "Create EPF, ETF Letter and Client Cost Letter generation in Spillburg Portal"
     },
     {
+<<<<<<< HEAD
       "id": "ops_7722a7",
+=======
+      "id": "ops_7d9fc0",
+>>>>>>> d3c7a3b98ca3c08bafff8126236137122d7e4bed
       "no": 66,
       "userId": "usr_admin_zaharan",
       "ownerUsername": "zaharan",
@@ -1266,9 +1275,15 @@
       "taskedDate": "23-Oct-2026",
       "completedDate": "23-Oct-2026",
       "status": "Completed",
+<<<<<<< HEAD
       "priority": "Low",
       "estimatedCost": "",
       "notes": "create a report on Attanagala Waste Management based on images and raw data."
+=======
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Create a program to extract data from Attanagala Municipal raw data and compare and contrast"
+>>>>>>> d3c7a3b98ca3c08bafff8126236137122d7e4bed
     }
   ],
   "payroll": {
