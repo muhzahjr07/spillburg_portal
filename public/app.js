@@ -7697,27 +7697,37 @@ function renderStaffCostSummary(container) {
             <div>We hereby confirm that the above staff costs were incurred on behalf of APADMI Group Limited and are being recharged accordingly.</div>
           </div>
 
-          <!-- Signatures (Official Lines without stamps) -->
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 18px; margin-bottom: 18px; padding-right: 15px;">
+          <!-- Signatures (Official Lines matching Reference staff_cost_summary_ref.png) -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px; margin-bottom: 18px; padding-right: 15px;">
             <!-- Left: Prepared By / Checked By (Accountant) -->
-            <div style="width: 250px;">
-              <div style="font-weight: 700; font-size: 10.5px; margin-bottom: 2px;">Prepared By</div>
-              <div style="display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 10.5px;">
-                <span>Checked By</span>
-                <span>${escapeHtml(p.checkedBy || currentComp.checkedBy || 'Hemanthi Basnayake')}</span>
+            <div style="display: flex; align-items: flex-start; gap: 14px;">
+              <div style="font-weight: 700; font-size: 10.5px; line-height: 1.5; padding-top: 1px;">
+                <div>Prepared By</div>
+                <div>Checked By</div>
               </div>
-              <div style="margin: 3px 0; min-height: 32px;"></div>
-              <div style="border-top: 1px dotted #000; width: 100%; margin-top: 2px;"></div>
-              <div style="font-size: 10px; color: #000; margin-top: 2px;">Accountant</div>
+              <div style="width: 220px; text-align: center;">
+                <div style="font-weight: 700; font-size: 11px; min-height: 20px; color: #000;">
+                  ${escapeHtml(p.checkedBy || currentComp.checkedBy || 'Hemanthi Basnayake')}
+                </div>
+                <div style="height: 26px;"></div>
+                <div style="border-top: 1px dotted #000; width: 100%;"></div>
+                <div style="font-size: 10px; font-weight: 600; color: #000; margin-top: 3px;">Accountant</div>
+              </div>
             </div>
 
             <!-- Right: Authorized By (Director) -->
-            <div style="width: 250px; text-align: left;">
-              <div style="font-weight: 700; font-size: 10.5px; margin-bottom: 2px;">Authorized By</div>
-              <div style="font-weight: 700; font-size: 10.5px; text-align: right;">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
-              <div style="margin: 3px 0; min-height: 32px;"></div>
-              <div style="border-top: 1px dotted #000; width: 100%; margin-top: 2px;"></div>
-              <div style="font-size: 10px; color: #000; margin-top: 2px; text-align: right;">Director</div>
+            <div style="display: flex; align-items: flex-start; gap: 14px;">
+              <div style="font-weight: 700; font-size: 10.5px; line-height: 1.5; padding-top: 1px;">
+                <div>Authorized By</div>
+              </div>
+              <div style="width: 220px; text-align: center;">
+                <div style="font-weight: 700; font-size: 11px; min-height: 20px; color: #000;">
+                  ${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}
+                </div>
+                <div style="height: 26px;"></div>
+                <div style="border-top: 1px dotted #000; width: 100%;"></div>
+                <div style="font-size: 10px; font-weight: 600; color: #000; margin-top: 3px;">Director</div>
+              </div>
             </div>
           </div>
 
@@ -11188,25 +11198,37 @@ function printStaffCostSummary() {
           <div>We hereby confirm that the above staff costs were incurred on behalf of APADMI Group Limited and are being recharged accordingly.</div>
         </div>
 
-        <!-- Signatures (Official Lines without stamps) -->
+        <!-- Signatures (Official Lines matching Reference staff_cost_summary_ref.png) -->
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; padding-right: 15px;">
-          <div style="width: 210px;">
-            <div style="font-weight: bold; font-size: 8pt;">Prepared By</div>
-            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 8pt;">
-              <span>Checked By</span>
-              <span>${escapeHtml(p.checkedBy || currentComp.checkedBy || 'Hemanthi Basnayake')}</span>
+          <!-- Left: Prepared By / Checked By (Accountant) -->
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <div style="font-weight: bold; font-size: 8pt; line-height: 1.4; padding-top: 1px;">
+              <div>Prepared By</div>
+              <div>Checked By</div>
             </div>
-            <div style="margin: 2px 0; height: 24px;"></div>
-            <div style="border-top: 1px dotted #000; width: 100%;"></div>
-            <div style="font-size: 7.5pt; margin-top: 1px;">Accountant</div>
+            <div style="width: 180px; text-align: center;">
+              <div style="font-weight: bold; font-size: 8pt; min-height: 14px;">
+                ${escapeHtml(p.checkedBy || currentComp.checkedBy || 'Hemanthi Basnayake')}
+              </div>
+              <div style="height: 20px;"></div>
+              <div style="border-top: 1px dotted #000; width: 100%;"></div>
+              <div style="font-size: 7.5pt; font-weight: bold; margin-top: 2px;">Accountant</div>
+            </div>
           </div>
 
-          <div style="width: 210px;">
-            <div style="font-weight: bold; font-size: 8pt;">Authorized By</div>
-            <div style="font-weight: bold; font-size: 8pt; text-align: right;">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
-            <div style="margin: 2px 0; height: 24px;"></div>
-            <div style="border-top: 1px dotted #000; width: 100%;"></div>
-            <div style="font-size: 7.5pt; margin-top: 1px; text-align: right;">Director</div>
+          <!-- Right: Authorized By (Director) -->
+          <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <div style="font-weight: bold; font-size: 8pt; line-height: 1.4; padding-top: 1px;">
+              <div>Authorized By</div>
+            </div>
+            <div style="width: 180px; text-align: center;">
+              <div style="font-weight: bold; font-size: 8pt; min-height: 14px;">
+                ${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}
+              </div>
+              <div style="height: 20px;"></div>
+              <div style="border-top: 1px dotted #000; width: 100%;"></div>
+              <div style="font-size: 7.5pt; font-weight: bold; margin-top: 2px;">Director</div>
+            </div>
           </div>
         </div>
 
