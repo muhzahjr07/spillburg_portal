@@ -826,3 +826,30 @@ span.flatpickr-weekday {
   display: block !important;
 }
 
+/* EPF Form C Draggable Mode Styles */
+.form-c-portrait-sheet.epf-drag-active .form-overlay-input,
+.form-c-portrait-sheet.epf-drag-active .form-overlay-textarea {
+  cursor: grab !important;
+  border: 1.5px dashed #4f46e5 !important;
+  background: rgba(238, 242, 255, 0.85) !important;
+  box-shadow: 0 1px 4px rgba(79, 70, 229, 0.2);
+  user-select: none !important;
+}
+
+.form-c-portrait-sheet.epf-drag-active .form-overlay-input:hover,
+.form-c-portrait-sheet.epf-drag-active .form-overlay-textarea:hover {
+  border-color: #312e81 !important;
+  background: rgba(224, 231, 255, 0.95) !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.45) !important;
+  z-index: 40 !important;
+}
+
+.form-overlay-input.is-dragging,
+.form-overlay-textarea.is-dragging {
+  cursor: grabbing !important;
+  border: 2px solid #2563eb !important;
+  background: #ffffff !important;
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.3) !important;
+  z-index: 100 !important;
+}
+

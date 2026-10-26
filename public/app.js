@@ -7773,6 +7773,254 @@ function renderStaffCostSummary(container) {
   }
 }
 
+// ================= EPF FORM C POSITIONING & DRAGGABLE UTILITIES =================
+let epfDragModeActive = false;
+
+const defaultEpfFormCPositions = {
+  epf_c_reg_no: { left: '66.8%', top: '9.8%', width: '22.0%', height: '2.5%' },
+  epf_c_month_year: { left: '66.8%', top: '13.5%', width: '22.0%', height: '2.5%' },
+  epf_c_total_contrib: { left: '74.0%', top: '16.7%', width: '15.0%', height: '2.2%' },
+  epf_c_surcharges: { left: '74.0%', top: '19.4%', width: '15.0%', height: '2.2%' },
+  epf_c_total_remittance: { left: '74.0%', top: '22.0%', width: '15.0%', height: '2.2%' },
+  epf_c_cheque_no: { left: '81.5%', top: '24.6%', width: '13.5%', height: '2.0%' },
+  epf_c_bank_branch: { left: '68.0%', top: '26.4%', width: '27.0%', height: '3.8%' },
+  epf_c_total_tot: { left: '56.8%', top: '85.3%', width: '10.5%', height: '2.0%' },
+  epf_c_total_er: { left: '67.7%', top: '85.3%', width: '9.3%', height: '2.0%' },
+  epf_c_total_ee: { left: '77.4%', top: '85.3%', width: '8.2%', height: '2.0%' },
+  epf_c_phone: { left: '37.5%', top: '93.3%', width: '16.0%', height: '2.0%' },
+  epf_c_date: { left: '8.0%', top: '95.2%', width: '14.0%', height: '2.0%' }
+};
+
+// Populate 35 rows statutory columns
+for (let i = 0; i < 35; i++) {
+  const rTop = (38.22 + i * 1.288).toFixed(3) + '%';
+  defaultEpfFormCPositions[`epf_c_name_${i}`] = { left: '5.7%', top: rTop, width: '31.4%', height: '1.15%' };
+  defaultEpfFormCPositions[`epf_c_nic_${i}`] = { left: '37.6%', top: rTop, width: '11.7%', height: '1.15%' };
+  defaultEpfFormCPositions[`epf_c_mem_${i}`] = { left: '49.7%', top: rTop, width: '6.8%', height: '1.15%' };
+  defaultEpfFormCPositions[`epf_c_tot_${i}`] = { left: '56.8%', top: rTop, width: '10.5%', height: '1.15%' };
+  defaultEpfFormCPositions[`epf_c_er_${i}`] = { left: '67.7%', top: rTop, width: '9.3%', height: '1.15%' };
+  defaultEpfFormCPositions[`epf_c_ee_${i}`] = { left: '77.4%', top: rTop, width: '8.2%', height: '1.15%' };
+  defaultEpfFormCPositions[`epf_c_earn_${i}`] = { left: '86.0%', top: rTop, width: '9.4%', height: '1.15%' };
+}
+
+function getEpfCustomPositions() {
+  try {
+    const raw = localStorage.getItem('spillburg_epf_c_positions');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error('Error parsing epf positions:', e);
+  }
+  if (payrollData && payrollData.epfCustomPositions) {
+    return payrollData.epfCustomPositions;
+  }
+  return {};
+}
+
+function saveEpfCustomPositions(pos) {
+  try {
+    localStorage.setItem('spillburg_epf_c_positions', JSON.stringify(pos));
+  } catch (e) {
+    console.error('Error saving epf positions:', e);
+  }
+  if (payrollData) {
+    payrollData.epfCustomPositions = pos;
+    if (typeof autoSaveToCloud === 'function') autoSaveToCloud();
+    else if (typeof savePayrollData === 'function') savePayrollData();
+  }
+}
+
+function getEpfFieldPos(id) {
+  const custom = getEpfCustomPositions();
+  const c = custom[id];
+  const d = defaultEpfFormCPositions[id] || { left: '10%', top: '10%', width: '10%', height: '2%' };
+  return {
+    left: (c && c.left) ? c.left : d.left,
+    top: (c && c.top) ? c.top : d.top,
+    width: (c && c.width) ? c.width : d.width,
+    height: (c && c.height) ? c.height : d.height
+  };
+}
+
+function toggleEpfDragMode() {
+  epfDragModeActive = !epfDragModeActive;
+  const btn = document.getElementById('epfDragModeBtn');
+  const sheet = document.getElementById('epfFormCSheet');
+  const hint = document.getElementById('epfDragHint');
+  if (btn) {
+    if (epfDragModeActive) {
+      btn.className = 'px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-sm';
+      btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Drag Mode: ON</span>';
+    } else {
+      btn.className = 'px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition';
+      btn.innerHTML = '<i data-lucide="move" class="w-3.5 h-3.5"></i><span>Reposition Boxes</span>';
+    }
+  }
+  if (sheet) {
+    sheet.classList.toggle('epf-drag-active', epfDragModeActive);
+  }
+  if (hint) {
+    hint.style.display = epfDragModeActive ? 'flex' : 'none';
+  }
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function saveEpfPositions() {
+  const sheet = document.getElementById('epfFormCSheet');
+  if (!sheet) return;
+  const inputs = sheet.querySelectorAll('.form-overlay-input, .form-overlay-textarea');
+  const positions = getEpfCustomPositions();
+
+  inputs.forEach(el => {
+    if (el.id && el.style.left && el.style.top) {
+      positions[el.id] = {
+        left: el.style.left,
+        top: el.style.top,
+        width: el.style.width,
+        height: el.style.height
+      };
+    }
+  });
+
+  saveEpfCustomPositions(positions);
+
+  const saveBtn = document.getElementById('epfSavePosBtn');
+  if (saveBtn) {
+    saveBtn.classList.remove('ring-2', 'ring-amber-400', 'animate-pulse');
+    const origHtml = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Positions Saved!</span>';
+    saveBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
+    saveBtn.classList.replace('hover:bg-blue-700', 'hover:bg-emerald-700');
+    setTimeout(() => {
+      saveBtn.innerHTML = origHtml;
+      saveBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
+      saveBtn.classList.replace('hover:bg-emerald-700', 'hover:bg-blue-700');
+      if (window.lucide) window.lucide.createIcons();
+    }, 2200);
+    if (window.lucide) window.lucide.createIcons();
+  }
+}
+
+function resetEpfPositions() {
+  if (!confirm('Reset all field positions on EPF Form C back to statutory defaults?')) return;
+  try {
+    localStorage.removeItem('spillburg_epf_c_positions');
+  } catch (e) {}
+  if (payrollData) {
+    delete payrollData.epfCustomPositions;
+    if (typeof autoSaveToCloud === 'function') autoSaveToCloud();
+    else if (typeof savePayrollData === 'function') savePayrollData();
+  }
+  const container = document.getElementById('tabContent');
+  if (container) {
+    renderEpfFormC(container);
+  }
+}
+
+function setupEpfDraggables() {
+  const sheet = document.getElementById('epfFormCSheet');
+  if (!sheet) return;
+
+  let activeEl = null;
+  let startX = 0, startY = 0;
+  let origLeftPx = 0, origTopPx = 0;
+  let sheetRect = null;
+  let hasMoved = false;
+
+  sheet.addEventListener('pointerdown', (e) => {
+    if (!epfDragModeActive) return;
+    const target = e.target.closest('.form-overlay-input, .form-overlay-textarea');
+    if (!target) return;
+
+    e.preventDefault();
+    activeEl = target;
+    try {
+      activeEl.setPointerCapture(e.pointerId);
+    } catch (err) {}
+    sheetRect = sheet.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    origLeftPx = activeEl.offsetLeft;
+    origTopPx = activeEl.offsetTop;
+    hasMoved = false;
+    activeEl.style.zIndex = '50';
+    activeEl.classList.add('is-dragging');
+  });
+
+  sheet.addEventListener('pointermove', (e) => {
+    if (!activeEl || !sheetRect) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      hasMoved = true;
+    }
+    const newLeftPx = origLeftPx + dx;
+    const newTopPx = origTopPx + dy;
+    const leftPct = ((newLeftPx / sheet.offsetWidth) * 100).toFixed(2);
+    const topPct = ((newTopPx / sheet.offsetHeight) * 100).toFixed(2);
+
+    activeEl.style.left = `${leftPct}%`;
+    activeEl.style.top = `${topPct}%`;
+  });
+
+  const endDrag = (e) => {
+    if (!activeEl) return;
+    try {
+      activeEl.releasePointerCapture(e.pointerId);
+    } catch (err) {}
+    activeEl.classList.remove('is-dragging');
+    activeEl.style.zIndex = '10';
+    activeEl = null;
+    sheetRect = null;
+    if (hasMoved) {
+      const saveBtn = document.getElementById('epfSavePosBtn');
+      if (saveBtn) {
+        saveBtn.classList.add('ring-2', 'ring-amber-400', 'animate-pulse');
+      }
+    }
+  };
+
+  sheet.addEventListener('pointerup', endDrag);
+  sheet.addEventListener('pointercancel', endDrag);
+}
+
+function exportEpfFormCCsv() {
+  const p = activePayrollPeriod;
+  if (!p) return;
+  const emps = p.employees || [];
+  const rate = Number(p.exchangeRate) || 440;
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+
+  let csv = 'CENTRAL BANK OF SRI LANKA - EPF FORM C\n';
+  csv += `Employer Registration No,${p.epfRegNo || currentComp.epfRegNo || '8483/C'}\n`;
+  csv += `Contribution Period,${p.month || 'October 2026'}\n`;
+  csv += `Company,${currentComp.name || 'APADMI SL (PRIVATE) LIMITED'}\n\n`;
+
+  csv += 'No,Member No,NIC / Passport No,Employee Name,Total Earnings (LKR),Total Contribution (20%),Employer (12%),Employee (8%)\n';
+
+  let sumGross = 0, sumTot = 0, sumEr = 0, sumEe = 0;
+  emps.forEach((e, idx) => {
+    const calc = getEmployeeCalculatedFields(e, rate);
+    sumGross += calc.lkrGross;
+    sumTot += calc.epf20Lkr;
+    sumEr += calc.epf12Lkr;
+    sumEe += calc.epf8Lkr;
+    const memNo = e.epfNo || String(idx + 1).padStart(2, '0');
+    csv += `"${idx + 1}","${memNo}","${e.idNo || ''}","${(e.name || '').replace(/"/g, '""')}","${calc.lkrGross.toFixed(2)}","${calc.epf20Lkr.toFixed(2)}","${calc.epf12Lkr.toFixed(2)}","${calc.epf8Lkr.toFixed(2)}"\n`;
+  });
+
+  csv += `"Total","","","","${sumGross.toFixed(2)}","${sumTot.toFixed(2)}","${sumEr.toFixed(2)}","${sumEe.toFixed(2)}"\n`;
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `EPF_Form_C_${(p.month || 'October_2026').replace(/\s+/g, '_')}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function renderEpfFormC(container) {
   const p = activePayrollPeriod;
   if (!p) {
@@ -7788,6 +8036,9 @@ function renderEpfFormC(container) {
   const epfChequeNo = p.epfChequeNo || 'CHQ-890214';
   const remittanceDate = p.letterDate || p.date || '31.10.2026';
   const monthStr = (p.month || 'October 2026').toUpperCase();
+  const bankName = p.bankName || currentComp.bankName || 'Nations Trust Bank PLC';
+  const bankBranch = p.bankBranch || currentComp.bankBranch || 'Borella Branch';
+  const defaultBankBranchText = p.epfBankBranchCustom || `${bankName}\n${bankBranch}`;
 
   let sumGross = 0;
   let sumEpf12 = 0;
@@ -7817,29 +8068,43 @@ function renderEpfFormC(container) {
   if (totals.sumEpf8Lkr) sumEpf8 = Number(totals.sumEpf8Lkr);
   sumEpf20 = sumEpf12 + sumEpf8;
 
-  // Build rows up to 35 matching the exact statutory columns of Central Bank Form C:
-  // Col 1: Employee's Name (5.6%, width 31.6%)
-  // Col 2: National Idt. No. (37.5%, width 11.8%)
-  // Col 3: Member No (49.6%, width 6.9%)
-  // Col 4a: Contributions (Rs.) Total 20% (56.7%, width 10.6%)
-  // Col 4b: Employer 12% (67.6%, width 9.4%)
-  // Col 4c: Employee 8% (77.3%, width 8.3%)
-  // Col 5: Total Earnings (Rs.) (85.9%, width 9.6%)
+  // Build rows up to 35 matching the exact statutory columns of Central Bank Form C
   const maxRows = 35;
   let rowInputsHtml = '';
   for (let i = 0; i < maxRows; i++) {
-    const rTop = (38.22 + i * 1.288).toFixed(3);
     const emp = empRows[i];
+    const pName = getEpfFieldPos(`epf_c_name_${i}`);
+    const pNic = getEpfFieldPos(`epf_c_nic_${i}`);
+    const pMem = getEpfFieldPos(`epf_c_mem_${i}`);
+    const pTot = getEpfFieldPos(`epf_c_tot_${i}`);
+    const pEr = getEpfFieldPos(`epf_c_er_${i}`);
+    const pEe = getEpfFieldPos(`epf_c_ee_${i}`);
+    const pEarn = getEpfFieldPos(`epf_c_earn_${i}`);
+
     rowInputsHtml += `
-      <input type="text" class="form-overlay-input" id="epf_c_name_${i}" style="left: 5.7%; top: ${rTop}%; width: 31.4%; height: 1.15%; font-size: 8px; font-weight: 700; padding-left: 3px;" value="${emp ? escapeHtml(emp.name) : ''}" title="Employee Name">
-      <input type="text" class="form-overlay-input" id="epf_c_nic_${i}" style="left: 37.6%; top: ${rTop}%; width: 11.7%; height: 1.15%; font-size: 8px; text-align: center;" value="${emp ? escapeHtml(emp.idNo) : ''}" title="National Idt. No. / Passport">
-      <input type="text" class="form-overlay-input" id="epf_c_mem_${i}" style="left: 49.7%; top: ${rTop}%; width: 6.8%; height: 1.15%; text-align: center; font-size: 8px;" value="${emp ? escapeHtml(emp.memberNo) : ''}" title="Member No">
-      <input type="text" class="form-overlay-input" id="epf_c_tot_${i}" style="left: 56.8%; top: ${rTop}%; width: 10.5%; height: 1.15%; text-align: right; padding-right: 3px; font-size: 8px; font-weight: 700;" value="${emp ? formatMoney(emp.epf20, 2) : ''}" title="Total Contribution 20% (Rs.)">
-      <input type="text" class="form-overlay-input" id="epf_c_er_${i}" style="left: 67.7%; top: ${rTop}%; width: 9.3%; height: 1.15%; text-align: right; padding-right: 3px; font-size: 8px;" value="${emp ? formatMoney(emp.epf12, 2) : ''}" title="Employer 12% (Rs.)">
-      <input type="text" class="form-overlay-input" id="epf_c_ee_${i}" style="left: 77.4%; top: ${rTop}%; width: 8.2%; height: 1.15%; text-align: right; padding-right: 3px; font-size: 8px;" value="${emp ? formatMoney(emp.epf8, 2) : ''}" title="Member 8% (Rs.)">
-      <input type="text" class="form-overlay-input" id="epf_c_earn_${i}" style="left: 86.0%; top: ${rTop}%; width: 9.4%; height: 1.15%; text-align: right; padding-right: 3px; font-size: 8px;" value="${emp ? formatMoney(emp.totalEarnings, 2) : ''}" title="Total Earnings (Rs.)">
+      <input type="text" class="form-overlay-input" id="epf_c_name_${i}" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 8px; font-weight: 700; padding-left: 3px;" value="${emp ? escapeHtml(emp.name) : ''}" title="Employee Name">
+      <input type="text" class="form-overlay-input" id="epf_c_nic_${i}" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; font-size: 8px; text-align: center;" value="${emp ? escapeHtml(emp.idNo) : ''}" title="National Idt. No. / Passport">
+      <input type="text" class="form-overlay-input" id="epf_c_mem_${i}" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; text-align: center; font-size: 8px;" value="${emp ? escapeHtml(emp.memberNo) : ''}" title="Member No">
+      <input type="text" class="form-overlay-input" id="epf_c_tot_${i}" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; text-align: right; padding-right: 3px; font-size: 8px; font-weight: 700;" value="${emp ? formatMoney(emp.epf20, 2) : ''}" title="Total Contribution 20% (Rs.)">
+      <input type="text" class="form-overlay-input" id="epf_c_er_${i}" style="left: ${pEr.left}; top: ${pEr.top}; width: ${pEr.width}; height: ${pEr.height}; text-align: right; padding-right: 3px; font-size: 8px;" value="${emp ? formatMoney(emp.epf12, 2) : ''}" title="Employer 12% (Rs.)">
+      <input type="text" class="form-overlay-input" id="epf_c_ee_${i}" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; text-align: right; padding-right: 3px; font-size: 8px;" value="${emp ? formatMoney(emp.epf8, 2) : ''}" title="Member 8% (Rs.)">
+      <input type="text" class="form-overlay-input" id="epf_c_earn_${i}" style="left: ${pEarn.left}; top: ${pEarn.top}; width: ${pEarn.width}; height: ${pEarn.height}; text-align: right; padding-right: 3px; font-size: 8px;" value="${emp ? formatMoney(emp.totalEarnings, 2) : ''}" title="Total Earnings (Rs.)">
     `;
   }
+
+  // Header & Summary Field positions
+  const pReg = getEpfFieldPos('epf_c_reg_no');
+  const pMonth = getEpfFieldPos('epf_c_month_year');
+  const pContrib = getEpfFieldPos('epf_c_total_contrib');
+  const pSurch = getEpfFieldPos('epf_c_surcharges');
+  const pRemit = getEpfFieldPos('epf_c_total_remittance');
+  const pCheque = getEpfFieldPos('epf_c_cheque_no');
+  const pBank = getEpfFieldPos('epf_c_bank_branch');
+  const pTot = getEpfFieldPos('epf_c_total_tot');
+  const pEr = getEpfFieldPos('epf_c_total_er');
+  const pEe = getEpfFieldPos('epf_c_total_ee');
+  const pPhone = getEpfFieldPos('epf_c_phone');
+  const pDate = getEpfFieldPos('epf_c_date');
 
   container.innerHTML = `
     <div class="space-y-4 fade-in">
@@ -7852,10 +8117,31 @@ function renderEpfFormC(container) {
             <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">Reg: ${escapeHtml(epfRegNo)}</span>
             <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Official Form PDF Overlay</span>
           </div>
-          <p class="text-[11px] text-slate-500">Official Tri-lingual Legal Form C in authentic portrait format &bull; Click any field to edit directly before printing</p>
+          <p class="text-[11px] text-slate-500">Official Tri-lingual Legal Form C &bull; Click to edit &bull; Use Reposition Boxes to drag &amp; align</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+          <!-- Draggable positioning control buttons -->
+          <button id="epfDragModeBtn" onclick="toggleEpfDragMode()"
+            class="px-3 py-2 ${epfDragModeActive ? 'bg-indigo-600 text-white shadow-sm' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'} rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="${epfDragModeActive ? 'check' : 'move'}" class="w-3.5 h-3.5"></i>
+            <span>${epfDragModeActive ? 'Drag Mode: ON' : 'Reposition Boxes'}</span>
+          </button>
+
+          <button id="epfSavePosBtn" onclick="saveEpfPositions()"
+            class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs"
+            title="Save current box positions permanently for preview and printing">
+            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+            <span>Save Positioning</span>
+          </button>
+
+          <button onclick="resetEpfPositions()"
+            class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold flex items-center gap-1 transition"
+            title="Reset all field positions to statutory defaults">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Reset</span>
+          </button>
+
           <button onclick="printEpfFormC()"
             class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm">
             <i data-lucide="printer" class="w-3.5 h-3.5"></i>
@@ -7876,37 +8162,47 @@ function renderEpfFormC(container) {
         </div>
       </div>
 
+      <!-- Drag Mode Guidance Banner -->
+      <div id="epfDragHint" style="display: ${epfDragModeActive ? 'flex' : 'none'};" class="items-center justify-between gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 font-medium">
+        <div class="flex items-center gap-2">
+          <i data-lucide="info" class="w-4 h-4 text-indigo-600 flex-shrink-0"></i>
+          <span><strong>Drag Mode Active:</strong> Click and drag any box directly on the form sheet to adjust alignment. When finished, click <strong>Save Positioning</strong> to lock them for preview and printing.</span>
+        </div>
+        <button onclick="saveEpfPositions()" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition flex-shrink-0">
+          Save Now
+        </button>
+      </div>
+
       <!-- EPF Form C Official Portrait Overlay Sheet -->
       <div class="form-portrait-scroll-wrapper">
-        <div class="form-c-portrait-sheet" id="epfFormCSheet">
+        <div class="form-c-portrait-sheet ${epfDragModeActive ? 'epf-drag-active' : ''}" id="epfFormCSheet">
           
-          <!-- EPF Reg No (Right cell of Row 1: left 52.0%, top 9.8%, width 35.0%) -->
-          <input type="text" id="epf_c_reg_no" class="form-overlay-input" style="left: 52.0%; top: 9.8%; width: 35.0%; height: 2.5%; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(epfRegNo)}" title="Employer Registration Number">
+          <!-- EPF Reg No (Right cell of Row 1) -->
+          <input type="text" id="epf_c_reg_no" class="form-overlay-input" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(epfRegNo)}" title="Employer Registration Number">
 
-          <!-- Contribution Month/Year (Right cell of Row 2: left 52.0%, top 13.5%, width 35.0%) -->
-          <input type="text" id="epf_c_month_year" class="form-overlay-input" style="left: 52.0%; top: 13.5%; width: 35.0%; height: 2.5%; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(monthStr)}" title="Contribution Month and Year">
+          <!-- Contribution Month/Year (Right cell of Row 2) -->
+          <input type="text" id="epf_c_month_year" class="form-overlay-input" style="left: ${pMonth.left}; top: ${pMonth.top}; width: ${pMonth.width}; height: ${pMonth.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(monthStr)}" title="Contribution Month and Year">
 
-          <!-- Remittance Box (Contributions, Surcharges, Total) - Positioned in the full amount cell from 74.0% to 89.2% -->
-          <input type="text" id="epf_c_total_contrib" class="form-overlay-input" style="left: 74.0%; top: 16.7%; width: 15.0%; height: 2.2%; text-align: right; padding-right: 6px; font-size: 9.5px; font-weight: 700;" value="${formatMoney(sumEpf20, 2)}" title="Total Contributions (20%)">
-          <input type="text" id="epf_c_surcharges" class="form-overlay-input" style="left: 74.0%; top: 19.4%; width: 15.0%; height: 2.2%; text-align: right; padding-right: 6px; font-size: 9.5px;" value="0.00" title="Surcharges">
-          <input type="text" id="epf_c_total_remittance" class="form-overlay-input" style="left: 74.0%; top: 22.0%; width: 15.0%; height: 2.2%; text-align: right; padding-right: 6px; font-size: 10px; font-weight: 800;" value="${formatMoney(sumEpf20, 2)}" title="Total Remittance">
+          <!-- Remittance Box (Contributions, Surcharges, Total) in amount cell from 74.0% to 89.2% -->
+          <input type="text" id="epf_c_total_contrib" class="form-overlay-input" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; text-align: right; padding-right: 6px; font-size: 9.5px; font-weight: 700;" value="${formatMoney(sumEpf20, 2)}" title="Total Contributions (20%)">
+          <input type="text" id="epf_c_surcharges" class="form-overlay-input" style="left: ${pSurch.left}; top: ${pSurch.top}; width: ${pSurch.width}; height: ${pSurch.height}; text-align: right; padding-right: 6px; font-size: 9.5px;" value="0.00" title="Surcharges">
+          <input type="text" id="epf_c_total_remittance" class="form-overlay-input" style="left: ${pRemit.left}; top: ${pRemit.top}; width: ${pRemit.width}; height: ${pRemit.height}; text-align: right; padding-right: 6px; font-size: 10px; font-weight: 800;" value="${formatMoney(sumEpf20, 2)}" title="Total Remittance">
 
-          <!-- Cheque & Bank (Placed squarely on the dotted lines to the right of the pre-printed labels) -->
-          <input type="text" id="epf_c_cheque_no" class="form-overlay-input" style="left: 80.5%; top: 24.6%; width: 14.5%; height: 2.0%; font-size: 9px; font-weight: 700;" value="${escapeHtml(epfChequeNo)}" title="Cheque / Money Order No">
-          <input type="text" id="epf_c_bank_branch" class="form-overlay-input" style="left: 68.8%; top: 26.8%; width: 26.5%; height: 2.0%; font-size: 9px; font-weight: 600;" value="${escapeHtml(p.bankName || currentComp.bankName || 'NTB')} - ${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella')}" title="Bank Name and Branch Name">
+          <!-- Cheque & Bank (Placed squarely on the dotted lines, bank and branch as two lines) -->
+          <input type="text" id="epf_c_cheque_no" class="form-overlay-input" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 9px; font-weight: 700;" value="${escapeHtml(epfChequeNo)}" title="Cheque / Money Order No">
+          <textarea id="epf_c_bank_branch" class="form-overlay-textarea" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; font-size: 9px; font-weight: 600; line-height: 1.25; overflow: hidden; resize: none;" title="Bank Name and Branch Name (Two lines)">${escapeHtml(defaultBankBranchText)}</textarea>
 
           <!-- 35 Employee Table Rows -->
           ${rowInputsHtml}
 
-          <!-- Total Row at top: 85.3% -->
-          <input type="text" id="epf_c_total_tot" class="form-overlay-input" style="left: 56.8%; top: 85.3%; width: 10.5%; height: 2.0%; text-align: right; padding-right: 3px; font-weight: 800; font-size: 9px;" value="${formatMoney(sumEpf20, 2)}" title="Total 20%">
-          <input type="text" id="epf_c_total_er" class="form-overlay-input" style="left: 67.7%; top: 85.3%; width: 9.3%; height: 2.0%; text-align: right; padding-right: 3px; font-weight: 800; font-size: 9px;" value="${formatMoney(sumEpf12, 2)}" title="Total Employer 12%">
-          <input type="text" id="epf_c_total_ee" class="form-overlay-input" style="left: 77.4%; top: 85.3%; width: 8.2%; height: 2.0%; text-align: right; padding-right: 3px; font-weight: 800; font-size: 9px;" value="${formatMoney(sumEpf8, 2)}" title="Total Member 8%">
-          <input type="text" id="epf_c_total_earn" class="form-overlay-input" style="left: 86.0%; top: 85.3%; width: 9.4%; height: 2.0%; text-align: right; padding-right: 3px; font-weight: 800; font-size: 9px;" value="${formatMoney(sumGross, 2)}" title="Total Earnings">
+          <!-- Total Row at top: 85.3% (Total Earnings cumulative total removed as there is no statutory box for it) -->
+          <input type="text" id="epf_c_total_tot" class="form-overlay-input" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; text-align: right; padding-right: 3px; font-weight: 800; font-size: 9px;" value="${formatMoney(sumEpf20, 2)}" title="Total 20%">
+          <input type="text" id="epf_c_total_er" class="form-overlay-input" style="left: ${pEr.left}; top: ${pEr.top}; width: ${pEr.width}; height: ${pEr.height}; text-align: right; padding-right: 3px; font-weight: 800; font-size: 9px;" value="${formatMoney(sumEpf12, 2)}" title="Total Employer 12%">
+          <input type="text" id="epf_c_total_ee" class="form-overlay-input" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; text-align: right; padding-right: 3px; font-weight: 800; font-size: 9px;" value="${formatMoney(sumEpf8, 2)}" title="Total Member 8%">
 
-          <!-- Bottom Contact & Date (On clean space without overlapping labels) -->
-          <input type="text" id="epf_c_phone" class="form-overlay-input" style="left: 39.0%; top: 93.3%; width: 9.5%; height: 1.8%; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(p.phone || currentComp.phone || '+94 11 233 6116')}" title="Employer Telephone No">
-          <input type="text" id="epf_c_date" class="form-overlay-input" style="left: 8.0%; top: 95.2%; width: 14.0%; height: 1.8%; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(remittanceDate)}" title="Declaration Date">
+          <!-- Bottom Contact & Date (Expanded width so phone number is never cut off) -->
+          <input type="text" id="epf_c_phone" class="form-overlay-input" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(p.phone || currentComp.phone || '+94 11 233 6116')}" title="Employer Telephone No">
+          <input type="text" id="epf_c_date" class="form-overlay-input" style="left: ${pDate.left}; top: ${pDate.top}; width: ${pDate.width}; height: ${pDate.height}; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(remittanceDate)}" title="Declaration Date">
 
         </div>
       </div>
@@ -7917,6 +8213,7 @@ function renderEpfFormC(container) {
   if (window.lucide) {
     window.lucide.createIcons();
   }
+  setupEpfDraggables();
 }
 
 function renderEtfFormR4(container) {
@@ -11355,11 +11652,11 @@ function printEpfFormC() {
   const surcharges = document.getElementById('epf_c_surcharges')?.value || '0.00';
   const totalRemittance = document.getElementById('epf_c_total_remittance')?.value || '';
   const chequeNo = document.getElementById('epf_c_cheque_no')?.value || p.epfChequeNo || 'CHQ-890214';
-  const bankBranch = document.getElementById('epf_c_bank_branch')?.value || `${p.bankName || currentComp.bankName || 'NTB'} - ${p.bankBranch || currentComp.bankBranch || 'Borella'}`;
+  const defaultBankBranch = p.epfBankBranchCustom || `${p.bankName || currentComp.bankName || 'Nations Trust Bank PLC'}\n${p.bankBranch || currentComp.bankBranch || 'Borella Branch'}`;
+  const bankBranch = document.getElementById('epf_c_bank_branch')?.value || defaultBankBranch;
   const totalTot = document.getElementById('epf_c_total_tot')?.value || '';
   const totalEr = document.getElementById('epf_c_total_er')?.value || '';
   const totalEe = document.getElementById('epf_c_total_ee')?.value || '';
-  const totalEarn = document.getElementById('epf_c_total_earn')?.value || '';
   const phone = document.getElementById('epf_c_phone')?.value || currentComp.phone || '+94 11 233 6116';
   const dateVal = document.getElementById('epf_c_date')?.value || p.letterDate || p.date || '31.10.2026';
 
@@ -11375,17 +11672,38 @@ function printEpfFormC() {
 
     if (!name && !nic && !mem && !tot && !er && !ee && !earn) continue;
 
-    const rTop = (38.22 + i * 1.288).toFixed(3);
+    const pName = getEpfFieldPos(`epf_c_name_${i}`);
+    const pNic = getEpfFieldPos(`epf_c_nic_${i}`);
+    const pMem = getEpfFieldPos(`epf_c_mem_${i}`);
+    const pTot = getEpfFieldPos(`epf_c_tot_${i}`);
+    const pEr = getEpfFieldPos(`epf_c_er_${i}`);
+    const pEe = getEpfFieldPos(`epf_c_ee_${i}`);
+    const pEarn = getEpfFieldPos(`epf_c_earn_${i}`);
+
     rowFieldsHtml += `
-      <div class="field" style="left: 5.7%; top: ${rTop}%; width: 31.4%; height: 1.15%; font-size: 6.5pt; font-weight: bold; padding-left: 2px;">${escapeHtml(name)}</div>
-      <div class="field" style="left: 37.6%; top: ${rTop}%; width: 11.7%; height: 1.15%; justify-content: center; font-size: 6.5pt;">${escapeHtml(nic)}</div>
-      <div class="field" style="left: 49.7%; top: ${rTop}%; width: 6.8%; height: 1.15%; justify-content: center; font-size: 6.5pt;">${escapeHtml(mem)}</div>
-      <div class="field" style="left: 56.8%; top: ${rTop}%; width: 10.5%; height: 1.15%; justify-content: flex-end; padding-right: 3px; font-size: 6.5pt; font-weight: bold;">${escapeHtml(tot)}</div>
-      <div class="field" style="left: 67.7%; top: ${rTop}%; width: 9.3%; height: 1.15%; justify-content: flex-end; padding-right: 3px; font-size: 6.5pt;">${escapeHtml(er)}</div>
-      <div class="field" style="left: 77.4%; top: ${rTop}%; width: 8.2%; height: 1.15%; justify-content: flex-end; padding-right: 3px; font-size: 6.5pt;">${escapeHtml(ee)}</div>
-      <div class="field" style="left: 86.0%; top: ${rTop}%; width: 9.4%; height: 1.15%; justify-content: flex-end; padding-right: 3px; font-size: 6.5pt;">${escapeHtml(earn)}</div>
+      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 6.5pt; font-weight: bold; padding-left: 2px;">${escapeHtml(name)}</div>
+      <div class="field" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; justify-content: center; font-size: 6.5pt;">${escapeHtml(nic)}</div>
+      <div class="field" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; justify-content: center; font-size: 6.5pt;">${escapeHtml(mem)}</div>
+      <div class="field" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; justify-content: flex-end; padding-right: 3px; font-size: 6.5pt; font-weight: bold;">${escapeHtml(tot)}</div>
+      <div class="field" style="left: ${pEr.left}; top: ${pEr.top}; width: ${pEr.width}; height: ${pEr.height}; justify-content: flex-end; padding-right: 3px; font-size: 6.5pt;">${escapeHtml(er)}</div>
+      <div class="field" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; justify-content: flex-end; padding-right: 3px; font-size: 6.5pt;">${escapeHtml(ee)}</div>
+      <div class="field" style="left: ${pEarn.left}; top: ${pEarn.top}; width: ${pEarn.width}; height: ${pEarn.height}; justify-content: flex-end; padding-right: 3px; font-size: 6.5pt;">${escapeHtml(earn)}</div>
     `;
   }
+
+  // Header & Summary Field positions
+  const pReg = getEpfFieldPos('epf_c_reg_no');
+  const pMonth = getEpfFieldPos('epf_c_month_year');
+  const pContrib = getEpfFieldPos('epf_c_total_contrib');
+  const pSurch = getEpfFieldPos('epf_c_surcharges');
+  const pRemit = getEpfFieldPos('epf_c_total_remittance');
+  const pCheque = getEpfFieldPos('epf_c_cheque_no');
+  const pBank = getEpfFieldPos('epf_c_bank_branch');
+  const pTot = getEpfFieldPos('epf_c_total_tot');
+  const pEr = getEpfFieldPos('epf_c_total_er');
+  const pEe = getEpfFieldPos('epf_c_total_ee');
+  const pPhone = getEpfFieldPos('epf_c_phone');
+  const pDate = getEpfFieldPos('epf_c_date');
 
   const printWin = window.open('', '_blank');
   if (!printWin) {
@@ -11439,30 +11757,29 @@ function printEpfFormC() {
     <body>
       <div class="print-sheet">
         <!-- Row 1: Reg No -->
-        <div class="field" style="left: 52.0%; top: 9.8%; width: 35.0%; height: 2.5%; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(regNo)}</div>
+        <div class="field" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(regNo)}</div>
         <!-- Row 2: Month and Year -->
-        <div class="field" style="left: 52.0%; top: 13.5%; width: 35.0%; height: 2.5%; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(monthYear)}</div>
+        <div class="field" style="left: ${pMonth.left}; top: ${pMonth.top}; width: ${pMonth.width}; height: ${pMonth.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(monthYear)}</div>
 
         <!-- Remittance Box in the full amount cell from 74.0% to 89.2% -->
-        <div class="field" style="left: 74.0%; top: 16.7%; width: 15.0%; height: 2.2%; justify-content: flex-end; padding-right: 6px; font-size: 8pt; font-weight: bold;">${escapeHtml(totalContrib)}</div>
-        <div class="field" style="left: 74.0%; top: 19.4%; width: 15.0%; height: 2.2%; justify-content: flex-end; padding-right: 6px; font-size: 8pt;">${escapeHtml(surcharges)}</div>
-        <div class="field" style="left: 74.0%; top: 22.0%; width: 15.0%; height: 2.2%; justify-content: flex-end; padding-right: 6px; font-size: 8.5pt; font-weight: 800;">${escapeHtml(totalRemittance)}</div>
+        <div class="field" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; justify-content: flex-end; padding-right: 6px; font-size: 8pt; font-weight: bold;">${escapeHtml(totalContrib)}</div>
+        <div class="field" style="left: ${pSurch.left}; top: ${pSurch.top}; width: ${pSurch.width}; height: ${pSurch.height}; justify-content: flex-end; padding-right: 6px; font-size: 8pt;">${escapeHtml(surcharges)}</div>
+        <div class="field" style="left: ${pRemit.left}; top: ${pRemit.top}; width: ${pRemit.width}; height: ${pRemit.height}; justify-content: flex-end; padding-right: 6px; font-size: 8.5pt; font-weight: 800;">${escapeHtml(totalRemittance)}</div>
 
-        <!-- Cheque No and Bank Branch on dotted lines -->
-        <div class="field" style="left: 80.5%; top: 24.6%; width: 14.5%; height: 2.0%; font-size: 7.5pt; font-weight: bold;">${escapeHtml(chequeNo)}</div>
-        <div class="field" style="left: 68.8%; top: 26.8%; width: 26.5%; height: 2.0%; font-size: 7.5pt; font-weight: 600;">${escapeHtml(bankBranch)}</div>
+        <!-- Cheque No and Bank Branch on dotted lines (bank/branch displayed as two lines) -->
+        <div class="field" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 7.5pt; font-weight: bold;">${escapeHtml(chequeNo)}</div>
+        <div class="field" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; font-size: 7.5pt; font-weight: 600; white-space: pre-line; line-height: 1.25; display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">${escapeHtml(bankBranch)}</div>
 
         ${rowFieldsHtml}
 
-        <!-- Total Row at top: 85.3% -->
-        <div class="field" style="left: 56.8%; top: 85.3%; width: 10.5%; height: 2.0%; justify-content: flex-end; padding-right: 3px; font-weight: 800; font-size: 7pt;">${escapeHtml(totalTot)}</div>
-        <div class="field" style="left: 67.7%; top: 85.3%; width: 9.3%; height: 2.0%; justify-content: flex-end; padding-right: 3px; font-weight: 800; font-size: 7pt;">${escapeHtml(totalEr)}</div>
-        <div class="field" style="left: 77.4%; top: 85.3%; width: 8.2%; height: 2.0%; justify-content: flex-end; padding-right: 3px; font-weight: 800; font-size: 7pt;">${escapeHtml(totalEe)}</div>
-        <div class="field" style="left: 86.0%; top: 85.3%; width: 9.4%; height: 2.0%; justify-content: flex-end; padding-right: 3px; font-weight: 800; font-size: 7pt;">${escapeHtml(totalEarn)}</div>
+        <!-- Total Row at top: 85.3% (Total Earnings cumulative total removed as there is no statutory box for it) -->
+        <div class="field" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; justify-content: flex-end; padding-right: 3px; font-weight: 800; font-size: 7pt;">${escapeHtml(totalTot)}</div>
+        <div class="field" style="left: ${pEr.left}; top: ${pEr.top}; width: ${pEr.width}; height: ${pEr.height}; justify-content: flex-end; padding-right: 3px; font-weight: 800; font-size: 7pt;">${escapeHtml(totalEr)}</div>
+        <div class="field" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; justify-content: flex-end; padding-right: 3px; font-weight: 800; font-size: 7pt;">${escapeHtml(totalEe)}</div>
 
         <!-- Clean bottom contact details without overlapping pre-printed text -->
-        <div class="field" style="left: 39.0%; top: 93.3%; width: 9.5%; height: 1.8%; font-size: 7.5pt; font-weight: 600;">${escapeHtml(phone)}</div>
-        <div class="field" style="left: 8.0%; top: 95.2%; width: 14.0%; height: 1.8%; font-size: 7.5pt; font-weight: 600;">${escapeHtml(dateVal)}</div>
+        <div class="field" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 7.5pt; font-weight: 600;">${escapeHtml(phone)}</div>
+        <div class="field" style="left: ${pDate.left}; top: ${pDate.top}; width: ${pDate.width}; height: ${pDate.height}; font-size: 7.5pt; font-weight: 600;">${escapeHtml(dateVal)}</div>
       </div>
       <script>
         window.onload = function() {
