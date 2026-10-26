@@ -2299,7 +2299,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             latest_period = get_latest_payroll_period(PAYROLL_RECORDS.get("periods", []))
             active_id = PAYROLL_RECORDS.get("activePeriodId", "")
             period_ids = [p.get("id") for p in PAYROLL_RECORDS.get("periods", [])]
-            if not active_id or active_id not in period_ids:
+            if not active_id or active_id not in period_ids or (latest_period and active_id != latest_period.get("id")):
                 if latest_period:
                     active_id = latest_period.get("id", "")
                     PAYROLL_RECORDS["activePeriodId"] = active_id
@@ -2327,6 +2327,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     "totalGrossLkr": p_totals.get("sumGrossSalaryLkr", 0),
                     "totalEarnedGbp": p_totals.get("sumEarnedGbp", 0),
                     "totalDeductionsLkr": p_totals.get("sumDeductionsLkr", 0),
+                    "totals": p_totals,
                     "bankName": p.get("bankName"),
                     "bankBranch": p.get("bankBranch"),
                     "debitAccountNo": p.get("debitAccountNo"),

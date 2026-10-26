@@ -950,14 +950,32 @@ async function loadInitialData() {
         const payRes = await fetch('/api/payroll', { headers });
         if (payRes.ok) {
           payrollData = await payRes.json();
-          const latestPeriod = getLatestCreatedPayrollPeriod(payrollData.periods);
-          activePayrollPeriod = latestPeriod || payrollData.activePeriod || null;
+          const latestSummary = getLatestCreatedPayrollPeriod(payrollData.periods);
+          if (payrollData.activePeriod && (!latestSummary || payrollData.activePeriod.id === latestSummary.id)) {
+            activePayrollPeriod = payrollData.activePeriod;
+          } else if (latestSummary) {
+            try {
+              const pRes = await fetch(`/api/payroll/period?id=${encodeURIComponent(latestSummary.id)}`, { headers });
+              if (pRes.ok) {
+                const pData = await pRes.json();
+                activePayrollPeriod = pData.period;
+              } else {
+                activePayrollPeriod = payrollData.activePeriod || null;
+              }
+            } catch (pErr) {
+              activePayrollPeriod = payrollData.activePeriod || null;
+            }
+          } else {
+            activePayrollPeriod = payrollData.activePeriod || null;
+          }
+
           if (activePayrollPeriod && activePayrollPeriod.companyId) {
             selectedPayrollCompanyId = activePayrollPeriod.companyId;
           }
           const countEl = document.getElementById('navPayrollCount');
           if (countEl && activePayrollPeriod) {
-            countEl.textContent = activePayrollPeriod.employees?.length || 0;
+            const empCount = (Array.isArray(activePayrollPeriod.employees) && activePayrollPeriod.employees.length) || activePayrollPeriod.employeeCount || 0;
+            countEl.textContent = empCount;
           }
         }
       } catch (payErr) {
@@ -6969,8 +6987,26 @@ async function renderPayroll(container) {
       });
       if (res.ok) {
         payrollData = await res.json();
-        const latestPeriod = getLatestCreatedPayrollPeriod(payrollData.periods);
-        activePayrollPeriod = latestPeriod || payrollData.activePeriod || null;
+        const latestSummary = getLatestCreatedPayrollPeriod(payrollData.periods);
+        if (payrollData.activePeriod && (!latestSummary || payrollData.activePeriod.id === latestSummary.id)) {
+          activePayrollPeriod = payrollData.activePeriod;
+        } else if (latestSummary) {
+          try {
+            const pRes = await fetch(`/api/payroll/period?id=${encodeURIComponent(latestSummary.id)}`, {
+              headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            if (pRes.ok) {
+              const pData = await pRes.json();
+              activePayrollPeriod = pData.period;
+            } else {
+              activePayrollPeriod = payrollData.activePeriod || null;
+            }
+          } catch (pErr) {
+            activePayrollPeriod = payrollData.activePeriod || null;
+          }
+        } else {
+          activePayrollPeriod = payrollData.activePeriod || null;
+        }
         if (activePayrollPeriod && activePayrollPeriod.companyId) {
           selectedPayrollCompanyId = activePayrollPeriod.companyId;
         }
@@ -7004,31 +7040,46 @@ async function renderPayroll(container) {
   // Filter periods belonging to this company
   const compPeriods = (payrollData.periods || []).filter(per => per.companyId === selectedComp.id);
 
-  // During launch, or if active period doesn't belong to the selected company, select the latest created period of that company
-  if (!payrollLaunchPeriodSelected || !activePayrollPeriod || activePayrollPeriod.companyId !== selectedComp.id) {
-    const targetPeriod = getLatestCreatedPayrollPeriod(compPeriods);
-    if (targetPeriod) {
-      if (!activePayrollPeriod || activePayrollPeriod.id !== targetPeriod.id) {
-        try {
-          const pRes = await fetch(`/api/payroll/period?id=${encodeURIComponent(targetPeriod.id)}`, {
-            headers: { 'Authorization': `Bearer ${authToken}` }
-          });
-          if (pRes.ok) {
-            const pData = await pRes.json();
-            activePayrollPeriod = pData.period;
-          }
-        } catch (err) {
-          activePayrollPeriod = targetPeriod;
-        }
+  // Target latest created period for this specific company
+  const targetPeriod = getLatestCreatedPayrollPeriod(compPeriods);
+  const targetId = targetPeriod ? targetPeriod.id : null;
+
+  // Verify whether activePayrollPeriod already has complete details (employees array & totals object)
+  const hasCompleteDetails = activePayrollPeriod &&
+                             Array.isArray(activePayrollPeriod.employees) &&
+                             activePayrollPeriod.totals &&
+                             Object.keys(activePayrollPeriod.totals).length > 0;
+
+  const isWrongCompany = activePayrollPeriod && activePayrollPeriod.companyId !== selectedComp.id;
+  const isTargetMismatched = targetId && (!activePayrollPeriod || (!payrollLaunchPeriodSelected && activePayrollPeriod.id !== targetId));
+
+  // If details are missing or target period does not match, fetch enriched period details immediately
+  if (targetId && (!hasCompleteDetails || isWrongCompany || isTargetMismatched)) {
+    try {
+      const pRes = await fetch(`/api/payroll/period?id=${encodeURIComponent(targetId)}`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        activePayrollPeriod = pData.period;
       }
-    } else {
-      activePayrollPeriod = null;
+    } catch (err) {
+      console.error('Failed to load full period details:', err);
     }
+    payrollLaunchPeriodSelected = true;
+  } else if (!targetPeriod) {
+    activePayrollPeriod = null;
     payrollLaunchPeriodSelected = true;
   }
 
   const p = activePayrollPeriod;
   const totals = p ? (p.totals || {}) : {};
+
+  // Synchronize sidebar counter with accurate live count
+  const navCountEl = document.getElementById('navPayrollCount');
+  if (navCountEl && p) {
+    navCountEl.textContent = (Array.isArray(p.employees) && p.employees.length) || p.employeeCount || 0;
+  }
 
   // Build the complete HTML
   container.innerHTML = `
