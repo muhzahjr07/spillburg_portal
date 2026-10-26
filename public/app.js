@@ -37,6 +37,7 @@ function toggleBankLetterhead(enabled) {
 function toggleStaffCostLetterhead(enabled) {
   staffCostLetterheadEnabled = !!enabled;
   const logoEl = document.getElementById('staffCostHeaderLogo');
+  const placeholderEl = document.getElementById('staffCostHeaderPlaceholder');
   const footerEl = document.getElementById('staffCostFooter');
   const sheet = document.querySelector('.staff-cost-sheet');
   if (sheet) {
@@ -44,6 +45,9 @@ function toggleStaffCostLetterhead(enabled) {
   }
   if (logoEl) {
     logoEl.style.display = staffCostLetterheadEnabled ? 'block' : 'none';
+  }
+  if (placeholderEl) {
+    placeholderEl.style.display = staffCostLetterheadEnabled ? 'none' : 'block';
   }
   if (footerEl) {
     footerEl.style.display = staffCostLetterheadEnabled ? 'block' : 'none';
@@ -7525,9 +7529,12 @@ function renderStaffCostSummary(container) {
     sumEtf3 += calc.etf3Gbp;
     sumTotalCost += calc.totalEmployerGbp;
 
+    const rawName = e.shortName || e.name || '';
+    const formattedName = rawName.toLowerCase().replace(/\b[a-z]/g, ch => ch.toUpperCase());
+
     return {
       no: e.no || (idx + 1),
-      name: e.shortName || e.name,
+      name: formattedName,
       fullName: e.name,
       cost: calc.basicGbp,
       epf12: calc.epf12Gbp,
@@ -7594,7 +7601,7 @@ function renderStaffCostSummary(container) {
       <div class="staff-cost-container">
         <div class="staff-cost-sheet ${staffCostLetterheadEnabled ? '' : 'no-letterhead'}">
 
-          <!-- Header Row -->
+          <!-- Header Row (Fixed at top of A4) -->
           <div class="flex justify-between items-start mb-4">
             <div>
               <div style="font-size: 13.5px; font-weight: 800; color: #000; letter-spacing: 0.2px;">APADMI GROUP LIMITED</div>
@@ -7605,8 +7612,9 @@ function renderStaffCostSummary(container) {
             <div style="text-align: right;">
               <!-- Dynamic Letterhead Header Logo -->
               <div id="staffCostHeaderLogo" style="display: ${staffCostLetterheadEnabled ? 'block' : 'none'};">
-                <img src="/public/spillburg_header_logo.png" style="width: 220px; height: auto; object-fit: contain; margin-bottom: 2px;" alt="Spillburg Holdings">
+                <img src="/public/spillburg_header_logo.png" style="width: 200px; height: auto; object-fit: contain; margin-bottom: 2px;" alt="Spillburg Holdings">
               </div>
+              <div id="staffCostHeaderPlaceholder" style="display: ${staffCostLetterheadEnabled ? 'none' : 'block'}; height: 55px;"></div>
               <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px;">
                 <span style="font-weight: 800; font-size: 11px; color: #000; letter-spacing: 0.2px;">INVOICE NO</span>
                 <input type="text" id="staffCostInvoiceNoInput" value="${escapeHtml(invoiceNo)}" 
@@ -7622,14 +7630,14 @@ function renderStaffCostSummary(container) {
             <div>Month of ${escapeHtml(p.month || 'September 2026')} salary spreadsheet, the employer contributions in GBP (${currSign}) would be as follows:</div>
           </div>
 
-          <!-- Table 1: 3 Columns matching Reference PDF -->
-          <div style="margin-bottom: 14px;">
+          <!-- Table 1: 3 Columns matching Reference PDF (compact width, brought closer to employee column) -->
+          <div style="margin-bottom: 14px; max-width: 475px; width: 100%;">
             <table class="staff-cost-main-table">
               <thead>
                 <tr>
-                  <th style="width: 45px; text-align: left; padding: 3px 6px; font-weight: 700;">No.</th>
+                  <th style="width: 38px; text-align: left; padding: 3px 6px; font-weight: 700;">No.</th>
                   <th style="text-align: left; padding: 3px 6px; font-weight: 700;">Employee</th>
-                  <th style="width: 175px; text-align: right; padding: 3px 8px; font-weight: 700;">Total Employer Cost (${currSign})</th>
+                  <th style="width: 170px; text-align: right; padding: 3px 8px; font-weight: 700;">Total Employer Cost (${currSign})</th>
                 </tr>
               </thead>
               <tbody>
@@ -7648,44 +7656,44 @@ function renderStaffCostSummary(container) {
             </table>
           </div>
 
-          <!-- Table 2: Summary Statement matching Reference PDF -->
-          <div style="max-width: 440px; margin-bottom: 14px;">
+          <!-- Table 2: Summary Statement matching Reference PDF (aligned width 475px) -->
+          <div style="max-width: 475px; width: 100%; margin-bottom: 14px;">
             <div style="font-weight: 800; font-size: 11px; margin-bottom: 2px;">Summary Statement</div>
             <div style="font-weight: 700; font-size: 10px; margin-bottom: 4px;">${escapeHtml(periodMonth)} Salary & Employer Contributions (${foreignCurr})</div>
             <table style="width: 100%; border-collapse: collapse; font-size: 10.5px;">
               <thead>
                 <tr style="border-top: 1.2px solid #000; border-bottom: 1.2px solid #000;">
                   <th style="text-align: left; padding: 2.5px 6px; font-weight: 700;">Description</th>
-                  <th style="text-align: right; padding: 2.5px 6px; font-weight: 700; width: 125px;">Amount (${currSign})</th>
+                  <th style="text-align: right; padding: 2.5px 8px; font-weight: 700; width: 170px;">Amount (${currSign})</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td style="padding: 2px 6px;">Total Basic Salaries</td>
-                  <td style="padding: 2px 6px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums;">${formatMoney(sumBasic, 2)}</td>
+                  <td style="padding: 2px 8px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums;">${formatMoney(sumBasic, 2)}</td>
                 </tr>
                 <tr>
                   <td style="padding: 2px 6px;">Employer EPF (12%)</td>
-                  <td style="padding: 2px 6px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEpf12, 2)}</td>
+                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEpf12, 2)}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #000;">
                   <td style="padding: 2px 6px;">Employer ETF (3%)</td>
-                  <td style="padding: 2px 6px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEtf3, 2)}</td>
+                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEtf3, 2)}</td>
                 </tr>
                 <tr style="border-bottom: 2px solid #000; font-weight: 800;">
                   <td style="padding: 3px 6px;">Total Employer Cost</td>
-                  <td style="padding: 3px 6px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
+                  <td style="padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
                 </tr>
                 <tr>
                   <td colspan="2" style="padding-top: 5px; font-weight: 800; font-size: 10px;">ADD</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #000;">
                   <td style="padding: 2px 6px;">Bank charges</td>
-                  <td style="padding: 2px 6px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(bankCharges, 2)}</td>
+                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(bankCharges, 2)}</td>
                 </tr>
                 <tr style="border-bottom: 3px double #000; font-weight: 800;">
                   <td style="padding: 3px 6px;">With Bank charges</td>
-                  <td style="padding: 3px 6px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(withBankCharges, 2)}</td>
+                  <td style="padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(withBankCharges, 2)}</td>
                 </tr>
               </tbody>
             </table>
@@ -7697,42 +7705,44 @@ function renderStaffCostSummary(container) {
             <div>We hereby confirm that the above staff costs were incurred on behalf of APADMI Group Limited and are being recharged accordingly.</div>
           </div>
 
-          <!-- Signatures (Official Lines matching Reference staff_cost_summary_ref.png) -->
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px; margin-bottom: 18px; padding-right: 15px;">
+          <!-- Signatures (Official Lines with generous space for signing & company stamp) -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 22px; margin-bottom: 20px; padding-right: 20px;">
             <!-- Left: Prepared By / Checked By (Accountant) -->
             <div style="display: flex; align-items: flex-start; gap: 14px;">
               <div style="font-weight: 700; font-size: 10.5px; line-height: 1.5; padding-top: 1px;">
-                <div>Prepared By</div>
-                <div>Checked By</div>
+                <div style="height: 22px;">Prepared By</div>
+                <div style="margin-top: 6px;">Checked By</div>
               </div>
               <div style="width: 220px; text-align: center;">
-                <div style="font-weight: 700; font-size: 11px; min-height: 20px; color: #000;">
+                <div style="font-weight: 700; font-size: 11px; height: 22px; line-height: 22px; color: #000; text-align: left; padding-left: 8px;">
                   ${escapeHtml(p.checkedBy || currentComp.checkedBy || 'Hemanthi Basnayake')}
                 </div>
-                <div style="height: 26px;"></div>
+                <!-- Generous space for physical signing & company stamp -->
+                <div style="height: 56px;"></div>
                 <div style="border-top: 1px dotted #000; width: 100%;"></div>
-                <div style="font-size: 10px; font-weight: 600; color: #000; margin-top: 3px;">Accountant</div>
+                <div style="font-size: 10px; font-weight: 600; color: #000; margin-top: 4px;">Accountant</div>
               </div>
             </div>
 
             <!-- Right: Authorized By (Director) -->
             <div style="display: flex; align-items: flex-start; gap: 14px;">
               <div style="font-weight: 700; font-size: 10.5px; line-height: 1.5; padding-top: 1px;">
-                <div>Authorized By</div>
+                <div style="height: 22px;">Authorized By</div>
               </div>
               <div style="width: 220px; text-align: center;">
-                <div style="font-weight: 700; font-size: 11px; min-height: 20px; color: #000;">
+                <div style="font-weight: 700; font-size: 11px; height: 22px; line-height: 22px; color: #000; text-align: right; padding-right: 8px;">
                   ${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}
                 </div>
-                <div style="height: 26px;"></div>
+                <!-- Generous space for physical signing & company stamp -->
+                <div style="height: 56px;"></div>
                 <div style="border-top: 1px dotted #000; width: 100%;"></div>
-                <div style="font-size: 10px; font-weight: 600; color: #000; margin-top: 3px;">Director</div>
+                <div style="font-size: 10px; font-weight: 600; color: #000; margin-top: 4px;">Director</div>
               </div>
             </div>
           </div>
 
           <!-- Date & Beneficiary Banking Details matching Reference -->
-          <div style="font-size: 10.5px; color: #000; line-height: 1.45; margin-top: 12px; margin-bottom: 16px;">
+          <div style="font-size: 10.5px; color: #000; line-height: 1.45; margin-top: 12px; margin-bottom: 12px;">
             <div style="margin-bottom: 3px;"><strong>Date</strong> : ${escapeHtml(invoiceDate)}</div>
             <div><strong>Beneficiary</strong>: ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')}</div>
             <div style="display: grid; grid-template-columns: 80px 1fr; gap: 1px;">
@@ -7744,8 +7754,8 @@ function renderStaffCostSummary(container) {
             </div>
           </div>
 
-          <!-- Dynamic Letterhead Footer -->
-          <div id="staffCostFooter" style="margin-top: 20px; display: ${staffCostLetterheadEnabled ? 'block' : 'none'};">
+          <!-- Fixed Letterhead Footer at bottom of A4 -->
+          <div id="staffCostFooter" style="display: ${staffCostLetterheadEnabled ? 'block' : 'none'};">
             <img src="/public/spillburg_footer.png" style="width: 100%; height: auto; display: block;" alt="Letterhead Footer">
           </div>
 
@@ -11038,9 +11048,12 @@ function printStaffCostSummary() {
     sumEtf3 += calc.etf3Gbp;
     sumTotalCost += calc.totalEmployerGbp;
 
+    const rawName = e.shortName || e.name || '';
+    const formattedName = rawName.toLowerCase().replace(/\b[a-z]/g, ch => ch.toUpperCase());
+
     return {
       no: e.no || (idx + 1),
-      name: e.shortName || e.name,
+      name: formattedName,
       totalEmployerCost: calc.totalEmployerGbp
     };
   });
@@ -11077,31 +11090,57 @@ function printStaffCostSummary() {
       <style>
         @page {
           size: A4 portrait;
-          margin: ${isLetterhead ? '8mm 12mm 6mm 12mm' : '32mm 12mm 10mm 12mm'};
+          margin: 0;
         }
         * { box-sizing: border-box; }
-        body {
-          font-family: Arial, Helvetica, sans-serif;
+        html, body {
           margin: 0;
           padding: 0;
           background: #fff;
           color: #000;
+          font-family: Arial, Helvetica, sans-serif;
           font-size: 8pt;
           line-height: 1.3;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
-        table { border-collapse: collapse; width: 100%; }
+        .a4-print-sheet {
+          position: relative;
+          width: 210mm;
+          height: 297mm;
+          max-height: 297mm;
+          margin: 0 auto;
+          padding: 10mm 15mm 32mm 15mm; /* 32mm bottom padding prevents content from overlapping footer */
+          box-sizing: border-box;
+          overflow: hidden;
+          page-break-inside: avoid;
+          page-break-after: avoid;
+        }
+        .page-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 4mm;
+        }
+        .page-footer {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          padding: 0 15mm 6mm 15mm;
+          pointer-events: none;
+        }
+        table { border-collapse: collapse; }
         .double-bottom { border-bottom: 3px double #000; }
         .single-top { border-top: 1.2px solid #000; }
         .single-bottom { border-bottom: 1.2px solid #000; }
       </style>
     </head>
     <body>
-      <div style="position: relative; max-width: 100%;">
+      <div class="a4-print-sheet">
         
-        <!-- Header row with prominent Spillburg logo (or clean space if on physical letterhead) -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+        <!-- Header row (Fixed at top of A4) -->
+        <div class="page-header">
           <div>
             <div style="font-size: 11pt; font-weight: bold; color: #000; letter-spacing: 0.2px;">APADMI GROUP LIMITED</div>
             <div style="font-size: 8pt; font-weight: bold; margin-top: 3px;">APADMI SL (PRIVATE) LIMITED</div>
@@ -11110,7 +11149,7 @@ function printStaffCostSummary() {
           <div style="text-align: right;">
             ${isLetterhead ? `
               <img src="/public/spillburg_header_logo.png" style="width: 175px; height: auto; object-fit: contain; margin-bottom: 2px;" alt="Spillburg Holdings">
-            ` : ''}
+            ` : '<div style="height: 18mm;"></div>'}
             <div style="font-weight: bold; font-size: 8.5pt; letter-spacing: 0.2px; margin-top: 4px;">
               INVOICE NO ${escapeHtml(invoiceNo)}
             </div>
@@ -11118,125 +11157,127 @@ function printStaffCostSummary() {
         </div>
 
         <!-- Period and Intro Text -->
-        <div style="margin-top: 6px; margin-bottom: 6px; font-size: 8pt;">
+        <div style="margin-top: 3mm; margin-bottom: 3mm; font-size: 8pt;">
           <div style="font-weight: bold; margin-bottom: 1px;">Period: ${escapeHtml(periodMonth)}</div>
           <div>Month of ${escapeHtml(p.month || 'September 2026')} salary spreadsheet, the employer contributions in GBP (${currSign}) would be as follows:</div>
         </div>
 
-        <!-- Table 1: 3 Columns matching Reference PDF -->
-        <div style="margin-bottom: 8px;">
-          <table style="font-size: 7.5pt;">
+        <!-- Table 1: 3 Columns matching Reference PDF (compact width, brought closer to employee column) -->
+        <div style="width: 125mm; max-width: 125mm; margin-bottom: 3.5mm;">
+          <table style="width: 100%; font-size: 7.5pt;">
             <thead>
               <tr class="single-top single-bottom">
-                <th style="width: 35px; text-align: left; padding: 2.2px 6px; font-weight: bold;">No.</th>
-                <th style="text-align: left; padding: 2.2px 6px; font-weight: bold;">Employee</th>
-                <th style="width: 150px; text-align: right; padding: 2.2px 6px; font-weight: bold;">Total Employer Cost (${currSign})</th>
+                <th style="width: 10mm; text-align: left; padding: 2px 4px; font-weight: bold;">No.</th>
+                <th style="text-align: left; padding: 2px 4px; font-weight: bold;">Employee</th>
+                <th style="width: 44mm; text-align: right; padding: 2px 4px; font-weight: bold;">Total Employer Cost (${currSign})</th>
               </tr>
             </thead>
             <tbody>
               ${empRows.map((r, i) => `
                 <tr style="border-bottom: 1px solid #e5e7eb;">
-                  <td style="padding: 1.6px 6px;">${r.no}</td>
-                  <td style="padding: 1.6px 6px; font-weight: bold;">${escapeHtml(r.name)}</td>
-                  <td style="padding: 1.6px 6px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(r.totalEmployerCost, 2)}</td>
+                  <td style="padding: 1.5px 4px;">${r.no}</td>
+                  <td style="padding: 1.5px 4px; font-weight: bold;">${escapeHtml(r.name)}</td>
+                  <td style="padding: 1.5px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(r.totalEmployerCost, 2)}</td>
                 </tr>
               `).join('')}
               <tr class="single-top double-bottom" style="font-weight: bold;">
-                <td colspan="2" style="padding: 3px 6px; font-size: 8.5pt;">Total</td>
-                <td style="padding: 3px 6px; text-align: right; font-size: 8.5pt; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
+                <td colspan="2" style="padding: 2.5px 4px; font-size: 8pt;">Total</td>
+                <td style="padding: 2.5px 4px; text-align: right; font-size: 8pt; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- Table 2: Summary Statement matching Reference PDF -->
-        <div style="max-width: 380px; margin-bottom: 8px;">
-          <div style="font-weight: bold; font-size: 8.5pt; margin-bottom: 1px;">Summary Statement</div>
-          <div style="font-weight: bold; font-size: 7.5pt; margin-bottom: 2px;">${escapeHtml(periodMonth)} Salary &amp; Employer Contributions (${foreignCurr})</div>
-          <table style="font-size: 7.5pt;">
+        <!-- Table 2: Summary Statement matching Reference PDF (same width 125mm as Table 1) -->
+        <div style="width: 125mm; max-width: 125mm; margin-bottom: 3.5mm;">
+          <div style="font-weight: bold; font-size: 8pt; margin-bottom: 1px;">Summary Statement</div>
+          <div style="font-weight: bold; font-size: 7.2pt; margin-bottom: 2px;">${escapeHtml(periodMonth)} Salary &amp; Employer Contributions (${foreignCurr})</div>
+          <table style="width: 100%; font-size: 7.2pt;">
             <thead>
               <tr class="single-top single-bottom">
-                <th style="text-align: left; padding: 1.8px 5px; font-weight: bold;">Description</th>
-                <th style="text-align: right; padding: 1.8px 5px; font-weight: bold; width: 110px;">Amount (${currSign})</th>
+                <th style="text-align: left; padding: 1.8px 4px; font-weight: bold;">Description</th>
+                <th style="text-align: right; padding: 1.8px 4px; font-weight: bold; width: 44mm;">Amount (${currSign})</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td style="padding: 1.4px 5px;">Total Basic Salaries</td>
-                <td style="padding: 1.4px 5px; text-align: right; font-weight: bold; font-variant-numeric: tabular-nums;">${formatMoney(sumBasic, 2)}</td>
+                <td style="padding: 1.4px 4px;">Total Basic Salaries</td>
+                <td style="padding: 1.4px 4px; text-align: right; font-weight: bold; font-variant-numeric: tabular-nums;">${formatMoney(sumBasic, 2)}</td>
               </tr>
               <tr>
-                <td style="padding: 1.4px 5px;">Employer EPF (12%)</td>
-                <td style="padding: 1.4px 5px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEpf12, 2)}</td>
+                <td style="padding: 1.4px 4px;">Employer EPF (12%)</td>
+                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEpf12, 2)}</td>
               </tr>
               <tr style="border-bottom: 1px solid #000;">
-                <td style="padding: 1.4px 5px;">Employer ETF (3%)</td>
-                <td style="padding: 1.4px 5px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEtf3, 2)}</td>
+                <td style="padding: 1.4px 4px;">Employer ETF (3%)</td>
+                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEtf3, 2)}</td>
               </tr>
               <tr style="border-bottom: 1.5px solid #000; font-weight: bold;">
-                <td style="padding: 2px 5px;">Total Employer Cost</td>
-                <td style="padding: 2px 5px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
+                <td style="padding: 2px 4px;">Total Employer Cost</td>
+                <td style="padding: 2px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
               </tr>
               <tr>
-                <td colspan="2" style="padding-top: 3px; font-weight: bold; font-size: 7.5pt;">ADD</td>
+                <td colspan="2" style="padding-top: 2.5px; font-weight: bold; font-size: 7.2pt;">ADD</td>
               </tr>
               <tr style="border-bottom: 1px solid #000;">
-                <td style="padding: 1.4px 5px;">Bank charges</td>
-                <td style="padding: 1.4px 5px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(bankCharges, 2)}</td>
+                <td style="padding: 1.4px 4px;">Bank charges</td>
+                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(bankCharges, 2)}</td>
               </tr>
               <tr class="double-bottom" style="font-weight: bold;">
-                <td style="padding: 2px 5px;">With Bank charges</td>
-                <td style="padding: 2px 5px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(withBankCharges, 2)}</td>
+                <td style="padding: 2px 4px;">With Bank charges</td>
+                <td style="padding: 2px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(withBankCharges, 2)}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
         <!-- Certification Statement -->
-        <div style="font-size: 7.5pt; line-height: 1.3; margin-bottom: 8px;">
+        <div style="font-size: 7.5pt; line-height: 1.3; margin-bottom: 4mm;">
           <div style="font-weight: bold; margin-bottom: 1px;">Certification</div>
           <div>We hereby confirm that the above staff costs were incurred on behalf of APADMI Group Limited and are being recharged accordingly.</div>
         </div>
 
-        <!-- Signatures (Official Lines matching Reference staff_cost_summary_ref.png) -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; padding-right: 15px;">
+        <!-- Signatures (Official Lines with generous space for signing & stamp) -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 4mm; padding-right: 10mm;">
           <!-- Left: Prepared By / Checked By (Accountant) -->
-          <div style="display: flex; align-items: flex-start; gap: 10px;">
-            <div style="font-weight: bold; font-size: 8pt; line-height: 1.4; padding-top: 1px;">
-              <div>Prepared By</div>
-              <div>Checked By</div>
+          <div style="display: flex; align-items: flex-start; gap: 8px;">
+            <div style="font-weight: bold; font-size: 7.8pt; line-height: 1.4; padding-top: 1px;">
+              <div style="height: 16px;">Prepared By</div>
+              <div style="margin-top: 4px;">Checked By</div>
             </div>
-            <div style="width: 180px; text-align: center;">
-              <div style="font-weight: bold; font-size: 8pt; min-height: 14px;">
+            <div style="width: 55mm; text-align: center;">
+              <div style="font-weight: bold; font-size: 8pt; height: 16px; line-height: 16px; text-align: left; padding-left: 6px;">
                 ${escapeHtml(p.checkedBy || currentComp.checkedBy || 'Hemanthi Basnayake')}
               </div>
-              <div style="height: 20px;"></div>
+              <!-- Generous space for physical signature & stamp -->
+              <div style="height: 16mm;"></div>
               <div style="border-top: 1px dotted #000; width: 100%;"></div>
-              <div style="font-size: 7.5pt; font-weight: bold; margin-top: 2px;">Accountant</div>
+              <div style="font-size: 7.2pt; font-weight: bold; margin-top: 2px;">Accountant</div>
             </div>
           </div>
 
           <!-- Right: Authorized By (Director) -->
-          <div style="display: flex; align-items: flex-start; gap: 10px;">
-            <div style="font-weight: bold; font-size: 8pt; line-height: 1.4; padding-top: 1px;">
-              <div>Authorized By</div>
+          <div style="display: flex; align-items: flex-start; gap: 8px;">
+            <div style="font-weight: bold; font-size: 7.8pt; line-height: 1.4; padding-top: 1px;">
+              <div style="height: 16px;">Authorized By</div>
             </div>
-            <div style="width: 180px; text-align: center;">
-              <div style="font-weight: bold; font-size: 8pt; min-height: 14px;">
+            <div style="width: 55mm; text-align: center;">
+              <div style="font-weight: bold; font-size: 8pt; height: 16px; line-height: 16px; text-align: right; padding-right: 6px;">
                 ${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}
               </div>
-              <div style="height: 20px;"></div>
+              <!-- Generous space for physical signature & stamp -->
+              <div style="height: 16mm;"></div>
               <div style="border-top: 1px dotted #000; width: 100%;"></div>
-              <div style="font-size: 7.5pt; font-weight: bold; margin-top: 2px;">Director</div>
+              <div style="font-size: 7.2pt; font-weight: bold; margin-top: 2px;">Director</div>
             </div>
           </div>
         </div>
 
         <!-- Date & Bank Details -->
-        <div style="font-size: 8pt; line-height: 1.35; margin-bottom: 10px;">
+        <div style="font-size: 7.5pt; line-height: 1.35; margin-bottom: 0;">
           <div><strong>Date</strong> : ${escapeHtml(invoiceDate)}</div>
           <div><strong>Beneficiary</strong>: ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')}</div>
-          <div style="display: grid; grid-template-columns: 70px 1fr; gap: 1px;">
+          <div style="display: grid; grid-template-columns: 20mm 1fr; gap: 1px;">
             <span><strong>Bank</strong></span><span>: ${escapeHtml(p.bankName || currentComp.bankName || 'Nation Trust Bank PLC (NTB)')}</span>
             <span><strong>Branch</strong></span><span>: ${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')}</span>
             <span><strong>Address</strong></span><span>: ${escapeHtml(p.bankAddress || currentComp.bankAddress || '67 D S Senanayake Mawatha Colombo 08 SriLanka').replace(/\n/g, ' ')}</span>
@@ -11245,9 +11286,9 @@ function printStaffCostSummary() {
           </div>
         </div>
 
-        <!-- Dynamic Letterhead Footer -->
+        <!-- Fixed Letterhead Footer at bottom of A4 -->
         ${isLetterhead ? `
-          <div style="margin-top: 10px;">
+          <div class="page-footer">
             <img src="/public/spillburg_footer.png" style="width: 100%; height: auto; display: block;" alt="Letterhead Footer">
           </div>
         ` : ''}
@@ -11263,6 +11304,37 @@ function printStaffCostSummary() {
     </html>
   `);
   printWin.document.close();
+}
+
+function exportStaffCostCsv() {
+  const p = activePayrollPeriod;
+  if (!p) return;
+  const emps = p.employees || [];
+  const rate = Number(p.exchangeRate) || 440;
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const foreignCurr = currentComp.foreignCurrency || 'GBP';
+
+  let csvContent = `No,Employee,Total Employer Cost (${foreignCurr})\n`;
+  let totalCost = 0;
+
+  emps.forEach((e, idx) => {
+    const calc = getEmployeeCalculatedFields(e, rate);
+    totalCost += calc.totalEmployerGbp;
+    const rawName = e.shortName || e.name || '';
+    const formattedName = rawName.toLowerCase().replace(/\b[a-z]/g, ch => ch.toUpperCase());
+    csvContent += `${e.no || (idx + 1)},"${formattedName.replace(/"/g, '""')}",${calc.totalEmployerGbp.toFixed(2)}\n`;
+  });
+
+  csvContent += `Total,,${totalCost.toFixed(2)}\n`;
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `Staff_Cost_Summary_${(p.month || 'period').replace(/\s+/g, '_')}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 function printEpfFormC() {
