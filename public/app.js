@@ -16,6 +16,7 @@ let operationsViewMode = 'table'; // 'table' or 'kanban'
 let operationsUserFilter = 'me'; // 'me', 'all', or specific userId
 let operationsMonthFilter = 'all'; // 'all', or 'sep', 'oct', 'nov', etc.
 let operationsYearFilter = 'all'; // 'all', or '2026', '2025', etc.
+let operationsStatusFilter = []; // array of selected status names, e.g. ['Pending', 'In Progress']. Empty = all statuses.
 
 // Payroll & Remittance State
 let payrollData = null;
@@ -1515,6 +1516,19 @@ function renderOperations(container) {
     count: monthCounts[m.key] || 0
   }));
 
+  const allStatusList = ['Pending', 'In Progress', 'Completed', 'On Hold'];
+  const isAllStatusesActive = operationsStatusFilter.length === 0 || operationsStatusFilter.length === allStatusList.length;
+  let statusSummaryLabel = 'All Statuses';
+  if (!isAllStatusesActive) {
+    if (operationsStatusFilter.length === 1) statusSummaryLabel = operationsStatusFilter[0];
+    else if (operationsStatusFilter.length === 1 && operationsStatusFilter[0] === '__none__') statusSummaryLabel = 'No Status';
+    else statusSummaryLabel = operationsStatusFilter.join(', ');
+  }
+  const activeStatusCount = isAllStatusesActive ? allStatusList.length : (operationsStatusFilter.length === 1 && operationsStatusFilter[0] === '__none__' ? 0 : operationsStatusFilter.length);
+  const isPendingChecked = isAllStatusesActive || operationsStatusFilter.some(s => s.toLowerCase() === 'pending');
+  const isInProgressChecked = isAllStatusesActive || operationsStatusFilter.some(s => s.toLowerCase() === 'in progress');
+  const isCompletedChecked = isAllStatusesActive || operationsStatusFilter.some(s => s.toLowerCase() === 'completed');
+  const isOnHoldChecked = isAllStatusesActive || operationsStatusFilter.some(s => s.toLowerCase() === 'on hold');
 
   container.innerHTML = `
     <div class="space-y-6 fade-in">
@@ -1569,7 +1583,7 @@ function renderOperations(container) {
       <!-- Tracker Status Summary Row (Screenshot 2 Match) -->
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <!-- Total -->
-        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div onclick="selectAllOpsStatuses(true)" class="cursor-pointer hover:border-slate-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between" title="Show all statuses">
           <div>
             <div class="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Total Tasks</div>
             <div class="text-2xl font-bold font-display text-slate-900 mt-0.5">${total}</div>
@@ -1577,7 +1591,7 @@ function renderOperations(container) {
           <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs"><i data-lucide="layers" class="w-4 h-4"></i></div>
         </div>
         <!-- Pending -->
-        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div onclick="toggleSingleOpsStatusFromCard('Pending')" class="cursor-pointer hover:border-amber-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === 'pending' ? 'border-amber-500 ring-2 ring-amber-300' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter by Pending">
           <div>
             <div class="text-[11px] font-semibold uppercase text-amber-600 tracking-wider">Pending</div>
             <div class="text-2xl font-bold font-display text-amber-600 mt-0.5">${pending}</div>
@@ -1585,7 +1599,7 @@ function renderOperations(container) {
           <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs"><i data-lucide="clock" class="w-4 h-4"></i></div>
         </div>
         <!-- In Progress -->
-        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div onclick="toggleSingleOpsStatusFromCard('In Progress')" class="cursor-pointer hover:border-blue-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === 'in progress' ? 'border-blue-500 ring-2 ring-blue-300' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter by In Progress">
           <div>
             <div class="text-[11px] font-semibold uppercase text-blue-600 tracking-wider">In Progress</div>
             <div class="text-2xl font-bold font-display text-blue-600 mt-0.5">${inProgress}</div>
@@ -1593,7 +1607,7 @@ function renderOperations(container) {
           <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs"><i data-lucide="loader" class="w-4 h-4"></i></div>
         </div>
         <!-- Completed -->
-        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div onclick="toggleSingleOpsStatusFromCard('Completed')" class="cursor-pointer hover:border-emerald-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === 'completed' ? 'border-emerald-500 ring-2 ring-emerald-300' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter by Completed">
           <div>
             <div class="text-[11px] font-semibold uppercase text-emerald-600 tracking-wider">Completed</div>
             <div class="text-2xl font-bold font-display text-emerald-600 mt-0.5">${completed}</div>
@@ -1601,7 +1615,7 @@ function renderOperations(container) {
           <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs"><i data-lucide="check-circle-2" class="w-4 h-4"></i></div>
         </div>
         <!-- On Hold -->
-        <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div onclick="toggleSingleOpsStatusFromCard('On Hold')" class="cursor-pointer hover:border-purple-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === 'on hold' ? 'border-purple-500 ring-2 ring-purple-300' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter by On Hold">
           <div>
             <div class="text-[11px] font-semibold uppercase text-purple-600 tracking-wider">On Hold</div>
             <div class="text-2xl font-bold font-display text-purple-600 mt-0.5">${onHold}</div>
@@ -1686,14 +1700,81 @@ function renderOperations(container) {
               ${workstreams.map(w => `<option value="${w}">${w}</option>`).join('')}
             </select>
           </div>
-          <div>
-            <select id="opsStatusFilter" onchange="handleOperationsFilter()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none">
-              <option value="">All Statuses</option>
-              <option value="Completed">Completed</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Pending">Pending</option>
-              <option value="On Hold">On Hold</option>
-            </select>
+          <!-- Multi-Select Statuses Checkbox List Dropdown -->
+          <div class="relative" id="opsStatusDropdownContainer">
+            <button type="button" id="opsStatusDropdownBtn" onclick="toggleOpsStatusDropdown()" 
+              class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
+              <div class="flex items-center gap-1.5 truncate">
+                <i data-lucide="check-square" class="w-3.5 h-3.5 text-slate-500 shrink-0"></i>
+                <span id="opsStatusDropdownLabel" class="truncate font-medium">${escapeHtml(statusSummaryLabel)}</span>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <span id="opsStatusDropdownCount" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">${activeStatusCount}</span>
+                <i data-lucide="chevron-down" id="opsStatusChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
+              </div>
+            </button>
+
+            <!-- Dropdown Menu with Checkbox List -->
+            <div id="opsStatusDropdownMenu" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg p-2 z-50 min-w-[210px] space-y-1.5">
+              <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
+                <span class="font-semibold text-slate-700">Filter by Status</span>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="selectAllOpsStatuses(true); event.stopPropagation();" class="text-emerald-600 hover:text-emerald-700 font-semibold hover:underline cursor-pointer">All</button>
+                  <span class="text-slate-300">|</span>
+                  <button type="button" onclick="selectAllOpsStatuses(false); event.stopPropagation();" class="text-slate-500 hover:text-slate-700 font-semibold hover:underline cursor-pointer">Clear</button>
+                </div>
+              </div>
+              
+              <div class="space-y-1 py-0.5">
+                <!-- Checkbox for Pending -->
+                <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-amber-50/60 cursor-pointer text-xs transition select-none">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" id="ops_cb_status_Pending" onchange="handleOpsStatusCheckboxChange('Pending', this.checked)" ${isPendingChecked ? 'checked' : ''} class="rounded text-amber-600 focus:ring-amber-500 cursor-pointer">
+                    <span class="inline-flex items-center gap-1.5 font-medium text-slate-800">
+                      <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                      <span>Pending</span>
+                    </span>
+                  </div>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800">${pending}</span>
+                </label>
+
+                <!-- Checkbox for In Progress -->
+                <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-blue-50/60 cursor-pointer text-xs transition select-none">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" id="ops_cb_status_In_Progress" onchange="handleOpsStatusCheckboxChange('In Progress', this.checked)" ${isInProgressChecked ? 'checked' : ''} class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
+                    <span class="inline-flex items-center gap-1.5 font-medium text-slate-800">
+                      <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                      <span>In Progress</span>
+                    </span>
+                  </div>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-800">${inProgress}</span>
+                </label>
+
+                <!-- Checkbox for Completed -->
+                <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-emerald-50/60 cursor-pointer text-xs transition select-none">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" id="ops_cb_status_Completed" onchange="handleOpsStatusCheckboxChange('Completed', this.checked)" ${isCompletedChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                    <span class="inline-flex items-center gap-1.5 font-medium text-slate-800">
+                      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      <span>Completed</span>
+                    </span>
+                  </div>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">${completed}</span>
+                </label>
+
+                <!-- Checkbox for On Hold -->
+                <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-purple-50/60 cursor-pointer text-xs transition select-none">
+                  <div class="flex items-center gap-2">
+                    <input type="checkbox" id="ops_cb_status_On_Hold" onchange="handleOpsStatusCheckboxChange('On Hold', this.checked)" ${isOnHoldChecked ? 'checked' : ''} class="rounded text-purple-600 focus:ring-purple-500 cursor-pointer">
+                    <span class="inline-flex items-center gap-1.5 font-medium text-slate-800">
+                      <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                      <span>On Hold</span>
+                    </span>
+                  </div>
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-800">${onHold}</span>
+                </label>
+              </div>
+            </div>
           </div>
           <div>
             <select id="opsPriorityFilter" onchange="handleOperationsFilter()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none">
@@ -1740,9 +1821,127 @@ function renderOperations(container) {
   `;
 }
 
+// Multi-select Status Filter Helpers
+function getSelectedOperationsStatuses() {
+  if (!Array.isArray(operationsStatusFilter) || operationsStatusFilter.length === 0) {
+    return []; // Empty indicates all statuses are active
+  }
+  return operationsStatusFilter.map(s => s.toLowerCase());
+}
+
+function toggleOpsStatusDropdown(force) {
+  const menu = document.getElementById('opsStatusDropdownMenu');
+  const chevron = document.getElementById('opsStatusChevron');
+  if (!menu) return;
+  const isCurrentlyOpen = !menu.classList.contains('hidden');
+  const open = typeof force === 'boolean' ? force : !isCurrentlyOpen;
+  if (open) {
+    menu.classList.remove('hidden');
+    if (chevron) chevron.style.transform = 'rotate(180deg)';
+  } else {
+    menu.classList.add('hidden');
+    if (chevron) chevron.style.transform = 'rotate(0deg)';
+  }
+}
+
+function handleOpsStatusCheckboxChange(statusName, isChecked) {
+  const allNames = ['Pending', 'In Progress', 'Completed', 'On Hold'];
+  if (!Array.isArray(operationsStatusFilter) || operationsStatusFilter.length === 0) {
+    // If all were active and user unchecks one, initialize filter with the remaining 3
+    operationsStatusFilter = isChecked ? [...allNames] : allNames.filter(s => s.toLowerCase() !== statusName.toLowerCase());
+  } else {
+    if (isChecked) {
+      if (!operationsStatusFilter.some(s => s.toLowerCase() === statusName.toLowerCase())) {
+        operationsStatusFilter.push(statusName);
+      }
+    } else {
+      operationsStatusFilter = operationsStatusFilter.filter(s => s.toLowerCase() !== statusName.toLowerCase());
+    }
+  }
+  
+  // If all are selected, normalize to empty array (all active)
+  if (operationsStatusFilter.length === allNames.length) {
+    operationsStatusFilter = [];
+  }
+  
+  updateOpsStatusDropdownUI();
+  handleOperationsFilter();
+}
+
+function selectAllOpsStatuses(selectAll) {
+  const allNames = ['Pending', 'In Progress', 'Completed', 'On Hold'];
+  if (selectAll) {
+    operationsStatusFilter = []; // Empty = all
+  } else {
+    operationsStatusFilter = ['__none__']; // None selected
+  }
+  updateOpsStatusDropdownUI();
+  handleOperationsFilter();
+}
+
+function toggleSingleOpsStatusFromCard(statusName) {
+  if (operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === statusName.toLowerCase()) {
+    // If already only this status selected, clear to show all
+    operationsStatusFilter = [];
+  } else {
+    operationsStatusFilter = [statusName];
+  }
+  updateOpsStatusDropdownUI();
+  handleOperationsFilter();
+}
+
+function updateOpsStatusDropdownUI() {
+  const allNames = ['Pending', 'In Progress', 'Completed', 'On Hold'];
+  const labelEl = document.getElementById('opsStatusDropdownLabel');
+  const badgeEl = document.getElementById('opsStatusDropdownCount');
+  const isAll = operationsStatusFilter.length === 0 || operationsStatusFilter.length === allStatusList.length;
+  const isNone = operationsStatusFilter.length === 1 && operationsStatusFilter[0] === '__none__';
+  
+  allNames.forEach(name => {
+    const cb = document.getElementById(`ops_cb_status_${name.replace(/\s+/g, '_')}`);
+    if (cb) {
+      if (isAll) {
+        cb.checked = true;
+      } else if (isNone) {
+        cb.checked = false;
+      } else {
+        cb.checked = operationsStatusFilter.some(s => s.toLowerCase() === name.toLowerCase());
+      }
+    }
+  });
+
+  if (labelEl) {
+    if (isAll) {
+      labelEl.textContent = 'All Statuses';
+      if (badgeEl) badgeEl.textContent = '4';
+    } else if (isNone) {
+      labelEl.textContent = 'No Status Selected';
+      if (badgeEl) badgeEl.textContent = '0';
+    } else if (operationsStatusFilter.length === 1) {
+      labelEl.textContent = operationsStatusFilter[0];
+      if (badgeEl) badgeEl.textContent = '1';
+    } else {
+      labelEl.textContent = operationsStatusFilter.join(', ');
+      if (badgeEl) badgeEl.textContent = String(operationsStatusFilter.length);
+    }
+  }
+}
+
+// Global click outside listener to close status filter dropdown
+if (!window._opsStatusDropdownListenerAttached) {
+  document.addEventListener('click', (e) => {
+    const container = document.getElementById('opsStatusDropdownContainer');
+    if (container && !container.contains(e.target)) {
+      toggleOpsStatusDropdown(false);
+    }
+  });
+  window._opsStatusDropdownListenerAttached = true;
+}
+
 function getFilteredOperations() {
   const q = (document.getElementById('opsSearchInput')?.value || '').toLowerCase();
-  const status = document.getElementById('opsStatusFilter')?.value || '';
+  const selectedStatuses = getSelectedOperationsStatuses();
+  const isNone = operationsStatusFilter.length === 1 && operationsStatusFilter[0] === '__none__';
   const priority = document.getElementById('opsPriorityFilter')?.value || '';
   const workstream = document.getElementById('opsWorkstreamFilter')?.value || '';
   const requestedBy = document.getElementById('opsRequestedByFilter')?.value || '';
@@ -1757,7 +1956,10 @@ function getFilteredOperations() {
       (t.requestedBy || '').toLowerCase().includes(q) ||
       (t.estimatedCost || '').toLowerCase().includes(q) ||
       String(t.no || '').toLowerCase().includes(q);
-    const mStatus = !status || (t.status || '').toLowerCase() === status.toLowerCase();
+    
+    if (isNone) return false;
+    const taskStatus = (t.status || 'Pending').toLowerCase();
+    const mStatus = selectedStatuses.length === 0 || selectedStatuses.includes(taskStatus);
     const mPri = !priority || (t.priority || '').toLowerCase() === priority.toLowerCase();
     const mWork = !workstream || (t.workstream || '').toLowerCase() === workstream.toLowerCase();
     const mReq = !requestedBy || (t.requestedBy || '').toLowerCase() === requestedBy.toLowerCase();
@@ -1820,11 +2022,11 @@ function updateOperationsFilterBadges(filteredCount) {
   }
 
   const q = document.getElementById('opsSearchInput')?.value?.trim();
-  const status = document.getElementById('opsStatusFilter')?.value;
   const priority = document.getElementById('opsPriorityFilter')?.value;
   const workstream = document.getElementById('opsWorkstreamFilter')?.value;
   const req = document.getElementById('opsRequestedByFilter')?.value;
-  const hasFilter = (operationsMonthFilter !== 'all') || (operationsYearFilter !== 'all') || q || status || priority || workstream || req;
+  const isStatusFiltered = operationsStatusFilter.length > 0 && operationsStatusFilter.length < 4;
+  const hasFilter = (operationsMonthFilter !== 'all') || (operationsYearFilter !== 'all') || q || isStatusFiltered || priority || workstream || req;
 
   if (activeBadge) {
     if (hasFilter) {
@@ -1833,7 +2035,7 @@ function updateOperationsFilterBadges(filteredCount) {
         const parts = [];
         if (operationsYearFilter !== 'all') parts.push(`Year ${operationsYearFilter}`);
         if (operationsMonthFilter !== 'all') parts.push(mLabel);
-        if (status) parts.push(status);
+        if (isStatusFiltered) parts.push(operationsStatusFilter.join(', '));
         if (priority) parts.push(priority);
         if (workstream) parts.push(workstream);
         if (req) parts.push(req);
@@ -1888,7 +2090,6 @@ function setOperationsYearFilter(val) {
 
 function resetOperationsFilters() {
   const searchEl = document.getElementById('opsSearchInput');
-  const statusEl = document.getElementById('opsStatusFilter');
   const priEl = document.getElementById('opsPriorityFilter');
   const workEl = document.getElementById('opsWorkstreamFilter');
   const reqEl = document.getElementById('opsRequestedByFilter');
@@ -1896,12 +2097,14 @@ function resetOperationsFilters() {
   const yearEl = document.getElementById('opsYearFilter');
 
   if (searchEl) searchEl.value = '';
-  if (statusEl) statusEl.value = '';
   if (priEl) priEl.value = '';
   if (workEl) workEl.value = '';
   if (reqEl) reqEl.value = '';
   if (monthEl) monthEl.value = 'all';
   if (yearEl) yearEl.value = 'all';
+
+  operationsStatusFilter = [];
+  updateOpsStatusDropdownUI();
 
   operationsMonthFilter = 'all';
   operationsYearFilter = 'all';
@@ -8278,6 +8481,218 @@ function renderEpfFormC(container) {
   setupEpfDraggables();
 }
 
+// ================= ETF FORM R-4 POSITIONING & DRAGGABLE UTILITIES =================
+let etfDragModeActive = false;
+
+const defaultEtfFormR4Positions = {
+  etf_r4_employer: { left: '8.0%', top: '6.8%', width: '46.0%', height: '12.5%' },
+  etf_r4_emp_no: { left: '58.2%', top: '10.1%', width: '12.5%', height: '2.3%' },
+  etf_r4_month_year: { left: '71.2%', top: '10.1%', width: '11.0%', height: '2.3%' },
+  etf_r4_emp_count: { left: '82.6%', top: '10.1%', width: '8.2%', height: '2.3%' },
+  etf_r4_contrib: { left: '76.5%', top: '12.8%', width: '15.0%', height: '2.1%' },
+  etf_r4_surcharge: { left: '76.5%', top: '15.1%', width: '15.0%', height: '2.1%' },
+  etf_r4_charges: { left: '76.5%', top: '17.4%', width: '15.0%', height: '2.1%' },
+  etf_r4_total: { left: '76.5%', top: '19.7%', width: '15.0%', height: '2.1%' },
+  etf_r4_cheque: { left: '76.5%', top: '22.0%', width: '15.0%', height: '2.0%' },
+  etf_r4_bank_branch: { left: '73.0%', top: '24.2%', width: '18.5%', height: '3.8%' },
+  etf_r4_tot_rs: { left: '74.5%', top: '81.8%', width: '11.8%', height: '2.4%' },
+  etf_r4_tot_cts: { left: '86.8%', top: '81.8%', width: '4.0%', height: '2.4%' },
+  etf_r4_clarification: { left: '33.0%', top: '85.0%', width: '58.0%', height: '4.5%' },
+  etf_r4_phone: { left: '28.5%', top: '95.3%', width: '18.0%', height: '1.8%' },
+  etf_r4_email: { left: '69.5%', top: '95.3%', width: '22.5%', height: '1.8%' },
+  etf_r4_date: { left: '15.0%', top: '96.8%', width: '14.0%', height: '1.8%' }
+};
+
+// Populate 15 member rows for ETF Form R-4
+for (let r = 0; r < 15; r++) {
+  const rTop = (27.2 + r * 3.54).toFixed(2) + '%';
+  defaultEtfFormR4Positions[`etf_r4_name_${r}`] = { left: '13.2%', top: rTop, width: '34.0%', height: '2.4%' };
+  defaultEtfFormR4Positions[`etf_r4_nic_${r}`] = { left: '47.6%', top: rTop, width: '16.5%', height: '2.4%' };
+  defaultEtfFormR4Positions[`etf_r4_mem_${r}`] = { left: '64.5%', top: rTop, width: '9.5%', height: '2.4%' };
+  defaultEtfFormR4Positions[`etf_r4_rs_${r}`] = { left: '74.5%', top: rTop, width: '11.8%', height: '2.4%' };
+  defaultEtfFormR4Positions[`etf_r4_cts_${r}`] = { left: '86.8%', top: rTop, width: '4.0%', height: '2.4%' };
+}
+
+function getEtfCustomPositions() {
+  try {
+    const raw = localStorage.getItem('spillburg_etf_r4_positions');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error('Error parsing etf positions:', e);
+  }
+  if (payrollData && payrollData.etfCustomPositions) {
+    return payrollData.etfCustomPositions;
+  }
+  return {};
+}
+
+function saveEtfCustomPositions(pos) {
+  try {
+    localStorage.setItem('spillburg_etf_r4_positions', JSON.stringify(pos));
+  } catch (e) {
+    console.error('Error saving etf positions:', e);
+  }
+  if (payrollData) {
+    payrollData.etfCustomPositions = pos;
+    if (typeof autoSaveToCloud === 'function') autoSaveToCloud();
+    else if (typeof savePayrollData === 'function') savePayrollData();
+  }
+}
+
+function getEtfFieldPos(id) {
+  const custom = getEtfCustomPositions();
+  const c = custom[id];
+  const d = defaultEtfFormR4Positions[id] || { left: '10%', top: '10%', width: '10%', height: '2%' };
+  return {
+    left: (c && c.left) ? c.left : d.left,
+    top: (c && c.top) ? c.top : d.top,
+    width: (c && c.width) ? c.width : d.width,
+    height: (c && c.height) ? c.height : d.height
+  };
+}
+
+function toggleEtfDragMode() {
+  etfDragModeActive = !etfDragModeActive;
+  const btn = document.getElementById('etfDragModeBtn');
+  const sheet = document.getElementById('etfFormR4Sheet');
+  const hint = document.getElementById('etfDragHint');
+  if (btn) {
+    if (etfDragModeActive) {
+      btn.className = 'px-3 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-sm';
+      btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Drag Mode: ON</span>';
+    } else {
+      btn.className = 'px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition';
+      btn.innerHTML = '<i data-lucide="move" class="w-3.5 h-3.5"></i><span>Reposition Boxes</span>';
+    }
+  }
+  if (sheet) {
+    sheet.classList.toggle('etf-drag-active', etfDragModeActive);
+  }
+  if (hint) {
+    hint.style.display = etfDragModeActive ? 'flex' : 'none';
+  }
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function saveEtfPositions() {
+  const sheet = document.getElementById('etfFormR4Sheet');
+  if (!sheet) return;
+  const inputs = sheet.querySelectorAll('.form-overlay-input, .form-overlay-textarea');
+  const positions = getEtfCustomPositions();
+
+  inputs.forEach(el => {
+    if (el.id && el.style.left && el.style.top) {
+      positions[el.id] = {
+        left: el.style.left,
+        top: el.style.top,
+        width: el.style.width,
+        height: el.style.height
+      };
+    }
+  });
+
+  saveEtfCustomPositions(positions);
+
+  const saveBtn = document.getElementById('etfSavePosBtn');
+  if (saveBtn) {
+    saveBtn.classList.remove('ring-2', 'ring-amber-400', 'animate-pulse');
+    const origHtml = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Positions Saved!</span>';
+    saveBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
+    saveBtn.classList.replace('hover:bg-blue-700', 'hover:bg-emerald-700');
+    setTimeout(() => {
+      saveBtn.innerHTML = origHtml;
+      saveBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
+      saveBtn.classList.replace('hover:bg-emerald-700', 'hover:bg-blue-700');
+      if (window.lucide) window.lucide.createIcons();
+    }, 2200);
+    if (window.lucide) window.lucide.createIcons();
+  }
+}
+
+function resetEtfPositions() {
+  if (!confirm('Reset all field positions on ETF Form R-4 back to statutory defaults?')) return;
+  try {
+    localStorage.removeItem('spillburg_etf_r4_positions');
+  } catch (e) {}
+  if (payrollData) {
+    delete payrollData.etfCustomPositions;
+    if (typeof autoSaveToCloud === 'function') autoSaveToCloud();
+    else if (typeof savePayrollData === 'function') savePayrollData();
+  }
+  const container = document.getElementById('tabContent');
+  if (container) {
+    renderEtfFormR4(container);
+  }
+}
+
+function setupEtfDraggables() {
+  const sheet = document.getElementById('etfFormR4Sheet');
+  if (!sheet) return;
+
+  let activeEl = null;
+  let startX = 0, startY = 0;
+  let origLeftPx = 0, origTopPx = 0;
+  let sheetRect = null;
+  let hasMoved = false;
+
+  sheet.addEventListener('pointerdown', (e) => {
+    if (!etfDragModeActive) return;
+    const target = e.target.closest('.form-overlay-input, .form-overlay-textarea');
+    if (!target) return;
+
+    e.preventDefault();
+    activeEl = target;
+    try {
+      activeEl.setPointerCapture(e.pointerId);
+    } catch (err) {}
+    sheetRect = sheet.getBoundingClientRect();
+    startX = e.clientX;
+    startY = e.clientY;
+    origLeftPx = activeEl.offsetLeft;
+    origTopPx = activeEl.offsetTop;
+    hasMoved = false;
+    activeEl.style.zIndex = '50';
+    activeEl.classList.add('is-dragging');
+  });
+
+  sheet.addEventListener('pointermove', (e) => {
+    if (!activeEl || !sheetRect) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+      hasMoved = true;
+    }
+    const newLeftPx = origLeftPx + dx;
+    const newTopPx = origTopPx + dy;
+    const leftPct = ((newLeftPx / sheet.offsetWidth) * 100).toFixed(2);
+    const topPct = ((newTopPx / sheet.offsetHeight) * 100).toFixed(2);
+
+    activeEl.style.left = `${leftPct}%`;
+    activeEl.style.top = `${topPct}%`;
+  });
+
+  const endDrag = (e) => {
+    if (!activeEl) return;
+    try {
+      activeEl.releasePointerCapture(e.pointerId);
+    } catch (err) {}
+    activeEl.classList.remove('is-dragging');
+    activeEl.style.zIndex = '10';
+    activeEl = null;
+    sheetRect = null;
+    if (hasMoved) {
+      const saveBtn = document.getElementById('etfSavePosBtn');
+      if (saveBtn) {
+        saveBtn.classList.add('ring-2', 'ring-amber-400', 'animate-pulse');
+      }
+    }
+  };
+
+  sheet.addEventListener('pointerup', endDrag);
+  sheet.addEventListener('pointercancel', endDrag);
+}
+
 function renderEtfFormR4(container) {
   const p = activePayrollPeriod;
   if (!p) {
@@ -8293,6 +8708,9 @@ function renderEtfFormR4(container) {
   const etfChequeNo = p.etfChequeNo || 'CHQ-890214';
   const remittanceDate = p.letterDate || p.date || '31.10.2026';
   const monthStr = (p.month || 'October 2026').toUpperCase();
+  const bankName = p.bankName || currentComp.bankName || 'Nations Trust Bank PLC';
+  const bankBranch = p.bankBranch || currentComp.bankBranch || 'Borella Branch';
+  const defaultBankBranchText = p.etfBankBranchCustom || `${bankName}\n${bankBranch}`;
 
   let sumGross = 0;
   let sumEtf3 = 0;
@@ -8321,24 +8739,42 @@ function renderEtfFormR4(container) {
 
   // Build rows up to 15 matching the exact statutory columns of ETF Form R-4:
   // Note: Serial No. (01..15) is pre-printed in Column 1!
-  // Col 2: Member Name (13.2%, width 34.0%)
-  // Col 3: National Identity Card No (47.6%, width 16.5%)
-  // Col 4: Member No (64.5%, width 9.5%)
-  // Col 5: Contribution Rs. (74.5%, width 11.8%)
-  // Col 6: Contribution Cts. (86.8%, width 4.0%)
   const maxRows = 15;
   let rowInputsHtml = '';
   for (let r = 0; r < maxRows; r++) {
-    const rTop = (27.2 + r * 3.54).toFixed(2);
     const emp = empRows[r];
+    const pName = getEtfFieldPos(`etf_r4_name_${r}`);
+    const pNic = getEtfFieldPos(`etf_r4_nic_${r}`);
+    const pMem = getEtfFieldPos(`etf_r4_mem_${r}`);
+    const pRs = getEtfFieldPos(`etf_r4_rs_${r}`);
+    const pCts = getEtfFieldPos(`etf_r4_cts_${r}`);
+
     rowInputsHtml += `
-      <input type="text" class="form-overlay-input" id="etf_r4_name_${r}" style="left: 13.2%; top: ${rTop}%; width: 34.0%; height: 2.4%; font-size: 8.5px; font-weight: 600;" value="${emp ? escapeHtml(emp.name) : ''}" title="Member Name">
-      <input type="text" class="form-overlay-input" id="etf_r4_nic_${r}" style="left: 47.6%; top: ${rTop}%; width: 16.5%; height: 2.4%; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.nic) : ''}" title="National Identity Card No">
-      <input type="text" class="form-overlay-input" id="etf_r4_mem_${r}" style="left: 64.5%; top: ${rTop}%; width: 9.5%; height: 2.4%; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.memberNo) : ''}" title="Member No">
-      <input type="text" class="form-overlay-input" id="etf_r4_rs_${r}" style="left: 74.5%; top: ${rTop}%; width: 11.8%; height: 2.4%; font-size: 8.5px; font-weight: 700; text-align: right;" value="${emp ? emp.rs : ''}" title="Contribution (Rs.)">
-      <input type="text" class="form-overlay-input" id="etf_r4_cts_${r}" style="left: 86.8%; top: ${rTop}%; width: 4.0%; height: 2.4%; font-size: 8.5px; text-align: center;" value="${emp ? emp.cts : ''}" title="Contribution (Cts.)">
+      <input type="text" class="form-overlay-input" id="etf_r4_name_${r}" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 8.5px; font-weight: 600;" value="${emp ? escapeHtml(emp.name) : ''}" title="Member Name">
+      <input type="text" class="form-overlay-input" id="etf_r4_nic_${r}" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.nic) : ''}" title="National Identity Card No">
+      <input type="text" class="form-overlay-input" id="etf_r4_mem_${r}" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.memberNo) : ''}" title="Member No">
+      <input type="text" class="form-overlay-input" id="etf_r4_rs_${r}" style="left: ${pRs.left}; top: ${pRs.top}; width: ${pRs.width}; height: ${pRs.height}; font-size: 8.5px; font-weight: 700; text-align: right;" value="${emp ? emp.rs : ''}" title="Contribution (Rs.)">
+      <input type="text" class="form-overlay-input" id="etf_r4_cts_${r}" style="left: ${pCts.left}; top: ${pCts.top}; width: ${pCts.width}; height: ${pCts.height}; font-size: 8.5px; text-align: center;" value="${emp ? emp.cts : ''}" title="Contribution (Cts.)">
     `;
   }
+
+  // Header & Summary Field positions
+  const pEmployer = getEtfFieldPos('etf_r4_employer');
+  const pEmpNo = getEtfFieldPos('etf_r4_emp_no');
+  const pMonthYear = getEtfFieldPos('etf_r4_month_year');
+  const pEmpCount = getEtfFieldPos('etf_r4_emp_count');
+  const pContrib = getEtfFieldPos('etf_r4_contrib');
+  const pSurcharge = getEtfFieldPos('etf_r4_surcharge');
+  const pCharges = getEtfFieldPos('etf_r4_charges');
+  const pTotal = getEtfFieldPos('etf_r4_total');
+  const pCheque = getEtfFieldPos('etf_r4_cheque');
+  const pBank = getEtfFieldPos('etf_r4_bank_branch');
+  const pTotRs = getEtfFieldPos('etf_r4_tot_rs');
+  const pTotCts = getEtfFieldPos('etf_r4_tot_cts');
+  const pClarification = getEtfFieldPos('etf_r4_clarification');
+  const pPhone = getEtfFieldPos('etf_r4_phone');
+  const pEmail = getEtfFieldPos('etf_r4_email');
+  const pDate = getEtfFieldPos('etf_r4_date');
 
   container.innerHTML = `
     <div class="space-y-4 fade-in">
@@ -8351,67 +8787,97 @@ function renderEtfFormR4(container) {
             <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">Reg: ${escapeHtml(etfRegNo)}</span>
             <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Official Form PDF Overlay</span>
           </div>
-          <p class="text-[11px] text-slate-500">Official Advice of Remittance Form R-4 in authentic portrait format &bull; Serial numbers are pre-printed &bull; Click any field to edit directly before printing</p>
+          <p class="text-[11px] text-slate-500">Official Advice of Remittance Form R-4 &bull; Click to edit &bull; Use Reposition Boxes to drag &amp; align</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+          <!-- Draggable positioning control buttons -->
+          <button id="etfDragModeBtn" onclick="toggleEtfDragMode()"
+            class="px-3 py-2 ${etfDragModeActive ? 'bg-indigo-600 text-white shadow-sm' : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'} rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer">
+            <i data-lucide="${etfDragModeActive ? 'check' : 'move'}" class="w-3.5 h-3.5"></i>
+            <span>${etfDragModeActive ? 'Drag Mode: ON' : 'Reposition Boxes'}</span>
+          </button>
+
+          <button id="etfSavePosBtn" onclick="saveEtfPositions()"
+            class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+            title="Save current box positions permanently for preview and printing">
+            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+            <span>Save Positioning</span>
+          </button>
+
+          <button onclick="resetEtfPositions()"
+            class="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-semibold flex items-center gap-1 transition cursor-pointer"
+            title="Reset all field positions to statutory defaults">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Reset</span>
+          </button>
+
           <button onclick="printEtfFormR4()"
-            class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm">
+            class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-sm cursor-pointer">
             <i data-lucide="printer" class="w-3.5 h-3.5"></i>
             <span>Print Form R-4 (Portrait)</span>
           </button>
 
           <button onclick="exportEtfFormR4Csv()"
-            class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs">
+            class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs cursor-pointer">
             <i data-lucide="download" class="w-3.5 h-3.5"></i>
             <span>Export CSV</span>
           </button>
 
           <button onclick="openEditEtfModal()"
-            class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+            class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer">
             <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
             <span>Edit ETF Details</span>
           </button>
         </div>
       </div>
 
+      <!-- Drag Mode Guidance Banner -->
+      <div id="etfDragHint" style="display: ${etfDragModeActive ? 'flex' : 'none'};" class="items-center justify-between gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 rounded-xl text-xs text-indigo-900 font-medium">
+        <div class="flex items-center gap-2">
+          <i data-lucide="info" class="w-4 h-4 text-indigo-600 flex-shrink-0"></i>
+          <span><strong>Drag Mode Active:</strong> Click and drag any box directly on the form sheet to adjust alignment. When finished, click <strong>Save Positioning</strong> to lock them for preview and printing.</span>
+        </div>
+        <button onclick="saveEtfPositions()" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold transition flex-shrink-0 cursor-pointer">
+          Save Now
+        </button>
+      </div>
+
       <!-- ETF Form R-4 Official Portrait Overlay Sheet -->
       <div class="form-portrait-scroll-wrapper">
-        <div class="form-r4-portrait-sheet" id="etfFormR4Sheet">
+        <div class="form-r4-portrait-sheet ${etfDragModeActive ? 'etf-drag-active' : ''}" id="etfFormR4Sheet">
           
           <!-- Top Left Employer Name & Address Box -->
-          <textarea id="etf_r4_employer" class="form-overlay-textarea" style="left: 8.0%; top: 6.8%; width: 46.0%; height: 12.5%; font-size: 9.5px; line-height: 1.3;" title="Employer Name & Address">${escapeHtml(currentComp.name || 'APADMI SL (PRIVATE) LIMITED')}&#10;${escapeHtml((currentComp.address || 'Office 14, Basement Level, Cinnamon Lakeside Hotel, #115, Sir Chittampalam A Gardiner Mw, Colombo 02, Sri Lanka.').replace(/\n/g, ' '))}</textarea>
+          <textarea id="etf_r4_employer" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; line-height: 1.3;" title="Employer Name & Address">${escapeHtml(currentComp.name || 'APADMI SL (PRIVATE) LIMITED')}&#10;${escapeHtml((currentComp.address || 'Office 14, Basement Level, Cinnamon Lakeside Hotel, #115, Sir Chittampalam A Gardiner Mw, Colombo 02, Sri Lanka.').replace(/\n/g, ' '))}</textarea>
 
-          <!-- Top Right 3-Column Header Boxes:
-               ETF-66291 (Employer No): left 58.2%, width 12.5%, top 10.1%
-               OCTOBER 2026 (Month & Year): left 71.2%, width 11.0%, top 10.1%
-               11 (No. of Employees): left 82.6%, width 8.2%, top 10.1% -->
-          <input type="text" id="etf_r4_emp_no" class="form-overlay-input" style="left: 58.2%; top: 10.1%; width: 12.5%; height: 2.3%; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(etfRegNo)}" title="Employer Registration No">
-          <input type="text" id="etf_r4_month_year" class="form-overlay-input" style="left: 71.2%; top: 10.1%; width: 11.0%; height: 2.3%; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(monthStr)}" title="Contribution Month and Year">
-          <input type="text" id="etf_r4_emp_count" class="form-overlay-input" style="left: 82.6%; top: 10.1%; width: 8.2%; height: 2.3%; font-size: 11px; font-weight: 700; text-align: center;" value="${emps.length}" title="Total Number of Employees">
+          <!-- Top Right 3-Column Header Boxes: Employer No, Month & Year, No. of Employees -->
+          <input type="text" id="etf_r4_emp_no" class="form-overlay-input" style="left: ${pEmpNo.left}; top: ${pEmpNo.top}; width: ${pEmpNo.width}; height: ${pEmpNo.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(etfRegNo)}" title="Employer Registration No">
+          <input type="text" id="etf_r4_month_year" class="form-overlay-input" style="left: ${pMonthYear.left}; top: ${pMonthYear.top}; width: ${pMonthYear.width}; height: ${pMonthYear.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(monthStr)}" title="Contribution Month and Year">
+          <input type="text" id="etf_r4_emp_count" class="form-overlay-input" style="left: ${pEmpCount.left}; top: ${pEmpCount.top}; width: ${pEmpCount.width}; height: ${pEmpCount.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${emps.length}" title="Total Number of Employees">
 
-          <!-- Remittance Summary Section (Rupees and Cents) -->
-          <input type="text" id="etf_r4_contrib" class="form-overlay-input" style="left: 80.5%; top: 12.8%; width: 10.5%; height: 2.1%; text-align: right; font-size: 9.5px; font-weight: 700;" value="${formatMoney(sumEtf3, 2)}" title="Total Contribution (3%)">
-          <input type="text" id="etf_r4_surcharge" class="form-overlay-input" style="left: 80.5%; top: 15.1%; width: 10.5%; height: 2.1%; text-align: right; font-size: 9.5px;" value="0.00" title="Surcharge">
-          <input type="text" id="etf_r4_charges" class="form-overlay-input" style="left: 80.5%; top: 17.5%; width: 10.5%; height: 2.1%; text-align: right; font-size: 9.5px;" value="0.00" title="Bank Charges">
-          <input type="text" id="etf_r4_total" class="form-overlay-input" style="left: 80.5%; top: 19.8%; width: 10.5%; height: 2.1%; text-align: right; font-size: 10px; font-weight: 800;" value="${formatMoney(sumEtf3, 2)}" title="Total Remittance">
-          <input type="text" id="etf_r4_cheque" class="form-overlay-input" style="left: 80.5%; top: 22.2%; width: 10.5%; height: 1.9%; font-size: 9px;" value="${escapeHtml(etfChequeNo)}" title="Cheque No">
-          <input type="text" id="etf_r4_bank" class="form-overlay-input" style="left: 80.5%; top: 24.3%; width: 10.5%; height: 2.0%; font-size: 9px;" value="${escapeHtml(p.bankName || currentComp.bankName || 'NTB')} - ${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella')}" title="Bank & Branch">
+          <!-- Remittance Summary Section (Rupees and Cents) with generous width so amounts never overflow -->
+          <input type="text" id="etf_r4_contrib" class="form-overlay-input" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; text-align: right; padding-right: 5px; font-size: 9.5px; font-weight: 700;" value="${formatMoney(sumEtf3, 2)}" title="Total Contribution (3%)">
+          <input type="text" id="etf_r4_surcharge" class="form-overlay-input" style="left: ${pSurcharge.left}; top: ${pSurcharge.top}; width: ${pSurcharge.width}; height: ${pSurcharge.height}; text-align: right; padding-right: 5px; font-size: 9.5px;" value="0.00" title="Surcharge">
+          <input type="text" id="etf_r4_charges" class="form-overlay-input" style="left: ${pCharges.left}; top: ${pCharges.top}; width: ${pCharges.width}; height: ${pCharges.height}; text-align: right; padding-right: 5px; font-size: 9.5px;" value="0.00" title="Bank Charges">
+          <input type="text" id="etf_r4_total" class="form-overlay-input" style="left: ${pTotal.left}; top: ${pTotal.top}; width: ${pTotal.width}; height: ${pTotal.height}; text-align: right; padding-right: 5px; font-size: 10px; font-weight: 800;" value="${formatMoney(sumEtf3, 2)}" title="Total Remittance">
+          <input type="text" id="etf_r4_cheque" class="form-overlay-input" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 9px; font-weight: 700;" value="${escapeHtml(etfChequeNo)}" title="Cheque No">
+          <!-- 2-line textarea for Bank and Branch -->
+          <textarea id="etf_r4_bank_branch" class="form-overlay-textarea" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; font-size: 8.5px; font-weight: 600; line-height: 1.25; overflow: hidden; resize: none;" title="Bank Name and Branch Name (Two lines)">${escapeHtml(defaultBankBranchText)}</textarea>
 
           <!-- 15 Rows Member Table -->
           ${rowInputsHtml}
 
           <!-- Total Row at top: 81.8% -->
-          <input type="text" id="etf_r4_tot_rs" class="form-overlay-input" style="left: 74.5%; top: 81.8%; width: 11.8%; height: 2.4%; text-align: right; font-weight: 800; font-size: 10px;" value="${formatMoney(totalRs, 0)}" title="Total Rs">
-          <input type="text" id="etf_r4_tot_cts" class="form-overlay-input" style="left: 86.8%; top: 81.8%; width: 4.0%; height: 2.4%; text-align: center; font-weight: 800; font-size: 10px;" value="${String(totalCts).padStart(2, '0')}" title="Total Cts">
+          <input type="text" id="etf_r4_tot_rs" class="form-overlay-input" style="left: ${pTotRs.left}; top: ${pTotRs.top}; width: ${pTotRs.width}; height: ${pTotRs.height}; text-align: right; font-weight: 800; font-size: 10px;" value="${formatMoney(totalRs, 0)}" title="Total Rs">
+          <input type="text" id="etf_r4_tot_cts" class="form-overlay-input" style="left: ${pTotCts.left}; top: ${pTotCts.top}; width: ${pTotCts.width}; height: ${pTotCts.height}; text-align: center; font-weight: 800; font-size: 10px;" value="${String(totalCts).padStart(2, '0')}" title="Total Cts">
 
           <!-- Clarification Box -->
-          <textarea id="etf_r4_clarification" class="form-overlay-textarea" style="left: 33.0%; top: 85.0%; width: 58.0%; height: 4.5%; font-size: 9px;" title="Clarification if any">${escapeHtml(p.etfClarification || '')}</textarea>
+          <textarea id="etf_r4_clarification" class="form-overlay-textarea" style="left: ${pClarification.left}; top: ${pClarification.top}; width: ${pClarification.width}; height: ${pClarification.height}; font-size: 9px;" title="Clarification if any">${escapeHtml(p.etfClarification || '')}</textarea>
 
           <!-- Bottom Declaration (Telephone, Email, Date) -->
-          <input type="text" id="etf_r4_phone" class="form-overlay-input" style="left: 28.5%; top: 95.3%; width: 18.0%; height: 1.8%; font-size: 9px;" value="${escapeHtml(p.phone || currentComp.phone || '+94 11 233 6116')}" title="Telephone">
-          <input type="text" id="etf_r4_email" class="form-overlay-input" style="left: 69.5%; top: 95.3%; width: 22.5%; height: 1.8%; font-size: 9px;" value="${escapeHtml(currentComp.email || 'info@spillburg.com')}" title="Email">
-          <input type="text" id="etf_r4_date" class="form-overlay-input" style="left: 15.0%; top: 96.8%; width: 14.0%; height: 1.8%; font-size: 9px;" value="${escapeHtml(remittanceDate)}" title="Date">
+          <input type="text" id="etf_r4_phone" class="form-overlay-input" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 9px;" value="${escapeHtml(p.phone || currentComp.phone || '+94 11 233 6116')}" title="Telephone">
+          <input type="text" id="etf_r4_email" class="form-overlay-input" style="left: ${pEmail.left}; top: ${pEmail.top}; width: ${pEmail.width}; height: ${pEmail.height}; font-size: 9px;" value="${escapeHtml(currentComp.email || 'info@spillburg.com')}" title="Email">
+          <input type="text" id="etf_r4_date" class="form-overlay-input" style="left: ${pDate.left}; top: ${pDate.top}; width: ${pDate.width}; height: ${pDate.height}; font-size: 9px;" value="${escapeHtml(remittanceDate)}" title="Date">
 
         </div>
       </div>
@@ -8422,6 +8888,7 @@ function renderEtfFormR4(container) {
   if (window.lucide) {
     window.lucide.createIcons();
   }
+  setupEtfDraggables();
 }
 
 
@@ -11874,7 +12341,7 @@ function printEtfFormR4() {
   const charges = document.getElementById('etf_r4_charges')?.value || '0.00';
   const total = document.getElementById('etf_r4_total')?.value || '';
   const chequeNo = document.getElementById('etf_r4_cheque')?.value || p.etfChequeNo || 'CHQ-890214';
-  const bankBranch = document.getElementById('etf_r4_bank')?.value || `${p.bankName || currentComp.bankName || 'NTB'} - ${p.bankBranch || currentComp.bankBranch || 'Borella'}`;
+  const bankBranch = document.getElementById('etf_r4_bank_branch')?.value || document.getElementById('etf_r4_bank')?.value || `${p.bankName || currentComp.bankName || 'NTB'}\n${p.bankBranch || currentComp.bankBranch || 'Borella'}`;
   const totRs = document.getElementById('etf_r4_tot_rs')?.value || '';
   const totCts = document.getElementById('etf_r4_tot_cts')?.value || '';
   const clarification = document.getElementById('etf_r4_clarification')?.value || '';
@@ -11892,15 +12359,38 @@ function printEtfFormR4() {
 
     if (!name && !nic && !mem && !rs && !cts) continue;
 
-    const rTop = (27.2 + r * 3.54).toFixed(2);
+    const pName = getEtfFieldPos(`etf_r4_name_${r}`);
+    const pNic = getEtfFieldPos(`etf_r4_nic_${r}`);
+    const pMem = getEtfFieldPos(`etf_r4_mem_${r}`);
+    const pRs = getEtfFieldPos(`etf_r4_rs_${r}`);
+    const pCts = getEtfFieldPos(`etf_r4_cts_${r}`);
+
     rowFieldsHtml += `
-      <div class="field" style="left: 13.2%; top: ${rTop}%; width: 34.0%; height: 2.4%; font-size: 7.5pt; font-weight: bold;">${escapeHtml(name)}</div>
-      <div class="field" style="left: 47.6%; top: ${rTop}%; width: 16.5%; height: 2.4%; justify-content: center; font-size: 7.5pt;">${escapeHtml(nic)}</div>
-      <div class="field" style="left: 64.5%; top: ${rTop}%; width: 9.5%; height: 2.4%; justify-content: center; font-size: 7.5pt;">${escapeHtml(mem)}</div>
-      <div class="field" style="left: 74.5%; top: ${rTop}%; width: 11.8%; height: 2.4%; justify-content: flex-end; font-size: 8pt; font-weight: bold;">${escapeHtml(rs)}</div>
-      <div class="field" style="left: 86.8%; top: ${rTop}%; width: 4.0%; height: 2.4%; justify-content: center; font-size: 8pt;">${escapeHtml(cts)}</div>
+      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 7.5pt; font-weight: bold;">${escapeHtml(name)}</div>
+      <div class="field" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; justify-content: center; font-size: 7.5pt;">${escapeHtml(nic)}</div>
+      <div class="field" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; justify-content: center; font-size: 7.5pt;">${escapeHtml(mem)}</div>
+      <div class="field" style="left: ${pRs.left}; top: ${pRs.top}; width: ${pRs.width}; height: ${pRs.height}; justify-content: flex-end; font-size: 8pt; font-weight: bold;">${escapeHtml(rs)}</div>
+      <div class="field" style="left: ${pCts.left}; top: ${pCts.top}; width: ${pCts.width}; height: ${pCts.height}; justify-content: center; font-size: 8pt;">${escapeHtml(cts)}</div>
     `;
   }
+
+  // Header & Summary Field positions
+  const pEmployer = getEtfFieldPos('etf_r4_employer');
+  const pEmpNo = getEtfFieldPos('etf_r4_emp_no');
+  const pMonthYear = getEtfFieldPos('etf_r4_month_year');
+  const pEmpCount = getEtfFieldPos('etf_r4_emp_count');
+  const pContrib = getEtfFieldPos('etf_r4_contrib');
+  const pSurcharge = getEtfFieldPos('etf_r4_surcharge');
+  const pCharges = getEtfFieldPos('etf_r4_charges');
+  const pTotal = getEtfFieldPos('etf_r4_total');
+  const pCheque = getEtfFieldPos('etf_r4_cheque');
+  const pBank = getEtfFieldPos('etf_r4_bank_branch');
+  const pTotRs = getEtfFieldPos('etf_r4_tot_rs');
+  const pTotCts = getEtfFieldPos('etf_r4_tot_cts');
+  const pClarification = getEtfFieldPos('etf_r4_clarification');
+  const pPhone = getEtfFieldPos('etf_r4_phone');
+  const pEmail = getEtfFieldPos('etf_r4_email');
+  const pDate = getEtfFieldPos('etf_r4_date');
 
   const printWin = window.open('', '_blank');
   if (!printWin) {
@@ -11950,28 +12440,28 @@ function printEtfFormR4() {
     </head>
     <body>
       <div class="print-sheet">
-        <div class="field" style="left: 8.0%; top: 6.8%; width: 46.0%; height: 12.5%; white-space: pre-wrap; font-size: 7.5pt; align-items: flex-start; line-height: 1.3;">${escapeHtml(employer)}</div>
-        <div class="field" style="left: 58.2%; top: 10.1%; width: 12.5%; height: 2.3%; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(empNo)}</div>
-        <div class="field" style="left: 71.2%; top: 10.1%; width: 11.0%; height: 2.3%; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(monthYear)}</div>
-        <div class="field" style="left: 82.6%; top: 10.1%; width: 8.2%; height: 2.3%; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(empCount)}</div>
+        <div class="field" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; white-space: pre-wrap; font-size: 7.5pt; align-items: flex-start; line-height: 1.3;">${escapeHtml(employer)}</div>
+        <div class="field" style="left: ${pEmpNo.left}; top: ${pEmpNo.top}; width: ${pEmpNo.width}; height: ${pEmpNo.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(empNo)}</div>
+        <div class="field" style="left: ${pMonthYear.left}; top: ${pMonthYear.top}; width: ${pMonthYear.width}; height: ${pMonthYear.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(monthYear)}</div>
+        <div class="field" style="left: ${pEmpCount.left}; top: ${pEmpCount.top}; width: ${pEmpCount.width}; height: ${pEmpCount.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(empCount)}</div>
 
-        <div class="field" style="left: 80.5%; top: 12.8%; width: 10.5%; height: 2.1%; justify-content: flex-end; font-size: 8pt; font-weight: bold;">${escapeHtml(contrib)}</div>
-        <div class="field" style="left: 80.5%; top: 15.1%; width: 10.5%; height: 2.1%; justify-content: flex-end; font-size: 8pt;">${escapeHtml(surcharge)}</div>
-        <div class="field" style="left: 80.5%; top: 17.5%; width: 10.5%; height: 2.1%; justify-content: flex-end; font-size: 8pt;">${escapeHtml(charges)}</div>
-        <div class="field" style="left: 80.5%; top: 19.8%; width: 10.5%; height: 2.1%; justify-content: flex-end; font-size: 8pt; font-weight: 800;">${escapeHtml(total)}</div>
-        <div class="field" style="left: 80.5%; top: 22.2%; width: 10.5%; height: 1.9%; font-size: 7.5pt;">${escapeHtml(chequeNo)}</div>
-        <div class="field" style="left: 80.5%; top: 24.3%; width: 10.5%; height: 2.0%; font-size: 7.5pt;">${escapeHtml(bankBranch)}</div>
+        <div class="field" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; justify-content: flex-end; font-size: 8pt; font-weight: bold;">${escapeHtml(contrib)}</div>
+        <div class="field" style="left: ${pSurcharge.left}; top: ${pSurcharge.top}; width: ${pSurcharge.width}; height: ${pSurcharge.height}; justify-content: flex-end; font-size: 8pt;">${escapeHtml(surcharge)}</div>
+        <div class="field" style="left: ${pCharges.left}; top: ${pCharges.top}; width: ${pCharges.width}; height: ${pCharges.height}; justify-content: flex-end; font-size: 8pt;">${escapeHtml(charges)}</div>
+        <div class="field" style="left: ${pTotal.left}; top: ${pTotal.top}; width: ${pTotal.width}; height: ${pTotal.height}; justify-content: flex-end; font-size: 8pt; font-weight: 800;">${escapeHtml(total)}</div>
+        <div class="field" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 7.5pt;">${escapeHtml(chequeNo)}</div>
+        <div class="field" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; white-space: pre-wrap; font-size: 7.5pt; align-items: flex-start; line-height: 1.2;">${escapeHtml(bankBranch)}</div>
 
         ${rowFieldsHtml}
 
-        <div class="field" style="left: 74.5%; top: 81.8%; width: 11.8%; height: 2.4%; justify-content: flex-end; font-size: 8pt; font-weight: 800;">${escapeHtml(totRs)}</div>
-        <div class="field" style="left: 86.8%; top: 81.8%; width: 4.0%; height: 2.4%; justify-content: center; font-size: 8pt; font-weight: 800;">${escapeHtml(totCts)}</div>
+        <div class="field" style="left: ${pTotRs.left}; top: ${pTotRs.top}; width: ${pTotRs.width}; height: ${pTotRs.height}; justify-content: flex-end; font-size: 8pt; font-weight: 800;">${escapeHtml(totRs)}</div>
+        <div class="field" style="left: ${pTotCts.left}; top: ${pTotCts.top}; width: ${pTotCts.width}; height: ${pTotCts.height}; justify-content: center; font-size: 8pt; font-weight: 800;">${escapeHtml(totCts)}</div>
 
-        <div class="field" style="left: 33.0%; top: 85.0%; width: 58.0%; height: 4.5%; white-space: pre-wrap; font-size: 7pt; align-items: flex-start;">${escapeHtml(clarification)}</div>
+        <div class="field" style="left: ${pClarification.left}; top: ${pClarification.top}; width: ${pClarification.width}; height: ${pClarification.height}; white-space: pre-wrap; font-size: 7pt; align-items: flex-start;">${escapeHtml(clarification)}</div>
 
-        <div class="field" style="left: 28.5%; top: 95.3%; width: 18.0%; height: 1.8%; font-size: 7.5pt;">${escapeHtml(phone)}</div>
-        <div class="field" style="left: 69.5%; top: 95.3%; width: 22.5%; height: 1.8%; font-size: 7.5pt;">${escapeHtml(email)}</div>
-        <div class="field" style="left: 15.0%; top: 96.8%; width: 14.0%; height: 1.8%; font-size: 7.5pt;">${escapeHtml(dateVal)}</div>
+        <div class="field" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 7.5pt;">${escapeHtml(phone)}</div>
+        <div class="field" style="left: ${pEmail.left}; top: ${pEmail.top}; width: ${pEmail.width}; height: ${pEmail.height}; font-size: 7.5pt;">${escapeHtml(email)}</div>
+        <div class="field" style="left: ${pDate.left}; top: ${pDate.top}; width: ${pDate.width}; height: ${pDate.height}; font-size: 7.5pt;">${escapeHtml(dateVal)}</div>
       </div>
       <script>
         window.onload = function() {

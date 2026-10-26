@@ -826,9 +826,11 @@ span.flatpickr-weekday {
   display: block !important;
 }
 
-/* EPF Form C Draggable Mode Styles */
+/* EPF Form C & ETF Form R-4 Draggable Mode Styles */
 .form-c-portrait-sheet.epf-drag-active .form-overlay-input,
-.form-c-portrait-sheet.epf-drag-active .form-overlay-textarea {
+.form-c-portrait-sheet.epf-drag-active .form-overlay-textarea,
+.form-r4-portrait-sheet.etf-drag-active .form-overlay-input,
+.form-r4-portrait-sheet.etf-drag-active .form-overlay-textarea {
   cursor: grab !important;
   border: 1.5px dashed #4f46e5 !important;
   background: rgba(238, 242, 255, 0.85) !important;
@@ -837,7 +839,9 @@ span.flatpickr-weekday {
 }
 
 .form-c-portrait-sheet.epf-drag-active .form-overlay-input:hover,
-.form-c-portrait-sheet.epf-drag-active .form-overlay-textarea:hover {
+.form-c-portrait-sheet.epf-drag-active .form-overlay-textarea:hover,
+.form-r4-portrait-sheet.etf-drag-active .form-overlay-input:hover,
+.form-r4-portrait-sheet.etf-drag-active .form-overlay-textarea:hover {
   border-color: #312e81 !important;
   background: rgba(224, 231, 255, 0.95) !important;
   box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.45) !important;
