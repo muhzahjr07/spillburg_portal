@@ -1,8 +1,13 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
+<<<<<<< HEAD
   "exportTimestamp": "2026-10-26T12:28:57Z",
   "storageLocation": "C:\\Users\\User\\Desktop\\Spillburg Admin\\projects\\company_portal\\data",
+=======
+  "exportTimestamp": "2026-10-26T12:17:31Z",
+  "storageLocation": "/opt/render/project/src/data",
+>>>>>>> 7a09e01dfcf4e2b1032c4ad83410ce1676aeb451
   "users": [
     {
       "id": "usr_dir_master",
@@ -1836,7 +1841,7 @@
         "month": "October 2026",
         "monthCode": "OCT-26",
         "yearPeriod": "2026-2027",
-        "letterDate": "31.10.2026",
+        "letterDate": "27.10.2026",
         "exchangeRate": 435.0,
         "baseCurrency": "LKR",
         "localCurrency": "LKR",
