@@ -857,3 +857,19 @@ span.flatpickr-weekday {
   z-index: 100 !important;
 }
 
+/* Operations Tracker Dynamic Checklist Filter Dropdowns */
+.ops-dropdown-menu {
+  max-height: 290px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.ops-dropdown-menu::-webkit-scrollbar {
+  width: 5px;
+}
+.ops-dropdown-menu::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+

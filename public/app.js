@@ -14,9 +14,14 @@ let customerCupboardFilter = 'All';
 let customerViewMode = 'table'; // 'table' or 'boxes'
 let operationsViewMode = 'table'; // 'table' or 'kanban'
 let operationsUserFilter = 'me'; // 'me', 'all', or specific userId
-let operationsMonthFilter = 'all'; // 'all', or 'sep', 'oct', 'nov', etc.
-let operationsYearFilter = 'all'; // 'all', or '2026', '2025', etc.
-let operationsStatusFilter = []; // array of selected status names, e.g. ['Pending', 'In Progress']. Empty = all statuses.
+let operationsMonthFilter = 'all'; // legacy/pill active key
+let operationsYearFilter = 'all'; // legacy/pill active key
+let operationsStatusFilter = []; // array of selected status names, e.g. ['Pending', 'In Progress']. Empty = all.
+let operationsPrioritiesFilter = []; // array of selected priority names, e.g. ['Critical', 'High']. Empty = all.
+let operationsWorkstreamsFilter = []; // array of selected workstreams. Empty = all.
+let operationsYearsFilter = []; // array of selected years, e.g. ['2026']. Empty = all.
+let operationsMonthsFilter = []; // array of selected month keys (jan..dec). Empty = all.
+let operationsRequestersFilter = []; // array of selected requesters. Empty = all.
 
 // Payroll & Remittance State
 let payrollData = null;
@@ -1601,42 +1606,42 @@ function renderOperations(container) {
       <!-- Tracker Status Summary Row (Screenshot 2 Match) -->
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <!-- Total -->
-        <div onclick="selectAllOpsStatuses(true)" class="cursor-pointer hover:border-slate-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between" title="Show all statuses">
+        <div onclick="selectAllOpsFilter('status', true)" class="cursor-pointer hover:border-slate-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between" title="Show all statuses">
           <div>
             <div class="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Total Tasks</div>
-            <div class="text-2xl font-bold font-display text-slate-900 mt-0.5">${total}</div>
+            <div id="opsKpiTotal" class="text-2xl font-bold font-display text-slate-900 mt-0.5">${total}</div>
           </div>
           <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs"><i data-lucide="layers" class="w-4 h-4"></i></div>
         </div>
         <!-- Pending -->
-        <div onclick="toggleSingleOpsStatusFromCard('Pending')" class="cursor-pointer hover:border-amber-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === 'pending' ? 'border-amber-500 ring-2 ring-amber-300' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter by Pending">
+        <div id="opsKpiCard_Pending" onclick="toggleSingleOpsStatusFromCard('Pending')" class="cursor-pointer hover:border-amber-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === 'pending' ? 'border-amber-500 ring-2 ring-amber-300' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter by Pending">
           <div>
             <div class="text-[11px] font-semibold uppercase text-amber-600 tracking-wider">Pending</div>
-            <div class="text-2xl font-bold font-display text-amber-600 mt-0.5">${pending}</div>
+            <div id="opsKpiPending" class="text-2xl font-bold font-display text-amber-600 mt-0.5">${pending}</div>
           </div>
           <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs"><i data-lucide="clock" class="w-4 h-4"></i></div>
         </div>
         <!-- In Progress -->
-        <div onclick="toggleSingleOpsStatusFromCard('In Progress')" class="cursor-pointer hover:border-blue-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === 'in progress' ? 'border-blue-500 ring-2 ring-blue-300' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter by In Progress">
+        <div id="opsKpiCard_In_Progress" onclick="toggleSingleOpsStatusFromCard('In Progress')" class="cursor-pointer hover:border-blue-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === 'in progress' ? 'border-blue-500 ring-2 ring-blue-300' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter by In Progress">
           <div>
             <div class="text-[11px] font-semibold uppercase text-blue-600 tracking-wider">In Progress</div>
-            <div class="text-2xl font-bold font-display text-blue-600 mt-0.5">${inProgress}</div>
+            <div id="opsKpiInProgress" class="text-2xl font-bold font-display text-blue-600 mt-0.5">${inProgress}</div>
           </div>
           <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs"><i data-lucide="loader" class="w-4 h-4"></i></div>
         </div>
         <!-- Completed -->
-        <div onclick="toggleSingleOpsStatusFromCard('Completed')" class="cursor-pointer hover:border-emerald-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === 'completed' ? 'border-emerald-500 ring-2 ring-emerald-300' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter by Completed">
+        <div id="opsKpiCard_Completed" onclick="toggleSingleOpsStatusFromCard('Completed')" class="cursor-pointer hover:border-emerald-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === 'completed' ? 'border-emerald-500 ring-2 ring-emerald-300' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter by Completed">
           <div>
             <div class="text-[11px] font-semibold uppercase text-emerald-600 tracking-wider">Completed</div>
-            <div class="text-2xl font-bold font-display text-emerald-600 mt-0.5">${completed}</div>
+            <div id="opsKpiCompleted" class="text-2xl font-bold font-display text-emerald-600 mt-0.5">${completed}</div>
           </div>
           <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs"><i data-lucide="check-circle-2" class="w-4 h-4"></i></div>
         </div>
         <!-- On Hold -->
-        <div onclick="toggleSingleOpsStatusFromCard('On Hold')" class="cursor-pointer hover:border-purple-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === 'on hold' ? 'border-purple-500 ring-2 ring-purple-300' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter by On Hold">
+        <div id="opsKpiCard_On_Hold" onclick="toggleSingleOpsStatusFromCard('On Hold')" class="cursor-pointer hover:border-purple-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === 'on hold' ? 'border-purple-500 ring-2 ring-purple-300' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter by On Hold">
           <div>
             <div class="text-[11px] font-semibold uppercase text-purple-600 tracking-wider">On Hold</div>
-            <div class="text-2xl font-bold font-display text-purple-600 mt-0.5">${onHold}</div>
+            <div id="opsKpiOnHold" class="text-2xl font-bold font-display text-purple-600 mt-0.5">${onHold}</div>
           </div>
           <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xs"><i data-lucide="pause-circle" class="w-4 h-4"></i></div>
         </div>
@@ -1644,7 +1649,7 @@ function renderOperations(container) {
         <div class="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
           <div>
             <div class="text-[11px] font-semibold uppercase text-teal-600 tracking-wider">Completion</div>
-            <div class="text-2xl font-bold font-display text-teal-600 mt-0.5">${progressPct}%</div>
+            <div id="opsKpiCompletion" class="text-2xl font-bold font-display text-teal-600 mt-0.5">${progressPct}%</div>
           </div>
           <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-xs"><i data-lucide="trending-up" class="w-4 h-4"></i></div>
         </div>
@@ -1658,12 +1663,12 @@ function renderOperations(container) {
             <i data-lucide="calendar-days" class="w-3.5 h-3.5 text-blue-600"></i>
             <span>Tasked Year:</span>
           </span>
-          <button onclick="setOperationsYearFilter('all')" data-year="all" class="ops-year-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${operationsYearFilter === 'all' ? 'bg-blue-600 text-white shadow-xs font-bold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}">
-            All Years (${total})
+          <button onclick="setOperationsYearFilter('all')" data-year="all" class="ops-year-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${operationsYearsFilter.length === 0 ? 'bg-blue-600 text-white shadow-xs font-bold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}">
+            All Years (<span id="ops_pill_count_year_all">${total}</span>)
           </button>
           ${availableYears.map(yr => `
-            <button onclick="setOperationsYearFilter('${yr}')" data-year="${yr}" class="ops-year-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${operationsYearFilter === yr ? 'bg-blue-600 text-white shadow-xs font-bold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}">
-              ${yr} ${yearCounts[yr] > 0 ? `<span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${operationsYearFilter === yr ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-700 font-bold'}">${yearCounts[yr]}</span>` : ''}
+            <button onclick="setOperationsYearFilter('${yr}')" data-year="${yr}" class="ops-year-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${operationsYearsFilter.includes(yr) ? 'bg-blue-600 text-white shadow-xs font-bold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}">
+              ${yr} <span id="ops_pill_count_year_${yr}" class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${operationsYearsFilter.includes(yr) ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-700 font-bold'}">${yearCounts[yr] || 0}</span>
             </button>
           `).join('')}
         </div>
@@ -1674,147 +1679,292 @@ function renderOperations(container) {
             <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i>
             <span>Tasked Month:</span>
           </span>
-          <button onclick="setOperationsMonthFilter('all')" data-month="all" class="ops-month-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${operationsMonthFilter === 'all' ? 'bg-emerald-600 text-white shadow-xs font-bold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}">
-            All Months (${total})
+          <button onclick="setOperationsMonthFilter('all')" data-month="all" class="ops-month-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${operationsMonthsFilter.length === 0 ? 'bg-emerald-600 text-white shadow-xs font-bold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}">
+            All Months (<span id="ops_pill_count_month_all">${total}</span>)
           </button>
           ${monthOptions.map(m => `
-            <button onclick="setOperationsMonthFilter('${m.key}')" data-month="${m.key}" class="ops-month-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${operationsMonthFilter === m.key ? 'bg-emerald-600 text-white shadow-xs font-bold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}">
-              ${m.name} ${m.count > 0 ? `<span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${operationsMonthFilter === m.key ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-700 font-bold'}">${m.count}</span>` : ''}
+            <button onclick="setOperationsMonthFilter('${m.key}')" data-month="${m.key}" class="ops-month-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${operationsMonthsFilter.includes(m.key) ? 'bg-emerald-600 text-white shadow-xs font-bold' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'}">
+              ${m.name} <span id="ops_pill_count_month_${m.key}" class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${operationsMonthsFilter.includes(m.key) ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-700 font-bold'}">${m.count || 0}</span>
             </button>
           `).join('')}
         </div>
       </div>
 
-      <!-- Search & Dynamic Filters -->
-      <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2.5">
-          <div class="relative sm:col-span-2 lg:col-span-2">
-            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-            <input type="text" id="opsSearchInput" oninput="handleOperationsFilter()" placeholder="Search tasks, deliverables, requesters, notes, costs..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
-          </div>
-          <div>
-            <select id="opsYearFilter" onchange="setOperationsYearFilter(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 font-medium cursor-pointer">
-              <option value="all" ${operationsYearFilter === 'all' ? 'selected' : ''}>🗓️ All Years (${total})</option>
-              ${availableYears.map(yr => `
-                <option value="${yr}" ${operationsYearFilter === yr ? 'selected' : ''}>
-                  Year ${yr} ${yearCounts[yr] ? `(${yearCounts[yr]})` : ''}
-                </option>
-              `).join('')}
-            </select>
-          </div>
-          <div>
-            <select id="opsMonthFilter" onchange="setOperationsMonthFilter(this.value)" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium cursor-pointer">
-              <option value="all" ${operationsMonthFilter === 'all' ? 'selected' : ''}>📅 All Months (${total})</option>
-              ${monthOptions.map(m => `
-                <option value="${m.key}" ${operationsMonthFilter === m.key ? 'selected' : ''}>
-                  ${m.name} ${m.count > 0 ? `(${m.count})` : ''}
-                </option>
-              `).join('')}
-            </select>
-          </div>
-          <div>
-            <select id="opsWorkstreamFilter" onchange="handleOperationsFilter()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none">
-              <option value="">All Workstreams (${workstreams.length})</option>
-              ${workstreams.map(w => `<option value="${w}">${w}</option>`).join('')}
-            </select>
-          </div>
-          <!-- Multi-Select Statuses Checkbox List Dropdown -->
+      <!-- Search & Dynamic Checklist Filters Bar -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <!-- Search Row -->
+        <div class="relative w-full">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none"></i>
+          <input type="text" id="opsSearchInput" oninput="handleOperationsFilter()" placeholder="Search tasks, deliverables, requesters, workstreams, notes, costs, tags, numbers..." class="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition shadow-2xs">
+          <button id="opsSearchClearBtn" type="button" onclick="clearOpsSearch()" class="hidden absolute right-3 top-2 text-slate-400 hover:text-slate-600 font-bold text-sm" title="Clear search">&times;</button>
+        </div>
+
+        <!-- 6 Responsive Dynamic Checklist Filters -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-1">
+          <!-- 1. Status Filter Dropdown -->
           <div class="relative" id="opsStatusDropdownContainer">
-            <button type="button" id="opsStatusDropdownBtn" onclick="toggleOpsStatusDropdown()" 
-              class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
+            <button type="button" id="opsStatusDropdownBtn" onclick="toggleOpsFilterDropdown('status')" 
+              class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
               <div class="flex items-center gap-1.5 truncate">
-                <i data-lucide="check-square" class="w-3.5 h-3.5 text-slate-500 shrink-0"></i>
-                <span id="opsStatusDropdownLabel" class="truncate font-medium">${escapeHtml(statusSummaryLabel)}</span>
+                <i data-lucide="check-square" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
+                <span id="opsStatusDropdownLabel" class="truncate font-semibold text-slate-800">${escapeHtml(statusSummaryLabel)}</span>
               </div>
               <div class="flex items-center gap-1 shrink-0">
                 <span id="opsStatusDropdownCount" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">${activeStatusCount}</span>
                 <i data-lucide="chevron-down" id="opsStatusChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
               </div>
             </button>
-
-            <!-- Dropdown Menu with Checkbox List -->
-            <div id="opsStatusDropdownMenu" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg p-2 z-50 min-w-[210px] space-y-1.5">
+            <div id="opsStatusDropdownMenu" class="hidden ops-dropdown-menu absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[220px] max-w-[280px] space-y-1.5">
               <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
-                <span class="font-semibold text-slate-700">Filter by Status</span>
+                <span class="font-bold text-slate-800">Status</span>
                 <div class="flex items-center gap-1.5">
-                  <button type="button" onclick="selectAllOpsStatuses(true); event.stopPropagation();" class="text-emerald-600 hover:text-emerald-700 font-semibold hover:underline cursor-pointer">All</button>
+                  <button type="button" onclick="selectAllOpsFilter('status', true); event.stopPropagation();" class="text-emerald-600 hover:text-emerald-700 font-semibold cursor-pointer">All</button>
                   <span class="text-slate-300">|</span>
-                  <button type="button" onclick="selectAllOpsStatuses(false); event.stopPropagation();" class="text-slate-500 hover:text-slate-700 font-semibold hover:underline cursor-pointer">Clear</button>
+                  <button type="button" onclick="selectAllOpsFilter('status', false); event.stopPropagation();" class="text-slate-500 hover:text-slate-700 font-semibold cursor-pointer">Clear</button>
                 </div>
               </div>
-              
-              <div class="space-y-1 py-0.5">
-                <!-- Checkbox for Pending -->
-                <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-amber-50/60 cursor-pointer text-xs transition select-none">
-                  <div class="flex items-center gap-2">
-                    <input type="checkbox" id="ops_cb_status_Pending" onchange="handleOpsStatusCheckboxChange('Pending', this.checked)" ${isPendingChecked ? 'checked' : ''} class="rounded text-amber-600 focus:ring-amber-500 cursor-pointer">
-                    <span class="inline-flex items-center gap-1.5 font-medium text-slate-800">
-                      <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                      <span>Pending</span>
-                    </span>
-                  </div>
-                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800">${pending}</span>
-                </label>
-
-                <!-- Checkbox for In Progress -->
-                <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-blue-50/60 cursor-pointer text-xs transition select-none">
-                  <div class="flex items-center gap-2">
-                    <input type="checkbox" id="ops_cb_status_In_Progress" onchange="handleOpsStatusCheckboxChange('In Progress', this.checked)" ${isInProgressChecked ? 'checked' : ''} class="rounded text-blue-600 focus:ring-blue-500 cursor-pointer">
-                    <span class="inline-flex items-center gap-1.5 font-medium text-slate-800">
-                      <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                      <span>In Progress</span>
-                    </span>
-                  </div>
-                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-800">${inProgress}</span>
-                </label>
-
-                <!-- Checkbox for Completed -->
-                <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-emerald-50/60 cursor-pointer text-xs transition select-none">
-                  <div class="flex items-center gap-2">
-                    <input type="checkbox" id="ops_cb_status_Completed" onchange="handleOpsStatusCheckboxChange('Completed', this.checked)" ${isCompletedChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
-                    <span class="inline-flex items-center gap-1.5 font-medium text-slate-800">
-                      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                      <span>Completed</span>
-                    </span>
-                  </div>
-                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">${completed}</span>
-                </label>
-
-                <!-- Checkbox for On Hold -->
-                <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-purple-50/60 cursor-pointer text-xs transition select-none">
-                  <div class="flex items-center gap-2">
-                    <input type="checkbox" id="ops_cb_status_On_Hold" onchange="handleOpsStatusCheckboxChange('On Hold', this.checked)" ${isOnHoldChecked ? 'checked' : ''} class="rounded text-purple-600 focus:ring-purple-500 cursor-pointer">
-                    <span class="inline-flex items-center gap-1.5 font-medium text-slate-800">
-                      <span class="w-2 h-2 rounded-full bg-purple-500"></span>
-                      <span>On Hold</span>
-                    </span>
-                  </div>
-                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-800">${onHold}</span>
-                </label>
+              <div class="space-y-1 max-h-56 overflow-y-auto">
+                ${allStatusList.map(st => {
+                  const isChecked = isAllStatusesActive || operationsStatusFilter.some(s => s.toLowerCase() === st.toLowerCase());
+                  const safeKey = getOpsItemSafeKey('status', st);
+                  const dotColor = st === 'Pending' ? 'bg-amber-500' : (st === 'In Progress' ? 'bg-blue-500' : (st === 'Completed' ? 'bg-emerald-500' : 'bg-purple-500'));
+                  const badgeColor = st === 'Pending' ? 'bg-amber-100 text-amber-800' : (st === 'In Progress' ? 'bg-blue-100 text-blue-800' : (st === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'));
+                  return `
+                    <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition select-none ops-checklist-item" data-name="${st}">
+                      <div class="flex items-center gap-2">
+                        <input type="checkbox" id="ops_cb_status_${safeKey}" data-type="status" data-val="${encodeURIComponent(st)}" onchange="handleOpsFilterCheckboxFromEl(this)" ${isChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                        <span class="inline-flex items-center gap-1.5 font-medium text-slate-800">
+                          <span class="w-2 h-2 rounded-full ${dotColor}"></span>
+                          <span>${st}</span>
+                        </span>
+                      </div>
+                      <span id="ops_count_status_${safeKey}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md ${badgeColor}">0</span>
+                    </label>
+                  `;
+                }).join('')}
               </div>
             </div>
           </div>
-          <div>
-            <select id="opsPriorityFilter" onchange="handleOperationsFilter()" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none">
-              <option value="">All Priorities</option>
-              <option value="Critical">Critical</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
-            </select>
+
+          <!-- 2. Priority Filter Dropdown -->
+          <div class="relative" id="opsPriorityDropdownContainer">
+            <button type="button" id="opsPriorityDropdownBtn" onclick="toggleOpsFilterDropdown('priority')" 
+              class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
+              <div class="flex items-center gap-1.5 truncate">
+                <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-amber-600 shrink-0"></i>
+                <span id="opsPriorityDropdownLabel" class="truncate font-semibold text-slate-800">All Priorities</span>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <span id="opsPriorityDropdownCount" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">4</span>
+                <i data-lucide="chevron-down" id="opsPriorityChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
+              </div>
+            </button>
+            <div id="opsPriorityDropdownMenu" class="hidden ops-dropdown-menu absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[220px] max-w-[280px] space-y-1.5">
+              <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
+                <span class="font-bold text-slate-800">Priority</span>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="selectAllOpsFilter('priority', true); event.stopPropagation();" class="text-emerald-600 hover:text-emerald-700 font-semibold cursor-pointer">All</button>
+                  <span class="text-slate-300">|</span>
+                  <button type="button" onclick="selectAllOpsFilter('priority', false); event.stopPropagation();" class="text-slate-500 hover:text-slate-700 font-semibold cursor-pointer">Clear</button>
+                </div>
+              </div>
+              <div class="space-y-1 max-h-56 overflow-y-auto">
+                ${allPriorityList.map(pri => {
+                  const isChecked = operationsPrioritiesFilter.length === 0 || operationsPrioritiesFilter.some(p => p.toLowerCase() === pri.toLowerCase());
+                  const safeKey = getOpsItemSafeKey('priority', pri);
+                  const dotColor = pri === 'Critical' ? 'bg-rose-500' : (pri === 'High' ? 'bg-amber-500' : (pri === 'Medium' ? 'bg-blue-500' : 'bg-slate-400'));
+                  const badgeColor = pri === 'Critical' ? 'bg-rose-100 text-rose-800' : (pri === 'High' ? 'bg-amber-100 text-amber-800' : (pri === 'Medium' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'));
+                  return `
+                    <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition select-none ops-checklist-item" data-name="${pri}">
+                      <div class="flex items-center gap-2">
+                        <input type="checkbox" id="ops_cb_priority_${safeKey}" data-type="priority" data-val="${encodeURIComponent(pri)}" onchange="handleOpsFilterCheckboxFromEl(this)" ${isChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                        <span class="inline-flex items-center gap-1.5 font-medium text-slate-800">
+                          <span class="w-2 h-2 rounded-full ${dotColor}"></span>
+                          <span>${pri}</span>
+                        </span>
+                      </div>
+                      <span id="ops_count_priority_${safeKey}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md ${badgeColor}">0</span>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Workstream Filter Dropdown -->
+          <div class="relative" id="opsWorkstreamDropdownContainer">
+            <button type="button" id="opsWorkstreamDropdownBtn" onclick="toggleOpsFilterDropdown('workstream')" 
+              class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
+              <div class="flex items-center gap-1.5 truncate">
+                <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+                <span id="opsWorkstreamDropdownLabel" class="truncate font-semibold text-slate-800">All Workstreams</span>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <span id="opsWorkstreamDropdownCount" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">${workstreams.length}</span>
+                <i data-lucide="chevron-down" id="opsWorkstreamChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
+              </div>
+            </button>
+            <div id="opsWorkstreamDropdownMenu" class="hidden ops-dropdown-menu absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[240px] max-w-[300px] space-y-1.5">
+              <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
+                <span class="font-bold text-slate-800">Workstream</span>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="selectAllOpsFilter('workstream', true); event.stopPropagation();" class="text-emerald-600 hover:text-emerald-700 font-semibold cursor-pointer">All</button>
+                  <span class="text-slate-300">|</span>
+                  <button type="button" onclick="selectAllOpsFilter('workstream', false); event.stopPropagation();" class="text-slate-500 hover:text-slate-700 font-semibold cursor-pointer">Clear</button>
+                </div>
+              </div>
+              ${workstreams.length > 5 ? `
+                <div class="px-1 pb-1">
+                  <input type="text" oninput="filterChecklistMenuItems(this)" placeholder="Filter workstreams..." class="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none">
+                </div>
+              ` : ''}
+              <div class="space-y-1 max-h-56 overflow-y-auto">
+                ${workstreams.map(ws => {
+                  const isChecked = operationsWorkstreamsFilter.length === 0 || operationsWorkstreamsFilter.some(w => w.toLowerCase() === ws.toLowerCase());
+                  const safeKey = getOpsItemSafeKey('workstream', ws);
+                  return `
+                    <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition select-none ops-checklist-item" data-name="${escapeHtml(ws)}">
+                      <div class="flex items-center gap-2 truncate pr-2">
+                        <input type="checkbox" id="ops_cb_workstream_${safeKey}" data-type="workstream" data-val="${encodeURIComponent(ws)}" onchange="handleOpsFilterCheckboxFromEl(this)" ${isChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0">
+                        <span class="font-medium text-slate-800 truncate" title="${escapeHtml(ws)}">${escapeHtml(ws)}</span>
+                      </div>
+                      <span id="ops_count_workstream_${safeKey}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 shrink-0">0</span>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Tasked Year Filter Dropdown -->
+          <div class="relative" id="opsYearDropdownContainer">
+            <button type="button" id="opsYearDropdownBtn" onclick="toggleOpsFilterDropdown('year')" 
+              class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
+              <div class="flex items-center gap-1.5 truncate">
+                <i data-lucide="calendar-days" class="w-3.5 h-3.5 text-blue-600 shrink-0"></i>
+                <span id="opsYearDropdownLabel" class="truncate font-semibold text-slate-800">All Years</span>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <span id="opsYearDropdownCount" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">${availableYears.length}</span>
+                <i data-lucide="chevron-down" id="opsYearChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
+              </div>
+            </button>
+            <div id="opsYearDropdownMenu" class="hidden ops-dropdown-menu absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[200px] max-w-[260px] space-y-1.5">
+              <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
+                <span class="font-bold text-slate-800">Tasked Year</span>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="selectAllOpsFilter('year', true); event.stopPropagation();" class="text-emerald-600 hover:text-emerald-700 font-semibold cursor-pointer">All</button>
+                  <span class="text-slate-300">|</span>
+                  <button type="button" onclick="selectAllOpsFilter('year', false); event.stopPropagation();" class="text-slate-500 hover:text-slate-700 font-semibold cursor-pointer">Clear</button>
+                </div>
+              </div>
+              <div class="space-y-1 max-h-56 overflow-y-auto">
+                ${availableYears.map(yr => {
+                  const isChecked = operationsYearsFilter.length === 0 || operationsYearsFilter.includes(yr);
+                  const safeKey = getOpsItemSafeKey('year', yr);
+                  return `
+                    <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition select-none ops-checklist-item" data-name="${yr}">
+                      <div class="flex items-center gap-2">
+                        <input type="checkbox" id="ops_cb_year_${safeKey}" data-type="year" data-val="${encodeURIComponent(yr)}" onchange="handleOpsFilterCheckboxFromEl(this)" ${isChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                        <span class="font-medium text-slate-800">Year ${yr}</span>
+                      </div>
+                      <span id="ops_count_year_${safeKey}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-800">0</span>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. Tasked Month Filter Dropdown -->
+          <div class="relative" id="opsMonthDropdownContainer">
+            <button type="button" id="opsMonthDropdownBtn" onclick="toggleOpsFilterDropdown('month')" 
+              class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
+              <div class="flex items-center gap-1.5 truncate">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
+                <span id="opsMonthDropdownLabel" class="truncate font-semibold text-slate-800">All Months</span>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <span id="opsMonthDropdownCount" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">12</span>
+                <i data-lucide="chevron-down" id="opsMonthChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
+              </div>
+            </button>
+            <div id="opsMonthDropdownMenu" class="hidden ops-dropdown-menu absolute sm:right-0 sm:left-auto left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[220px] max-w-[280px] space-y-1.5">
+              <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
+                <span class="font-bold text-slate-800">Tasked Month</span>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="selectAllOpsFilter('month', true); event.stopPropagation();" class="text-emerald-600 hover:text-emerald-700 font-semibold cursor-pointer">All</button>
+                  <span class="text-slate-300">|</span>
+                  <button type="button" onclick="selectAllOpsFilter('month', false); event.stopPropagation();" class="text-slate-500 hover:text-slate-700 font-semibold cursor-pointer">Clear</button>
+                </div>
+              </div>
+              <div class="space-y-1 max-h-56 overflow-y-auto">
+                ${CALENDAR_MONTHS.map(m => {
+                  const isChecked = operationsMonthsFilter.length === 0 || operationsMonthsFilter.includes(m.key.toLowerCase());
+                  const safeKey = getOpsItemSafeKey('month', m.key);
+                  return `
+                    <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition select-none ops-checklist-item" data-name="${m.name}">
+                      <div class="flex items-center gap-2">
+                        <input type="checkbox" id="ops_cb_month_${safeKey}" data-type="month" data-val="${encodeURIComponent(m.key)}" onchange="handleOpsFilterCheckboxFromEl(this)" ${isChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                        <span class="font-medium text-slate-800">${m.name}</span>
+                      </div>
+                      <span id="ops_count_month_${safeKey}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">0</span>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+
+          <!-- 6. Requester Filter Dropdown -->
+          <div class="relative" id="opsRequesterDropdownContainer">
+            <button type="button" id="opsRequesterDropdownBtn" onclick="toggleOpsFilterDropdown('requester')" 
+              class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
+              <div class="flex items-center gap-1.5 truncate">
+                <i data-lucide="user" class="w-3.5 h-3.5 text-teal-600 shrink-0"></i>
+                <span id="opsRequesterDropdownLabel" class="truncate font-semibold text-slate-800">All Requesters</span>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <span id="opsRequesterDropdownCount" class="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">${requesters.length}</span>
+                <i data-lucide="chevron-down" id="opsRequesterChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
+              </div>
+            </button>
+            <div id="opsRequesterDropdownMenu" class="hidden ops-dropdown-menu absolute right-0 left-auto top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[240px] max-w-[300px] space-y-1.5">
+              <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
+                <span class="font-bold text-slate-800">Requested By</span>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="selectAllOpsFilter('requester', true); event.stopPropagation();" class="text-emerald-600 hover:text-emerald-700 font-semibold cursor-pointer">All</button>
+                  <span class="text-slate-300">|</span>
+                  <button type="button" onclick="selectAllOpsFilter('requester', false); event.stopPropagation();" class="text-slate-500 hover:text-slate-700 font-semibold cursor-pointer">Clear</button>
+                </div>
+              </div>
+              ${requesters.length > 5 ? `
+                <div class="px-1 pb-1">
+                  <input type="text" oninput="filterChecklistMenuItems(this)" placeholder="Filter requesters..." class="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none">
+                </div>
+              ` : ''}
+              <div class="space-y-1 max-h-56 overflow-y-auto">
+                ${requesters.map(r => {
+                  const isChecked = operationsRequestersFilter.length === 0 || operationsRequestersFilter.some(req => req.toLowerCase() === r.toLowerCase());
+                  const safeKey = getOpsItemSafeKey('requester', r);
+                  return `
+                    <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition select-none ops-checklist-item" data-name="${escapeHtml(r)}">
+                      <div class="flex items-center gap-2 truncate pr-2">
+                        <input type="checkbox" id="ops_cb_requester_${safeKey}" data-type="requester" data-val="${encodeURIComponent(r)}" onchange="handleOpsFilterCheckboxFromEl(this)" ${isChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0">
+                        <span class="font-medium text-slate-800 truncate" title="${escapeHtml(r)}">${escapeHtml(r)}</span>
+                      </div>
+                      <span id="ops_count_requester_${safeKey}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-teal-50 text-teal-700 shrink-0">0</span>
+                    </label>
+                  `;
+                }).join('')}
+              </div>
+            </div>
           </div>
         </div>
 
-
-        <div class="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1 gap-2">
+        <!-- Bottom Filter Metadata & Actions Row -->
+        <div class="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1.5 border-t border-slate-100 gap-2">
           <div class="flex items-center gap-3 flex-wrap">
-            <div class="flex items-center gap-1.5">
-              <span>Filter by Requester:</span>
-              <select id="opsRequestedByFilter" onchange="handleOperationsFilter()" class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[11px] text-slate-700 focus:outline-none">
-                <option value="">All Requesters</option>
-                ${requesters.map(r => `<option value="${r}">${r}</option>`).join('')}
-              </select>
-            </div>
             <span id="opsActiveFilterBadge" class="hidden inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <i data-lucide="filter" class="w-3 h-3 text-emerald-600"></i>
               <span id="opsActiveFilterText">Filtered</span>
@@ -1837,19 +1987,153 @@ function renderOperations(container) {
 
     </div>
   `;
+
+  // Initialize and synchronize all dynamic checklist dropdowns, dynamic counts, and KPI cards
+  updateAllOpsFilterDropdownsUI();
+  updateOpsDynamicCounts();
+  updateOpsKpiCards(getFilteredOperations());
+  updateOperationsFilterBadges(getFilteredOperations().length);
 }
 
-// Multi-select Status Filter Helpers
-function getSelectedOperationsStatuses() {
-  if (!Array.isArray(operationsStatusFilter) || operationsStatusFilter.length === 0) {
-    return []; // Empty indicates all statuses are active
+// ================= DYNAMIC CHECKLIST FILTER SYSTEM =================
+const OPS_FILTER_TYPES = ['status', 'priority', 'workstream', 'year', 'month', 'requester'];
+
+function getOpsItemSafeKey(type, val) {
+  if (type === 'month') return String(val).toLowerCase();
+  return String(val).toLowerCase().replace(/[^a-z0-9]/g, '_');
+}
+
+function handleOpsFilterCheckboxFromEl(el) {
+  const type = el.getAttribute('data-type');
+  const val = decodeURIComponent(el.getAttribute('data-val') || '');
+  handleOpsFilterCheckboxChange(type, val, el.checked);
+}
+
+function taskMatchesOpsFilters(t, excludeType = null) {
+  if (!t) return false;
+
+  // Search query
+  const q = (document.getElementById('opsSearchInput')?.value || '').toLowerCase().trim();
+  if (q) {
+    const matchSearch = (t.title || '').toLowerCase().includes(q) ||
+                        (t.notes || '').toLowerCase().includes(q) ||
+                        (t.workstream || '').toLowerCase().includes(q) ||
+                        (t.requestedBy || '').toLowerCase().includes(q) ||
+                        (t.estimatedCost || '').toLowerCase().includes(q) ||
+                        (t.priority || '').toLowerCase().includes(q) ||
+                        (t.status || '').toLowerCase().includes(q) ||
+                        (t.assignedTo || '').toLowerCase().includes(q) ||
+                        String(t.no || '').toLowerCase().includes(q);
+    if (!matchSearch) return false;
   }
-  return operationsStatusFilter.map(s => s.toLowerCase());
+
+  // 1. Status Filter
+  if (excludeType !== 'status') {
+    if (operationsStatusFilter.length === 1 && operationsStatusFilter[0] === '__none__') return false;
+    if (operationsStatusFilter.length > 0) {
+      const st = (t.status || 'Pending').toLowerCase();
+      if (!operationsStatusFilter.some(s => s.toLowerCase() === st)) return false;
+    }
+  }
+
+  // 2. Priority Filter
+  if (excludeType !== 'priority') {
+    if (operationsPrioritiesFilter.length === 1 && operationsPrioritiesFilter[0] === '__none__') return false;
+    if (operationsPrioritiesFilter.length > 0) {
+      const pri = (t.priority || 'Medium').toLowerCase();
+      if (!operationsPrioritiesFilter.some(p => p.toLowerCase() === pri)) return false;
+    }
+  }
+
+  // 3. Workstream Filter
+  if (excludeType !== 'workstream') {
+    if (operationsWorkstreamsFilter.length === 1 && operationsWorkstreamsFilter[0] === '__none__') return false;
+    if (operationsWorkstreamsFilter.length > 0) {
+      const ws = (t.workstream || '').toLowerCase();
+      if (!operationsWorkstreamsFilter.some(w => w.toLowerCase() === ws)) return false;
+    }
+  }
+
+  // 4. Tasked Year Filter
+  if (excludeType !== 'year') {
+    if (operationsYearsFilter.length === 1 && operationsYearsFilter[0] === '__none__') return false;
+    if (operationsYearsFilter.length > 0) {
+      const yr = extractTaskYear(t.taskedDate);
+      if (!yr || !operationsYearsFilter.some(y => String(y).toLowerCase() === yr.toLowerCase())) return false;
+    }
+  }
+
+  // 5. Tasked Month Filter
+  if (excludeType !== 'month') {
+    if (operationsMonthsFilter.length === 1 && operationsMonthsFilter[0] === '__none__') return false;
+    if (operationsMonthsFilter.length > 0) {
+      const mInfo = extractTaskMonthInfo(t.taskedDate);
+      if (!mInfo || !operationsMonthsFilter.some(m => m.toLowerCase() === mInfo.monthKey.toLowerCase())) return false;
+    }
+  }
+
+  // 6. Requester Filter
+  if (excludeType !== 'requester') {
+    if (operationsRequestersFilter.length === 1 && operationsRequestersFilter[0] === '__none__') return false;
+    if (operationsRequestersFilter.length > 0) {
+      const req = (t.requestedBy || '').toLowerCase();
+      if (!operationsRequestersFilter.some(r => r.toLowerCase() === req)) return false;
+    }
+  }
+
+  return true;
 }
 
-function toggleOpsStatusDropdown(force) {
-  const menu = document.getElementById('opsStatusDropdownMenu');
-  const chevron = document.getElementById('opsStatusChevron');
+function getOpsFilterAllOptions(type) {
+  if (type === 'status') {
+    return ['Pending', 'In Progress', 'Completed', 'On Hold'];
+  } else if (type === 'priority') {
+    return ['Critical', 'High', 'Medium', 'Low'];
+  } else if (type === 'workstream') {
+    return [...new Set(operationsTasks.map(t => t.workstream).filter(Boolean))].sort();
+  } else if (type === 'year') {
+    const yrs = [...new Set(operationsTasks.map(t => extractTaskYear(t.taskedDate)).filter(Boolean))].sort().reverse();
+    return yrs.length > 0 ? yrs : ['2026'];
+  } else if (type === 'month') {
+    return CALENDAR_MONTHS.map(m => m.key);
+  } else if (type === 'requester') {
+    return [...new Set(operationsTasks.map(t => t.requestedBy).filter(Boolean))].sort();
+  }
+  return [];
+}
+
+function getOpsFilterState(type) {
+  if (type === 'status') return operationsStatusFilter;
+  if (type === 'priority') return operationsPrioritiesFilter;
+  if (type === 'workstream') return operationsWorkstreamsFilter;
+  if (type === 'year') return operationsYearsFilter;
+  if (type === 'month') return operationsMonthsFilter;
+  if (type === 'requester') return operationsRequestersFilter;
+  return [];
+}
+
+function setOpsFilterState(type, val) {
+  if (type === 'status') operationsStatusFilter = val;
+  else if (type === 'priority') operationsPrioritiesFilter = val;
+  else if (type === 'workstream') operationsWorkstreamsFilter = val;
+  else if (type === 'year') operationsYearsFilter = val;
+  else if (type === 'month') operationsMonthsFilter = val;
+  else if (type === 'requester') operationsRequestersFilter = val;
+}
+
+function toggleOpsFilterDropdown(type, force) {
+  OPS_FILTER_TYPES.forEach(t => {
+    if (t !== type) {
+      const otherMenu = document.getElementById(`ops${t.charAt(0).toUpperCase() + t.slice(1)}DropdownMenu`);
+      const otherChevron = document.getElementById(`ops${t.charAt(0).toUpperCase() + t.slice(1)}Chevron`);
+      if (otherMenu) otherMenu.classList.add('hidden');
+      if (otherChevron) otherChevron.style.transform = 'rotate(0deg)';
+    }
+  });
+
+  const cap = type.charAt(0).toUpperCase() + type.slice(1);
+  const menu = document.getElementById(`ops${cap}DropdownMenu`);
+  const chevron = document.getElementById(`ops${cap}Chevron`);
   if (!menu) return;
   const isCurrentlyOpen = !menu.classList.contains('hidden');
   const open = typeof force === 'boolean' ? force : !isCurrentlyOpen;
@@ -1862,131 +2146,396 @@ function toggleOpsStatusDropdown(force) {
   }
 }
 
-function handleOpsStatusCheckboxChange(statusName, isChecked) {
-  const allNames = ['Pending', 'In Progress', 'Completed', 'On Hold'];
-  if (!Array.isArray(operationsStatusFilter) || operationsStatusFilter.length === 0) {
-    // If all were active and user unchecks one, initialize filter with the remaining 3
-    operationsStatusFilter = isChecked ? [...allNames] : allNames.filter(s => s.toLowerCase() !== statusName.toLowerCase());
+function handleOpsFilterCheckboxChange(type, value, isChecked) {
+  const allOptions = getOpsFilterAllOptions(type);
+  let currentArr = getOpsFilterState(type);
+
+  if (!Array.isArray(currentArr) || currentArr.length === 0) {
+    // If all were active and user unchecks one, initialize filter with all except that one
+    currentArr = isChecked ? [...allOptions] : allOptions.filter(opt => opt.toLowerCase() !== value.toLowerCase());
   } else {
+    // Clean out __none__ if present
+    currentArr = currentArr.filter(opt => opt !== '__none__');
     if (isChecked) {
-      if (!operationsStatusFilter.some(s => s.toLowerCase() === statusName.toLowerCase())) {
-        operationsStatusFilter.push(statusName);
+      if (!currentArr.some(opt => opt.toLowerCase() === value.toLowerCase())) {
+        currentArr.push(value);
       }
     } else {
-      operationsStatusFilter = operationsStatusFilter.filter(s => s.toLowerCase() !== statusName.toLowerCase());
+      currentArr = currentArr.filter(opt => opt.toLowerCase() !== value.toLowerCase());
     }
   }
-  
+
   // If all are selected, normalize to empty array (all active)
-  if (operationsStatusFilter.length === allNames.length) {
-    operationsStatusFilter = [];
+  if (currentArr.length === allOptions.length) {
+    currentArr = [];
+  } else if (currentArr.length === 0) {
+    currentArr = ['__none__'];
   }
-  
-  updateOpsStatusDropdownUI();
+
+  setOpsFilterState(type, currentArr);
+
+  // Synchronize legacy variables and pills
+  if (type === 'year') {
+    operationsYearFilter = currentArr.length === 1 && currentArr[0] !== '__none__' ? currentArr[0] : (currentArr.length === 0 ? 'all' : 'multi');
+    updateOperationsYearPills();
+  } else if (type === 'month') {
+    operationsMonthFilter = currentArr.length === 1 && currentArr[0] !== '__none__' ? currentArr[0] : (currentArr.length === 0 ? 'all' : 'multi');
+    updateOperationsMonthPills();
+  }
+
+  updateOpsFilterDropdownUI(type);
   handleOperationsFilter();
 }
 
-function selectAllOpsStatuses(selectAll) {
-  const allNames = ['Pending', 'In Progress', 'Completed', 'On Hold'];
+function selectAllOpsFilter(type, selectAll) {
   if (selectAll) {
-    operationsStatusFilter = []; // Empty = all
+    setOpsFilterState(type, []);
   } else {
-    operationsStatusFilter = ['__none__']; // None selected
+    setOpsFilterState(type, ['__none__']);
   }
-  updateOpsStatusDropdownUI();
+
+  if (type === 'year') {
+    operationsYearFilter = selectAll ? 'all' : 'none';
+    updateOperationsYearPills();
+  } else if (type === 'month') {
+    operationsMonthFilter = selectAll ? 'all' : 'none';
+    updateOperationsMonthPills();
+  }
+
+  updateOpsFilterDropdownUI(type);
   handleOperationsFilter();
 }
 
 function toggleSingleOpsStatusFromCard(statusName) {
   if (operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === statusName.toLowerCase()) {
-    // If already only this status selected, clear to show all
     operationsStatusFilter = [];
   } else {
     operationsStatusFilter = [statusName];
   }
-  updateOpsStatusDropdownUI();
+  updateOpsFilterDropdownUI('status');
   handleOperationsFilter();
 }
 
-function updateOpsStatusDropdownUI() {
-  const allNames = ['Pending', 'In Progress', 'Completed', 'On Hold'];
-  const labelEl = document.getElementById('opsStatusDropdownLabel');
-  const badgeEl = document.getElementById('opsStatusDropdownCount');
-  const isAll = operationsStatusFilter.length === 0 || operationsStatusFilter.length === allStatusList.length;
-  const isNone = operationsStatusFilter.length === 1 && operationsStatusFilter[0] === '__none__';
+function filterChecklistMenuItems(input) {
+  const query = (input.value || '').toLowerCase().trim();
+  const menu = input.closest('.ops-dropdown-menu');
+  if (!menu) return;
+  menu.querySelectorAll('.ops-checklist-item').forEach(item => {
+    const text = item.getAttribute('data-name')?.toLowerCase() || item.textContent.toLowerCase();
+    item.style.display = !query || text.includes(query) ? 'flex' : 'none';
+  });
+}
+
+function clearOpsSearch() {
+  const input = document.getElementById('opsSearchInput');
+  if (input) {
+    input.value = '';
+    handleOperationsFilter();
+  }
+}
+
+function updateOpsFilterDropdownUI(type) {
+  const cap = type.charAt(0).toUpperCase() + type.slice(1);
+  const allOptions = getOpsFilterAllOptions(type);
+  const currentArr = getOpsFilterState(type);
+  const labelEl = document.getElementById(`ops${cap}DropdownLabel`);
+  const badgeEl = document.getElementById(`ops${cap}DropdownCount`);
+  const btnEl = document.getElementById(`ops${cap}DropdownBtn`);
   
-  allNames.forEach(name => {
-    const cb = document.getElementById(`ops_cb_status_${name.replace(/\s+/g, '_')}`);
+  const isAll = currentArr.length === 0 || currentArr.length === allOptions.length;
+  const isNone = currentArr.length === 1 && currentArr[0] === '__none__';
+
+  // Checkbox elements
+  allOptions.forEach(opt => {
+    const safeKey = getOpsItemSafeKey(type, opt);
+    const cb = document.getElementById(`ops_cb_${type}_${safeKey}`);
     if (cb) {
       if (isAll) {
         cb.checked = true;
       } else if (isNone) {
         cb.checked = false;
       } else {
-        cb.checked = operationsStatusFilter.some(s => s.toLowerCase() === name.toLowerCase());
+        cb.checked = currentArr.some(val => val.toLowerCase() === opt.toLowerCase());
       }
     }
   });
 
+  // Trigger button label & badge
   if (labelEl) {
+    let typeName = cap;
+    if (type === 'status') typeName = 'Statuses';
+    else if (type === 'priority') typeName = 'Priorities';
+    else if (type === 'workstream') typeName = 'Workstreams';
+    else if (type === 'year') typeName = 'Years';
+    else if (type === 'month') typeName = 'Months';
+    else if (type === 'requester') typeName = 'Requesters';
+
     if (isAll) {
-      labelEl.textContent = 'All Statuses';
-      if (badgeEl) badgeEl.textContent = '4';
+      labelEl.textContent = `All ${typeName}`;
+      if (badgeEl) badgeEl.textContent = String(allOptions.length);
     } else if (isNone) {
-      labelEl.textContent = 'No Status Selected';
+      labelEl.textContent = `No ${cap}`;
       if (badgeEl) badgeEl.textContent = '0';
-    } else if (operationsStatusFilter.length === 1) {
-      labelEl.textContent = operationsStatusFilter[0];
+    } else if (currentArr.length === 1) {
+      if (type === 'year') labelEl.textContent = `Year ${currentArr[0]}`;
+      else if (type === 'month') {
+        const found = CALENDAR_MONTHS.find(m => m.key === currentArr[0].toLowerCase());
+        labelEl.textContent = found ? found.name : currentArr[0];
+      } else {
+        labelEl.textContent = currentArr[0];
+      }
       if (badgeEl) badgeEl.textContent = '1';
     } else {
-      labelEl.textContent = operationsStatusFilter.join(', ');
-      if (badgeEl) badgeEl.textContent = String(operationsStatusFilter.length);
+      labelEl.textContent = `${currentArr.length} Selected`;
+      if (badgeEl) badgeEl.textContent = String(currentArr.length);
+    }
+  }
+
+  // Trigger button visual styling
+  if (btnEl) {
+    if (!isAll && !isNone) {
+      btnEl.className = 'w-full bg-emerald-50/70 hover:bg-emerald-100/60 border border-emerald-400 text-emerald-950 font-semibold rounded-xl px-2.5 py-2 text-xs flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer shadow-2xs';
+      if (badgeEl) badgeEl.className = 'px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-600 text-white';
+    } else if (isNone) {
+      btnEl.className = 'w-full bg-rose-50/70 hover:bg-rose-100/60 border border-rose-300 text-rose-900 font-semibold rounded-xl px-2.5 py-2 text-xs flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition cursor-pointer shadow-2xs';
+      if (badgeEl) badgeEl.className = 'px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-rose-600 text-white';
+    } else {
+      btnEl.className = 'w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer';
+      if (badgeEl) badgeEl.className = 'px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700';
     }
   }
 }
 
-// Global click outside listener to close status filter dropdown
-if (!window._opsStatusDropdownListenerAttached) {
-  document.addEventListener('click', (e) => {
-    const container = document.getElementById('opsStatusDropdownContainer');
-    if (container && !container.contains(e.target)) {
-      toggleOpsStatusDropdown(false);
+function updateAllOpsFilterDropdownsUI() {
+  OPS_FILTER_TYPES.forEach(t => updateOpsFilterDropdownUI(t));
+}
+
+// Real-time Dynamic Faceted Counts calculation for all checklist items and pills
+function updateOpsDynamicCounts() {
+  const allTasks = operationsTasks || [];
+
+  // 1. Status counts (evaluated against tasks matching all other filters EXCEPT status)
+  const statusPool = allTasks.filter(t => taskMatchesOpsFilters(t, 'status'));
+  ['Pending', 'In Progress', 'Completed', 'On Hold'].forEach(st => {
+    const safeKey = getOpsItemSafeKey('status', st);
+    const el = document.getElementById(`ops_count_status_${safeKey}`);
+    const cb = document.getElementById(`ops_cb_status_${safeKey}`);
+    const labelParent = cb ? cb.closest('label') : null;
+    const count = statusPool.filter(t => (t.status || 'Pending').toLowerCase() === st.toLowerCase()).length;
+    if (el) {
+      el.textContent = count;
+      const baseBadge = st === 'Pending' ? 'bg-amber-100 text-amber-800' :
+                        (st === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                        (st === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'));
+      if (count === 0) {
+        el.className = 'text-[10px] font-normal px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400';
+        if (labelParent) labelParent.classList.add('opacity-50');
+      } else {
+        el.className = `text-[10px] font-bold px-1.5 py-0.5 rounded-md ${baseBadge}`;
+        if (labelParent) labelParent.classList.remove('opacity-50');
+      }
     }
   });
-  window._opsStatusDropdownListenerAttached = true;
+
+  // 2. Priority counts (evaluated against tasks matching all other filters EXCEPT priority)
+  const priorityPool = allTasks.filter(t => taskMatchesOpsFilters(t, 'priority'));
+  ['Critical', 'High', 'Medium', 'Low'].forEach(pri => {
+    const safeKey = getOpsItemSafeKey('priority', pri);
+    const el = document.getElementById(`ops_count_priority_${safeKey}`);
+    const cb = document.getElementById(`ops_cb_priority_${safeKey}`);
+    const labelParent = cb ? cb.closest('label') : null;
+    const count = priorityPool.filter(t => (t.priority || 'Medium').toLowerCase() === pri.toLowerCase()).length;
+    if (el) {
+      el.textContent = count;
+      const baseBadge = pri === 'Critical' ? 'bg-rose-100 text-rose-800' :
+                        (pri === 'High' ? 'bg-amber-100 text-amber-800' :
+                        (pri === 'Medium' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'));
+      if (count === 0) {
+        el.className = 'text-[10px] font-normal px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400';
+        if (labelParent) labelParent.classList.add('opacity-50');
+      } else {
+        el.className = `text-[10px] font-bold px-1.5 py-0.5 rounded-md ${baseBadge}`;
+        if (labelParent) labelParent.classList.remove('opacity-50');
+      }
+    }
+  });
+
+  // 3. Workstream counts (evaluated against tasks matching all other filters EXCEPT workstream)
+  const workstreamPool = allTasks.filter(t => taskMatchesOpsFilters(t, 'workstream'));
+  const workstreams = getOpsFilterAllOptions('workstream');
+  workstreams.forEach(ws => {
+    const safeKey = getOpsItemSafeKey('workstream', ws);
+    const el = document.getElementById(`ops_count_workstream_${safeKey}`);
+    const cb = document.getElementById(`ops_cb_workstream_${safeKey}`);
+    const labelParent = cb ? cb.closest('label') : null;
+    const count = workstreamPool.filter(t => (t.workstream || '').toLowerCase() === ws.toLowerCase()).length;
+    if (el) {
+      el.textContent = count;
+      if (count === 0) {
+        el.className = 'text-[10px] font-normal px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 shrink-0';
+        if (labelParent) labelParent.classList.add('opacity-50');
+      } else {
+        el.className = 'text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 shrink-0';
+        if (labelParent) labelParent.classList.remove('opacity-50');
+      }
+    }
+  });
+
+  // 4. Year counts (evaluated against tasks matching all other filters EXCEPT year)
+  const yearPool = allTasks.filter(t => taskMatchesOpsFilters(t, 'year'));
+  const availableYears = getOpsFilterAllOptions('year');
+  availableYears.forEach(yr => {
+    const safeKey = getOpsItemSafeKey('year', yr);
+    const el = document.getElementById(`ops_count_year_${safeKey}`);
+    const cb = document.getElementById(`ops_cb_year_${safeKey}`);
+    const labelParent = cb ? cb.closest('label') : null;
+    const count = yearPool.filter(t => extractTaskYear(t.taskedDate) === yr).length;
+    if (el) {
+      el.textContent = count;
+      if (count === 0) {
+        el.className = 'text-[10px] font-normal px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400';
+        if (labelParent) labelParent.classList.add('opacity-50');
+      } else {
+        el.className = 'text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-800';
+        if (labelParent) labelParent.classList.remove('opacity-50');
+      }
+    }
+
+    // Also update pill badge if present
+    const pillBadge = document.getElementById(`ops_pill_count_year_${yr}`);
+    if (pillBadge) pillBadge.textContent = count;
+  });
+  const pillYearAll = document.getElementById('ops_pill_count_year_all');
+  if (pillYearAll) pillYearAll.textContent = yearPool.length;
+
+  // 5. Month counts (evaluated against tasks matching all other filters EXCEPT month)
+  const monthPool = allTasks.filter(t => taskMatchesOpsFilters(t, 'month'));
+  CALENDAR_MONTHS.forEach(m => {
+    const safeKey = getOpsItemSafeKey('month', m.key);
+    const el = document.getElementById(`ops_count_month_${safeKey}`);
+    const cb = document.getElementById(`ops_cb_month_${safeKey}`);
+    const labelParent = cb ? cb.closest('label') : null;
+    const count = monthPool.filter(t => {
+      const info = extractTaskMonthInfo(t.taskedDate);
+      return info && info.monthKey.toLowerCase() === m.key.toLowerCase();
+    }).length;
+    if (el) {
+      el.textContent = count;
+      if (count === 0) {
+        el.className = 'text-[10px] font-normal px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400';
+        if (labelParent) labelParent.classList.add('opacity-50');
+      } else {
+        el.className = 'text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800';
+        if (labelParent) labelParent.classList.remove('opacity-50');
+      }
+    }
+
+    // Also update pill badge if present
+    const pillBadge = document.getElementById(`ops_pill_count_month_${m.key}`);
+    if (pillBadge) pillBadge.textContent = count;
+  });
+  const pillMonthAll = document.getElementById('ops_pill_count_month_all');
+  if (pillMonthAll) pillMonthAll.textContent = monthPool.length;
+
+  // 6. Requester counts (evaluated against tasks matching all other filters EXCEPT requester)
+  const requesterPool = allTasks.filter(t => taskMatchesOpsFilters(t, 'requester'));
+  const requesters = getOpsFilterAllOptions('requester');
+  requesters.forEach(r => {
+    const safeKey = getOpsItemSafeKey('requester', r);
+    const el = document.getElementById(`ops_count_requester_${safeKey}`);
+    const cb = document.getElementById(`ops_cb_requester_${safeKey}`);
+    const labelParent = cb ? cb.closest('label') : null;
+    const count = requesterPool.filter(t => (t.requestedBy || '').toLowerCase() === r.toLowerCase()).length;
+    if (el) {
+      el.textContent = count;
+      if (count === 0) {
+        el.className = 'text-[10px] font-normal px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 shrink-0';
+        if (labelParent) labelParent.classList.add('opacity-50');
+      } else {
+        el.className = 'text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-teal-50 text-teal-700 shrink-0';
+        if (labelParent) labelParent.classList.remove('opacity-50');
+      }
+    }
+  });
+}
+
+// Update top Status Summary Row cards dynamically as filters change
+function updateOpsKpiCards(filteredTasks) {
+  const list = filteredTasks || getFilteredOperations();
+  const total = list.length;
+  const pending = list.filter(t => (t.status || '').toLowerCase() === 'pending').length;
+  const inProgress = list.filter(t => (t.status || '').toLowerCase() === 'in progress').length;
+  const completed = list.filter(t => (t.status || '').toLowerCase() === 'completed').length;
+  const onHold = list.filter(t => (t.status || '').toLowerCase() === 'on hold').length;
+  const progressPct = total > 0 ? ((completed / total) * 100).toFixed(1) : '0.0';
+
+  const elTotal = document.getElementById('opsKpiTotal');
+  const elPending = document.getElementById('opsKpiPending');
+  const elInProgress = document.getElementById('opsKpiInProgress');
+  const elCompleted = document.getElementById('opsKpiCompleted');
+  const elOnHold = document.getElementById('opsKpiOnHold');
+  const elCompletion = document.getElementById('opsKpiCompletion');
+
+  if (elTotal) elTotal.textContent = total;
+  if (elPending) elPending.textContent = pending;
+  if (elInProgress) elInProgress.textContent = inProgress;
+  if (elCompleted) elCompleted.textContent = completed;
+  if (elOnHold) elOnHold.textContent = onHold;
+  if (elCompletion) elCompletion.textContent = `${progressPct}%`;
+
+  // Update highlight rings on KPI status cards
+  ['Pending', 'In Progress', 'Completed', 'On Hold'].forEach(name => {
+    const card = document.getElementById(`opsKpiCard_${name.replace(/\s+/g, '_')}`);
+    if (card) {
+      const isCardSelected = operationsStatusFilter.length === 1 && operationsStatusFilter[0].toLowerCase() === name.toLowerCase();
+      if (name === 'Pending') card.className = `cursor-pointer hover:border-amber-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${isCardSelected ? 'border-amber-500 ring-2 ring-amber-300' : 'border-slate-200'} shadow-xs flex items-center justify-between`;
+      else if (name === 'In Progress') card.className = `cursor-pointer hover:border-blue-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${isCardSelected ? 'border-blue-500 ring-2 ring-blue-300' : 'border-slate-200'} shadow-xs flex items-center justify-between`;
+      else if (name === 'Completed') card.className = `cursor-pointer hover:border-emerald-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${isCardSelected ? 'border-emerald-500 ring-2 ring-emerald-300' : 'border-slate-200'} shadow-xs flex items-center justify-between`;
+      else if (name === 'On Hold') card.className = `cursor-pointer hover:border-purple-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${isCardSelected ? 'border-purple-500 ring-2 ring-purple-300' : 'border-slate-200'} shadow-xs flex items-center justify-between`;
+    }
+  });
+}
+
+function updateOperationsYearPills() {
+  document.querySelectorAll('.ops-year-pill').forEach(btn => {
+    const yr = btn.getAttribute('data-year');
+    const isActive = (yr === 'all' && operationsYearsFilter.length === 0) || (yr !== 'all' && operationsYearsFilter.includes(yr));
+    if (isActive) {
+      btn.className = 'ops-year-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-blue-600 text-white shadow-xs';
+    } else {
+      btn.className = 'ops-year-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200';
+    }
+  });
+}
+
+function updateOperationsMonthPills() {
+  document.querySelectorAll('.ops-month-pill').forEach(btn => {
+    const m = btn.getAttribute('data-month');
+    const isActive = (m === 'all' && operationsMonthsFilter.length === 0) || (m !== 'all' && operationsMonthsFilter.includes(m.toLowerCase()));
+    if (isActive) {
+      btn.className = 'ops-month-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-emerald-600 text-white shadow-xs';
+    } else {
+      btn.className = 'ops-month-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200';
+    }
+  });
+}
+
+// Global click outside listener for all checklist filter dropdowns
+if (!window._opsFilterDropdownListenerAttached) {
+  document.addEventListener('click', (e) => {
+    OPS_FILTER_TYPES.forEach(type => {
+      const cap = type.charAt(0).toUpperCase() + type.slice(1);
+      const container = document.getElementById(`ops${cap}DropdownContainer`);
+      if (container && !container.contains(e.target)) {
+        toggleOpsFilterDropdown(type, false);
+      }
+    });
+  });
+  window._opsFilterDropdownListenerAttached = true;
 }
 
 function getFilteredOperations() {
-  const q = (document.getElementById('opsSearchInput')?.value || '').toLowerCase();
-  const selectedStatuses = getSelectedOperationsStatuses();
-  const isNone = operationsStatusFilter.length === 1 && operationsStatusFilter[0] === '__none__';
-  const priority = document.getElementById('opsPriorityFilter')?.value || '';
-  const workstream = document.getElementById('opsWorkstreamFilter')?.value || '';
-  const requestedBy = document.getElementById('opsRequestedByFilter')?.value || '';
-  const monthFilter = document.getElementById('opsMonthFilter')?.value || operationsMonthFilter || 'all';
-  const yearFilter = document.getElementById('opsYearFilter')?.value || operationsYearFilter || 'all';
-
-  let filtered = operationsTasks.filter(t => {
-    const mSearch = !q || 
-      (t.title || '').toLowerCase().includes(q) || 
-      (t.notes || '').toLowerCase().includes(q) || 
-      (t.workstream || '').toLowerCase().includes(q) ||
-      (t.requestedBy || '').toLowerCase().includes(q) ||
-      (t.estimatedCost || '').toLowerCase().includes(q) ||
-      String(t.no || '').toLowerCase().includes(q);
-    
-    if (isNone) return false;
-    const taskStatus = (t.status || 'Pending').toLowerCase();
-    const mStatus = selectedStatuses.length === 0 || selectedStatuses.includes(taskStatus);
-    const mPri = !priority || (t.priority || '').toLowerCase() === priority.toLowerCase();
-    const mWork = !workstream || (t.workstream || '').toLowerCase() === workstream.toLowerCase();
-    const mReq = !requestedBy || (t.requestedBy || '').toLowerCase() === requestedBy.toLowerCase();
-    const mMonth = matchesOperationsMonthFilter(t, monthFilter);
-    const mYear = matchesOperationsYearFilter(t, yearFilter);
-
-    return mSearch && mStatus && mPri && mWork && mReq && mMonth && mYear;
-  });
-
+  const filtered = (operationsTasks || []).filter(t => taskMatchesOpsFilters(t, null));
   const sortCol = tableSortState.operations.col;
   const sortAsc = tableSortState.operations.asc;
   return sortGenericRecords(filtered, sortCol, sortAsc);
@@ -2017,7 +2566,17 @@ function handleOperationsFilter() {
     container.innerHTML = operationsViewMode === 'table' ? renderOperationsTable(filtered) : renderOperationsKanban(filtered);
     if (window.lucide) lucide.createIcons();
   }
+  
+  // Show/hide search clear button
+  const clearBtn = document.getElementById('opsSearchClearBtn');
+  const searchInput = document.getElementById('opsSearchInput');
+  if (clearBtn && searchInput) {
+    clearBtn.classList.toggle('hidden', !searchInput.value.trim());
+  }
+
+  updateOpsKpiCards(filtered);
   updateOperationsFilterBadges(filtered.length);
+  updateOpsDynamicCounts();
 }
 
 function updateOperationsFilterBadges(filteredCount) {
@@ -2025,38 +2584,36 @@ function updateOperationsFilterBadges(filteredCount) {
   const activeBadge = document.getElementById('opsActiveFilterBadge');
   const activeText = document.getElementById('opsActiveFilterText');
   const total = operationsTasks.length;
-  const mLabel = getOperationsMonthLabel(operationsMonthFilter);
-  const yLabel = getOperationsYearLabel(operationsYearFilter);
 
   if (badge) {
-    if (operationsMonthFilter !== 'all' || operationsYearFilter !== 'all') {
-      const parts = [];
-      if (operationsMonthFilter !== 'all') parts.push(mLabel);
-      if (operationsYearFilter !== 'all') parts.push(operationsYearFilter);
-      badge.innerHTML = `<span class="text-emerald-700 font-bold">${filteredCount}</span> of ${total} tasks (${parts.join(' ')})`;
+    if (filteredCount === total) {
+      badge.textContent = `Showing all ${total} tasks`;
     } else {
-      badge.textContent = `Showing ${filteredCount} of ${total} tasks`;
+      badge.innerHTML = `Showing <span class="text-emerald-700 font-bold">${filteredCount}</span> of ${total} tasks`;
     }
   }
 
   const q = document.getElementById('opsSearchInput')?.value?.trim();
-  const priority = document.getElementById('opsPriorityFilter')?.value;
-  const workstream = document.getElementById('opsWorkstreamFilter')?.value;
-  const req = document.getElementById('opsRequestedByFilter')?.value;
-  const isStatusFiltered = operationsStatusFilter.length > 0 && operationsStatusFilter.length < 4;
-  const hasFilter = (operationsMonthFilter !== 'all') || (operationsYearFilter !== 'all') || q || isStatusFiltered || priority || workstream || req;
+  const isStatusFiltered = operationsStatusFilter.length > 0;
+  const isPriorityFiltered = operationsPrioritiesFilter.length > 0;
+  const isWorkstreamFiltered = operationsWorkstreamsFilter.length > 0;
+  const isRequesterFiltered = operationsRequestersFilter.length > 0;
+  const isYearFiltered = operationsYearsFilter.length > 0;
+  const isMonthFiltered = operationsMonthsFilter.length > 0;
+
+  const hasFilter = q || isStatusFiltered || isPriorityFiltered || isWorkstreamFiltered || isRequesterFiltered || isYearFiltered || isMonthFiltered;
 
   if (activeBadge) {
     if (hasFilter) {
       activeBadge.classList.remove('hidden');
       if (activeText) {
         const parts = [];
-        if (operationsYearFilter !== 'all') parts.push(`Year ${operationsYearFilter}`);
-        if (operationsMonthFilter !== 'all') parts.push(mLabel);
-        if (isStatusFiltered) parts.push(operationsStatusFilter.join(', '));
-        if (priority) parts.push(priority);
-        if (workstream) parts.push(workstream);
-        if (req) parts.push(req);
+        if (isStatusFiltered) parts.push(`Status (${operationsStatusFilter.length === 1 ? operationsStatusFilter[0] : `${operationsStatusFilter.length} selected`})`);
+        if (isPriorityFiltered) parts.push(`Priority (${operationsPrioritiesFilter.length === 1 ? operationsPrioritiesFilter[0] : `${operationsPrioritiesFilter.length} selected`})`);
+        if (isWorkstreamFiltered) parts.push(`Workstream (${operationsWorkstreamsFilter.length === 1 ? operationsWorkstreamsFilter[0] : `${operationsWorkstreamsFilter.length} selected`})`);
+        if (isYearFiltered) parts.push(`Year (${operationsYearsFilter.join(', ')})`);
+        if (isMonthFiltered) parts.push(`Month (${operationsMonthsFilter.join(', ')})`);
+        if (isRequesterFiltered) parts.push(`Requester (${operationsRequestersFilter.length === 1 ? operationsRequestersFilter[0] : `${operationsRequestersFilter.length} selected`})`);
         if (q) parts.push(`"${q}"`);
         activeText.textContent = parts.join(' • ');
       }
@@ -2067,86 +2624,57 @@ function updateOperationsFilterBadges(filteredCount) {
 }
 
 function setOperationsMonthFilter(val) {
-  operationsMonthFilter = val || 'all';
-  const sel = document.getElementById('opsMonthFilter');
-  if (sel && sel.value !== operationsMonthFilter) {
-    sel.value = operationsMonthFilter;
-  }
-
-  // Synchronize pill button styles
-  document.querySelectorAll('.ops-month-pill').forEach(btn => {
-    const m = btn.getAttribute('data-month');
-    if (m === operationsMonthFilter) {
-      btn.className = 'ops-month-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-emerald-600 text-white shadow-xs';
+  if (val === 'all') {
+    operationsMonthsFilter = [];
+    operationsMonthFilter = 'all';
+  } else {
+    if (operationsMonthsFilter.length === 1 && operationsMonthsFilter[0].toLowerCase() === val.toLowerCase()) {
+      operationsMonthsFilter = [];
+      operationsMonthFilter = 'all';
     } else {
-      btn.className = 'ops-month-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200';
+      operationsMonthsFilter = [val.toLowerCase()];
+      operationsMonthFilter = val.toLowerCase();
     }
-  });
-
+  }
+  updateOpsFilterDropdownUI('month');
+  updateOperationsMonthPills();
   handleOperationsFilter();
 }
 
 function setOperationsYearFilter(val) {
-  operationsYearFilter = val || 'all';
-  const sel = document.getElementById('opsYearFilter');
-  if (sel && sel.value !== operationsYearFilter) {
-    sel.value = operationsYearFilter;
-  }
-
-  // Synchronize year pill button styles
-  document.querySelectorAll('.ops-year-pill').forEach(btn => {
-    const yr = btn.getAttribute('data-year');
-    if (yr === operationsYearFilter) {
-      btn.className = 'ops-year-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-blue-600 text-white shadow-xs';
+  if (val === 'all') {
+    operationsYearsFilter = [];
+    operationsYearFilter = 'all';
+  } else {
+    if (operationsYearsFilter.length === 1 && operationsYearsFilter[0] === val) {
+      operationsYearsFilter = [];
+      operationsYearFilter = 'all';
     } else {
-      btn.className = 'ops-year-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200';
+      operationsYearsFilter = [val];
+      operationsYearFilter = val;
     }
-  });
-
+  }
+  updateOpsFilterDropdownUI('year');
+  updateOperationsYearPills();
   handleOperationsFilter();
 }
 
 function resetOperationsFilters() {
   const searchEl = document.getElementById('opsSearchInput');
-  const priEl = document.getElementById('opsPriorityFilter');
-  const workEl = document.getElementById('opsWorkstreamFilter');
-  const reqEl = document.getElementById('opsRequestedByFilter');
-  const monthEl = document.getElementById('opsMonthFilter');
-  const yearEl = document.getElementById('opsYearFilter');
-
   if (searchEl) searchEl.value = '';
-  if (priEl) priEl.value = '';
-  if (workEl) workEl.value = '';
-  if (reqEl) reqEl.value = '';
-  if (monthEl) monthEl.value = 'all';
-  if (yearEl) yearEl.value = 'all';
 
   operationsStatusFilter = [];
-  updateOpsStatusDropdownUI();
-
-  operationsMonthFilter = 'all';
+  operationsPrioritiesFilter = [];
+  operationsWorkstreamsFilter = [];
+  operationsYearsFilter = [];
+  operationsMonthsFilter = [];
+  operationsRequestersFilter = [];
   operationsYearFilter = 'all';
+  operationsMonthFilter = 'all';
 
-  // Synchronize month pill button styles
-  document.querySelectorAll('.ops-month-pill').forEach(btn => {
-    const m = btn.getAttribute('data-month');
-    if (m === 'all') {
-      btn.className = 'ops-month-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-emerald-600 text-white shadow-xs';
-    } else {
-      btn.className = 'ops-month-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200';
-    }
-  });
-
-  // Synchronize year pill button styles
-  document.querySelectorAll('.ops-year-pill').forEach(btn => {
-    const yr = btn.getAttribute('data-year');
-    if (yr === 'all') {
-      btn.className = 'ops-year-pill px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition bg-blue-600 text-white shadow-xs';
-    } else {
-      btn.className = 'ops-year-pill px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200';
-    }
-  });
-
+  updateAllOpsFilterDropdownsUI();
+  updateOperationsYearPills();
+  updateOperationsMonthPills();
   handleOperationsFilter();
 }
 
