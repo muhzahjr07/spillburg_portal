@@ -1540,6 +1540,7 @@ function renderOperations(container) {
   }));
 
   const allStatusList = ['Pending', 'In Progress', 'Completed', 'On Hold'];
+  const allPriorityList = ['Critical', 'High', 'Medium', 'Low'];
   const isAllStatusesActive = operationsStatusFilter.length === 0 || operationsStatusFilter.length === allStatusList.length;
   let statusSummaryLabel = 'All Statuses';
   if (!isAllStatusesActive) {
@@ -2777,7 +2778,8 @@ function renderOperationsTable(tasks) {
                   <span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
                     ${t.workstream || 'Operations'}
                   </span>
-                      <td class="py-3 px-3.5 text-slate-600 font-mono text-[11px]">${formatDisplayDate(t.taskedDate) || '-'}</td>
+                </td>
+                <td class="py-3 px-3.5 text-slate-600 font-mono text-[11px]">${formatDisplayDate(t.taskedDate) || '-'}</td>
                 <td class="py-3 px-3.5 text-slate-600 font-mono text-[11px]">${formatDisplayDate(t.completedDate) || '-'}</td>
                 <td class="py-3 px-3.5">
                   <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${getStatusBadgeClass(t.status)}">
