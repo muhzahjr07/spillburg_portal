@@ -7601,21 +7601,24 @@ function renderStaffCostSummary(container) {
       <div class="staff-cost-container">
         <div class="staff-cost-sheet ${staffCostLetterheadEnabled ? '' : 'no-letterhead'}">
 
-          <!-- Header Row (Fixed at top of A4) -->
-          <div class="flex justify-between items-start mb-4">
+          <!-- Letterhead Header Space (Top of A4) -->
+          <div style="display: flex; justify-content: flex-end; align-items: flex-start; min-height: 52px; margin-bottom: 8px;">
+            <div id="staffCostHeaderLogo" style="display: ${staffCostLetterheadEnabled ? 'block' : 'none'};">
+              <img src="/public/spillburg_header_logo.png" style="width: 190px; height: auto; object-fit: contain;" alt="Spillburg Holdings">
+            </div>
+            <div id="staffCostHeaderPlaceholder" style="display: ${staffCostLetterheadEnabled ? 'none' : 'block'}; height: 48px;"></div>
+          </div>
+
+          <!-- Company Title & Invoice No (Positioned Below Header Space) -->
+          <div class="flex justify-between items-end mb-4">
             <div>
               <div style="font-size: 13.5px; font-weight: 800; color: #000; letter-spacing: 0.2px;">APADMI GROUP LIMITED</div>
-              <div style="font-size: 10.5px; font-weight: 700; color: #000; margin-top: 5px;">APADMI SL (PRIVATE) LIMITED</div>
+              <div style="font-size: 10.5px; font-weight: 700; color: #000; margin-top: 4px;">APADMI SL (PRIVATE) LIMITED</div>
               <div style="font-size: 10.5px; font-weight: 700; color: #000; margin-top: 2px;">STAFF COST SUMMARY</div>
             </div>
 
             <div style="text-align: right;">
-              <!-- Dynamic Letterhead Header Logo -->
-              <div id="staffCostHeaderLogo" style="display: ${staffCostLetterheadEnabled ? 'block' : 'none'};">
-                <img src="/public/spillburg_header_logo.png" style="width: 200px; height: auto; object-fit: contain; margin-bottom: 2px;" alt="Spillburg Holdings">
-              </div>
-              <div id="staffCostHeaderPlaceholder" style="display: ${staffCostLetterheadEnabled ? 'none' : 'block'}; height: 55px;"></div>
-              <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px;">
+              <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
                 <span style="font-weight: 800; font-size: 11px; color: #000; letter-spacing: 0.2px;">INVOICE NO</span>
                 <input type="text" id="staffCostInvoiceNoInput" value="${escapeHtml(invoiceNo)}" 
                   style="font-weight: 800; font-size: 11px; color: #000; width: 85px; border: 1px dashed #2563eb; background: #f8fafc; padding: 2px 4px; border-radius: 4px; text-align: center; font-family: inherit;"
@@ -11139,18 +11142,22 @@ function printStaffCostSummary() {
     <body>
       <div class="a4-print-sheet">
         
-        <!-- Header row (Fixed at top of A4) -->
-        <div class="page-header">
+        <!-- Letterhead Header Space (Top of A4) -->
+        <div style="display: flex; justify-content: flex-end; align-items: flex-start; min-height: 15mm; margin-bottom: 2mm;">
+          ${isLetterhead ? `
+            <img src="/public/spillburg_header_logo.png" style="width: 170px; height: auto; object-fit: contain;" alt="Spillburg Holdings">
+          ` : '<div style="height: 15mm;"></div>'}
+        </div>
+
+        <!-- Company Title & Invoice No (Positioned Below Header Space) -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4mm;">
           <div>
             <div style="font-size: 11pt; font-weight: bold; color: #000; letter-spacing: 0.2px;">APADMI GROUP LIMITED</div>
             <div style="font-size: 8pt; font-weight: bold; margin-top: 3px;">APADMI SL (PRIVATE) LIMITED</div>
             <div style="font-size: 8pt; font-weight: bold; margin-top: 1px;">STAFF COST SUMMARY</div>
           </div>
           <div style="text-align: right;">
-            ${isLetterhead ? `
-              <img src="/public/spillburg_header_logo.png" style="width: 175px; height: auto; object-fit: contain; margin-bottom: 2px;" alt="Spillburg Holdings">
-            ` : '<div style="height: 18mm;"></div>'}
-            <div style="font-weight: bold; font-size: 8.5pt; letter-spacing: 0.2px; margin-top: 4px;">
+            <div style="font-weight: bold; font-size: 8.5pt; letter-spacing: 0.2px;">
               INVOICE NO ${escapeHtml(invoiceNo)}
             </div>
           </div>
