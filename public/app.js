@@ -25,6 +25,48 @@ let currentPayrollSubTab = 'sheet'; // 'sheet', 'letter', 'slips', 'staff'
 let activePayslipEmployeeId = null;
 let bankLetterheadEnabled = true;
 let staffCostLetterheadEnabled = true;
+let payrollLaunchPeriodSelected = false;
+
+function parsePeriodDateValue(p) {
+  if (!p) return 0;
+  if (p.createdAt && typeof p.createdAt === 'string') {
+    const t = new Date(p.createdAt).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  if (p.letterDate && typeof p.letterDate === 'string') {
+    const parts = p.letterDate.split('.');
+    if (parts.length === 3) {
+      const d = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const y = parseInt(parts[2], 10);
+      if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
+        return new Date(y, m, d).getTime();
+      }
+    }
+  }
+  if (p.month && typeof p.month === 'string') {
+    const t = Date.parse(p.month + ' 1');
+    if (!isNaN(t) && t > 0) return t;
+  }
+  return 0;
+}
+
+function getLatestCreatedPayrollPeriod(periods) {
+  if (!periods || !Array.isArray(periods) || periods.length === 0) return null;
+  if (periods.length === 1) return periods[0];
+  const copy = [...periods];
+  copy.sort((a, b) => {
+    const valA = parsePeriodDateValue(a);
+    const valB = parsePeriodDateValue(b);
+    if (valA !== valB) {
+      return valB - valA;
+    }
+    const idxA = periods.indexOf(a);
+    const idxB = periods.indexOf(b);
+    return idxB - idxA;
+  });
+  return copy[0] || periods[periods.length - 1];
+}
 
 function toggleBankLetterhead(enabled) {
   bankLetterheadEnabled = !!enabled;
@@ -907,7 +949,11 @@ async function loadInitialData() {
         const payRes = await fetch('/api/payroll', { headers });
         if (payRes.ok) {
           payrollData = await payRes.json();
-          activePayrollPeriod = payrollData.activePeriod || null;
+          const latestPeriod = getLatestCreatedPayrollPeriod(payrollData.periods);
+          activePayrollPeriod = latestPeriod || payrollData.activePeriod || null;
+          if (activePayrollPeriod && activePayrollPeriod.companyId) {
+            selectedPayrollCompanyId = activePayrollPeriod.companyId;
+          }
           const countEl = document.getElementById('navPayrollCount');
           if (countEl && activePayrollPeriod) {
             countEl.textContent = activePayrollPeriod.employees?.length || 0;
@@ -6720,7 +6766,11 @@ async function renderPayroll(container) {
       });
       if (res.ok) {
         payrollData = await res.json();
-        activePayrollPeriod = payrollData.activePeriod || null;
+        const latestPeriod = getLatestCreatedPayrollPeriod(payrollData.periods);
+        activePayrollPeriod = latestPeriod || payrollData.activePeriod || null;
+        if (activePayrollPeriod && activePayrollPeriod.companyId) {
+          selectedPayrollCompanyId = activePayrollPeriod.companyId;
+        }
       }
     } catch (e) {
       console.error('Error fetching payroll:', e);
@@ -6741,7 +6791,8 @@ async function renderPayroll(container) {
 
   // Resolve currently active / selected company
   if (!selectedPayrollCompanyId) {
-    selectedPayrollCompanyId = (activePayrollPeriod && activePayrollPeriod.companyId) || (payrollData.companies[0]?.id) || 'comp_apadmi';
+    const latestPer = getLatestCreatedPayrollPeriod(payrollData.periods);
+    selectedPayrollCompanyId = (activePayrollPeriod && activePayrollPeriod.companyId) || (latestPer && latestPer.companyId) || (payrollData.companies[0]?.id) || 'comp_apadmi';
   }
 
   const selectedComp = (payrollData.companies || []).find(c => c.id === selectedPayrollCompanyId) || payrollData.companies[0];
@@ -6750,21 +6801,27 @@ async function renderPayroll(container) {
   // Filter periods belonging to this company
   const compPeriods = (payrollData.periods || []).filter(per => per.companyId === selectedComp.id);
 
-  // If active period doesn't belong to the selected company, switch to first period of that company
-  if (!activePayrollPeriod || activePayrollPeriod.companyId !== selectedComp.id) {
-    if (compPeriods.length > 0) {
-      try {
-        const pRes = await fetch(`/api/payroll/period?id=${encodeURIComponent(compPeriods[0].id)}`, {
-          headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-        if (pRes.ok) {
-          const pData = await pRes.json();
-          activePayrollPeriod = pData.period;
+  // During launch, or if active period doesn't belong to the selected company, select the latest created period of that company
+  if (!payrollLaunchPeriodSelected || !activePayrollPeriod || activePayrollPeriod.companyId !== selectedComp.id) {
+    const targetPeriod = getLatestCreatedPayrollPeriod(compPeriods);
+    if (targetPeriod) {
+      if (!activePayrollPeriod || activePayrollPeriod.id !== targetPeriod.id) {
+        try {
+          const pRes = await fetch(`/api/payroll/period?id=${encodeURIComponent(targetPeriod.id)}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+          });
+          if (pRes.ok) {
+            const pData = await pRes.json();
+            activePayrollPeriod = pData.period;
+          }
+        } catch (err) {
+          activePayrollPeriod = targetPeriod;
         }
-      } catch (err) {}
+      }
     } else {
       activePayrollPeriod = null;
     }
+    payrollLaunchPeriodSelected = true;
   }
 
   const p = activePayrollPeriod;
@@ -6934,7 +6991,12 @@ async function renderPayroll(container) {
             <div class="relative">
               <select id="payrollPeriodSelect" onchange="handlePayrollPeriodChange(this.value)"
                 class="appearance-none pl-3 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 cursor-pointer">
-                ${compPeriods.map(per => `
+                ${[...compPeriods].sort((a, b) => {
+                  const valA = parsePeriodDateValue(a);
+                  const valB = parsePeriodDateValue(b);
+                  if (valA !== valB) return valB - valA;
+                  return compPeriods.indexOf(b) - compPeriods.indexOf(a);
+                }).map(per => `
                   <option value="${per.id}" ${p && per.id === p.id ? 'selected' : ''}>
                     ${escapeHtml(per.month)} (${per.employeeCount || 0} Staff) [${per.status || 'Draft'}]
                   </option>
@@ -8737,7 +8799,8 @@ async function handlePayrollCompanyChange(compId) {
   selectedPayrollCompanyId = compId;
   const compPeriods = (payrollData?.periods || []).filter(p => p.companyId === compId);
   if (compPeriods.length > 0) {
-    await handlePayrollPeriodChange(compPeriods[0].id);
+    const latestCompPeriod = getLatestCreatedPayrollPeriod(compPeriods);
+    await handlePayrollPeriodChange(latestCompPeriod.id);
   } else {
     activePayrollPeriod = null;
     const container = document.getElementById('mainContent');
@@ -9779,7 +9842,12 @@ function openManagePeriodsModal(targetCompanyId) {
         </div>
       ` : `
         <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-          ${compPeriods.map(per => {
+          ${[...compPeriods].sort((a, b) => {
+            const valA = parsePeriodDateValue(a);
+            const valB = parsePeriodDateValue(b);
+            if (valA !== valB) return valB - valA;
+            return compPeriods.indexOf(b) - compPeriods.indexOf(a);
+          }).map(per => {
             const isCur = per.id === curPeriodId;
             const status = per.status || 'Draft';
             const statusClass =
@@ -10085,7 +10153,7 @@ function openNewPeriodModal(targetCompanyId, cloneFromId) {
   }
 
   const curRate = activePayrollPeriod ? activePayrollPeriod.exchangeRate : 440.0;
-  const preferredCloneId = cloneFromId || (activePayrollPeriod && activePayrollPeriod.companyId === compId ? activePayrollPeriod.id : (compPeriods[0]?.id || null));
+  const preferredCloneId = cloneFromId || (activePayrollPeriod && activePayrollPeriod.companyId === compId ? activePayrollPeriod.id : (getLatestCreatedPayrollPeriod(compPeriods)?.id || null));
 
   c.innerHTML = `
     <div class="space-y-4 text-xs">

@@ -25,7 +25,7 @@
       "swiftCode": "NTBLLKLX"
     }
   ],
-  "activePeriodId": "period_2026_09",
+  "activePeriodId": "period_8f9a05",
   "periods": [
     {
       "id": "period_2026_09",
@@ -305,7 +305,8 @@
       "epfRegNo": "8483/C",
       "etfRegNo": "ETF-66291",
       "epfChequeNo": "CHQ-890214",
-      "etfChequeNo": "ETF-CHQ-7721"
+      "etfChequeNo": "ETF-CHQ-7721",
+      "createdAt": "2026-09-30T09:00:00Z"
     },
     {
       "id": "period_2026_08",
@@ -553,7 +554,8 @@
           "loan": 0,
           "apit": 15460
         }
-      ]
+      ],
+      "createdAt": "2026-08-31T09:00:00Z"
     },
     {
       "id": "period_8f9a05",
@@ -859,7 +861,8 @@
       "epfRegNo": "8483/C",
       "etfRegNo": "ETF-66291",
       "epfChequeNo": "CHQ-890215",
-      "etfChequeNo": "ETF-CHQ-7722"
+      "etfChequeNo": "ETF-CHQ-7722",
+      "createdAt": "2026-10-23T08:32:33Z"
     }
   ]
 }

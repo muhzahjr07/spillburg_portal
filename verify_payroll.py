@@ -37,13 +37,19 @@ def run_tests():
         data = json.loads(resp.read().decode('utf-8'))
         active = data.get("activePeriod")
         assert active is not None, "Missing activePeriod"
-        assert active["month"] == "September 2026", f"Unexpected active month: {active.get('month')}"
-        
-        employees = active.get("employees", [])
-        assert len(employees) == 10, f"Expected 10 employees, got {len(employees)}"
-        print(f"  [PASS] Active period: {active['month']} with {len(employees)} employees")
+        print(f"  [PASS] Active period on launch: {active['month']} (id: {active.get('id')})")
+        assert data.get("latestPeriodId") == "period_8f9a05", f"Expected latestPeriodId period_8f9a05, got {data.get('latestPeriodId')}"
 
-        totals = active.get("totals", {})
+        # Fetch September 2026 period to verify canonical calculations
+        sep_req = urllib.request.Request(f"{BASE_URL}/api/payroll/period?id=period_2026_09", headers=headers)
+        with urllib.request.urlopen(sep_req) as s_resp:
+            sep_active = json.loads(s_resp.read().decode('utf-8'))["period"]
+
+        employees = sep_active.get("employees", [])
+        assert len(employees) == 10, f"Expected 10 employees, got {len(employees)}"
+        print(f"  [PASS] Verified September 2026 data with {len(employees)} employees")
+
+        totals = sep_active.get("totals", {})
         print("  Calculated Totals:", json.dumps(totals, indent=2))
 
         # Check exact totals matching September 2026 excel/PDF (Row 39)
@@ -105,9 +111,9 @@ def run_tests():
 
     # 4. Exchange Rate Modification & Live Recalculation
     print("\n--- 4. Testing Live Exchange Rate Adjustment ---")
-    orig_rate = active["exchangeRate"]
+    orig_rate = sep_active["exchangeRate"]
     new_rate = 450.0
-    put_data = json.dumps({"id": active["id"], "exchangeRate": new_rate}).encode('utf-8')
+    put_data = json.dumps({"id": sep_active["id"], "exchangeRate": new_rate}).encode('utf-8')
     put_req = urllib.request.Request(f"{BASE_URL}/api/payroll/period", data=put_data, headers={"Content-Type": "application/json", **headers}, method="PUT")
     with urllib.request.urlopen(put_req) as put_res:
         assert put_res.status == 200
@@ -117,7 +123,7 @@ def run_tests():
         print(f"  [PASS] Rate updated to 450.0. Recalculated Net Remittance: Rs {p_upd['totals']['sumNetSalaryLkr']:,.2f}")
 
     # Restore original rate 440.0
-    restore_data = json.dumps({"id": active["id"], "exchangeRate": orig_rate}).encode('utf-8')
+    restore_data = json.dumps({"id": sep_active["id"], "exchangeRate": orig_rate}).encode('utf-8')
     res_req = urllib.request.Request(f"{BASE_URL}/api/payroll/period", data=restore_data, headers={"Content-Type": "application/json", **headers}, method="PUT")
     with urllib.request.urlopen(res_req) as res_res:
         assert res_res.status == 200

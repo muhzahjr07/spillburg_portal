@@ -1164,6 +1164,47 @@ def enrich_payroll_period(period):
     }
     return enriched
 
+def get_latest_payroll_period(periods):
+    """
+    Returns the most recently created / latest chronological payroll period.
+    Evaluates:
+    1. Explicit createdAt ISO timestamp
+    2. Parsed letterDate (DD.MM.YYYY)
+    3. Parsed month string (Month YYYY)
+    4. Index position in periods list (most recently appended)
+    """
+    if not periods:
+        return None
+    if len(periods) == 1:
+        return periods[0]
+
+    def parse_period_sort_key(p):
+        if not p:
+            return (0, "")
+        c_at = p.get("createdAt")
+        if c_at and isinstance(c_at, str):
+            return (1, c_at.strip())
+        ld = p.get("letterDate")
+        if ld and isinstance(ld, str):
+            try:
+                parts = [int(x) for x in ld.strip().split(".")]
+                if len(parts) == 3:
+                    return (1, f"{parts[2]:04d}-{parts[1]:02d}-{parts[0]:02d}")
+            except Exception:
+                pass
+        m = p.get("month")
+        if m and isinstance(m, str):
+            try:
+                dt = datetime.datetime.strptime(m.strip(), "%B %Y")
+                return (1, dt.strftime("%Y-%m-%d"))
+            except Exception:
+                pass
+        return (0, "")
+
+    indexed = list(enumerate(periods))
+    indexed.sort(key=lambda item: (parse_period_sort_key(item[1]), item[0]), reverse=True)
+    return indexed[0][1]
+
 def generate_payroll_csv(enriched_period, company_info=None):
     comp = company_info or {}
     currency_mode = comp.get("currencyMode") or enriched_period.get("currencyMode") or "dual"
@@ -2255,7 +2296,15 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             if not user: return
             sync_payroll_from_disk()
 
+            latest_period = get_latest_payroll_period(PAYROLL_RECORDS.get("periods", []))
             active_id = PAYROLL_RECORDS.get("activePeriodId", "")
+            period_ids = [p.get("id") for p in PAYROLL_RECORDS.get("periods", [])]
+            if not active_id or active_id not in period_ids:
+                if latest_period:
+                    active_id = latest_period.get("id", "")
+                    PAYROLL_RECORDS["activePeriodId"] = active_id
+                    save_payroll_records()
+
             periods_list = []
             active_period_enriched = None
             
@@ -2271,6 +2320,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     "letterDate": p.get("letterDate"),
                     "exchangeRate": p.get("exchangeRate"),
                     "status": p.get("status", "Draft"),
+                    "createdAt": p.get("createdAt"),
                     "isActive": (p.get("id") == active_id),
                     "employeeCount": len(p.get("employees", [])),
                     "totalNetRemittance": p_totals.get("sumNetSalaryLkr", 0),
@@ -2287,12 +2337,14 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     active_period_enriched = enriched
             
             if not active_period_enriched and PAYROLL_RECORDS.get("periods"):
-                active_period_enriched = enrich_payroll_period(PAYROLL_RECORDS["periods"][0])
+                fallback_p = latest_period or PAYROLL_RECORDS["periods"][-1]
+                active_period_enriched = enrich_payroll_period(fallback_p)
 
             self.send_json({
                 "companies": PAYROLL_RECORDS.get("companies", []),
                 "periods": periods_list,
-                "activePeriod": active_period_enriched
+                "activePeriod": active_period_enriched,
+                "latestPeriodId": latest_period.get("id") if latest_period else None
             })
             return
 
@@ -2885,6 +2937,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "yearPeriod": year_period or (comp.get("payrollYearPeriod") if comp else "2026-2027"),
                 "letterDate": letter_date,
                 "exchangeRate": exchange_rate,
+                "createdAt": datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "baseCurrency": body.get("baseCurrency") or (comp.get("foreignCurrency") if comp and comp.get("currencyMode") == "dual" else "LKR") or "GBP",
                 "localCurrency": "LKR",
                 "currencyMode": body.get("currencyMode") or (comp.get("currencyMode") if comp else "dual") or "dual",
