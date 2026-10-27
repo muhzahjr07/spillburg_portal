@@ -1216,8 +1216,8 @@ def generate_payroll_csv(enriched_period, company_info=None):
 
     lines = []
     if currency_mode == "dual":
-        lines.append(f'SALARY SHEET (IN {base_curr} ) - {month.upper()}')
-        lines.append(f'No,Employee Name,POSITION,{base_curr} Salary,Working Days,Earned Base ({base_curr}),EPF (12% ),ETF(3% ),Total Employer Cost ({base_curr}),BANK ACCOUNT NO,TIN NO,IDNO,Date Joined')
+        lines.append(f'SALARY SHEET (IN {base_curr}) - {month.upper()}')
+        lines.append(f'No,Employee Name,POSITION,{base_curr} Salary,Working Days,Earned Base ({base_curr}),EPF (12%),ETF (3%),Total Employer Cost ({base_curr}),BANK ACCOUNT NO,TIN NO,IDNO,Date Joined')
         for e in employees:
             bank_str = f"{e.get('bankAccountNo','')}({e.get('bankCode','')})" if e.get('bankCode') else str(e.get('bankAccountNo',''))
             lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("epf12Gbp",0)},{e.get("etf3Gbp",0)},{e.get("totalGbp",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
@@ -2950,7 +2950,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "checkedBy": body.get("checkedBy", (comp.get("checkedBy") if comp else "Hemanthi Basnayake")),
                 "checkedTitle": body.get("checkedTitle", (comp.get("checkedTitle") if comp else "Accountant")),
                 "authorizedSignatory": body.get("authorizedSignatory", (comp.get("authorizedSignatory") if comp else "Shaameel Mohideen")),
-                "authorizedCompany": body.get("authorizedCompany", (comp.get("authorizedCompany") if comp else "Spillburg Holdings (pvt)Ltd")),
+                "authorizedCompany": body.get("authorizedCompany", (comp.get("authorizedCompany") if comp else "Spillburg Holdings (Pvt) Ltd.")),
                 "bankName": body.get("bankName", (comp.get("bankName") if comp else "Nations Trust Bank PLC")),
                 "bankBranch": body.get("bankBranch", (comp.get("bankBranch") if comp else "Borella Branch")),
                 "bankAddress": body.get("bankAddress", (comp.get("bankAddress") if comp else "67 D.S. Senanayake Mawatha,\nColombo 08.")),

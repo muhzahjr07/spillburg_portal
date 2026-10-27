@@ -32,6 +32,7 @@ let activePayslipEmployeeId = null;
 let bankLetterheadEnabled = true;
 let staffCostLetterheadEnabled = true;
 let payrollLaunchPeriodSelected = false;
+let payslipPrintLayout = '2_per_page'; // '1_per_page' or '2_per_page'
 
 function parsePeriodDateValue(p) {
   if (!p) return 0;
@@ -326,11 +327,11 @@ function matchesOperationsMonthFilter(task, filterVal) {
   if (!info) {
     return f === 'unspecified' || f === 'none';
   }
-  return info.monthKey === f || 
-         info.monthName.toLowerCase() === f || 
-         info.monthYearKey === f || 
-         f.startsWith(info.monthKey) ||
-         info.monthName.toLowerCase().startsWith(f);
+  return info.monthKey === f ||
+    info.monthName.toLowerCase() === f ||
+    info.monthYearKey === f ||
+    f.startsWith(info.monthKey) ||
+    info.monthName.toLowerCase().startsWith(f);
 }
 
 function getOperationsMonthLabel(monthKey) {
@@ -369,7 +370,7 @@ function attachCalendarPicker(el, options = {}) {
   if (!el) return null;
   if (window.flatpickr) {
     if (el._flatpickr) {
-      try { el._flatpickr.destroy(); } catch (err) {}
+      try { el._flatpickr.destroy(); } catch (err) { }
     }
     const currentVal = el.value || options.defaultDate || '';
     const formatted = formatDisplayDate(currentVal);
@@ -381,12 +382,12 @@ function attachCalendarPicker(el, options = {}) {
       allowInput: true,
       monthSelectorType: 'dropdown',
       animate: true,
-      onOpen: function(selectedDates, dateStr, instance) {
+      onOpen: function (selectedDates, dateStr, instance) {
         if (instance.calendarContainer) {
           instance.calendarContainer.style.zIndex = '99999';
         }
       },
-      onChange: function(selectedDates, dateStr) {
+      onChange: function (selectedDates, dateStr) {
         if (options.onChange) options.onChange(dateStr, selectedDates);
       },
       ...options
@@ -595,7 +596,7 @@ function updateStickyScrollbar() {
   const modalBackdrop = document.getElementById('modalBackdrop');
   const photoLightbox = document.getElementById('photoLightbox');
   if ((modalBackdrop && !modalBackdrop.classList.contains('hidden')) ||
-      (photoLightbox && !photoLightbox.classList.contains('hidden'))) {
+    (photoLightbox && !photoLightbox.classList.contains('hidden'))) {
     hideStickyScrollbar();
     return;
   }
@@ -835,7 +836,7 @@ async function handleLogout() {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
-    } catch (e) {}
+    } catch (e) { }
   }
   localStorage.removeItem('spillburg_token');
   document.cookie = 'token=; path=/; max-age=0; SameSite=Lax';
@@ -849,12 +850,12 @@ async function handleLogout() {
 
 function updateUserUI() {
   if (!currentUser) return;
-  
+
   document.getElementById('userNameDisplay').textContent = currentUser.fullName || currentUser.username;
-  
+
   const roleBadge = document.getElementById('userRoleBadge');
   const avatar = document.getElementById('userAvatar');
-  
+
   avatar.textContent = (currentUser.fullName || currentUser.username)[0].toUpperCase();
 
   const role = currentUser.role.toLowerCase();
@@ -995,7 +996,7 @@ async function loadInitialData() {
 // ================= VIEW SWITCHING =================
 async function switchView(viewName) {
   currentView = viewName;
-  
+
   // Update sidebar buttons styling for Light Theme
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.className = 'nav-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition text-left text-slate-600 hover:bg-slate-50 hover:text-slate-900';
@@ -1020,7 +1021,7 @@ async function switchView(viewName) {
             const uData = await uRes.json();
             if (uData.users) usersList = uData.users;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
       renderOperations(container);
       break;
@@ -1486,7 +1487,7 @@ function getOperationsUserFilterOptions(currentFilter, isReport = false) {
 
 function renderOperations(container) {
   const isDirectorOrAdmin = currentUser && ['director', 'admin'].includes(currentUser.role);
-  
+
   // Resolve display name for the currently filtered user (if specific user selected)
   let selectedUserName = 'Filtered User';
   if (operationsUserFilter === 'all') {
@@ -1704,7 +1705,7 @@ function renderOperations(container) {
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-1">
           <!-- 1. Status Filter Dropdown -->
           <div class="relative" id="opsStatusDropdownContainer">
-            <button type="button" id="opsStatusDropdownBtn" onclick="toggleOpsFilterDropdown('status')" 
+            <button type="button" id="opsStatusDropdownBtn" onclick="toggleOpsFilterDropdown('status'); event.stopPropagation();" 
               class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
               <div class="flex items-center gap-1.5 truncate">
                 <i data-lucide="check-square" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
@@ -1715,7 +1716,7 @@ function renderOperations(container) {
                 <i data-lucide="chevron-down" id="opsStatusChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
               </div>
             </button>
-            <div id="opsStatusDropdownMenu" class="hidden ops-dropdown-menu absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[220px] max-w-[280px] space-y-1.5">
+            <div id="opsStatusDropdownMenu" onclick="event.stopPropagation();" class="hidden ops-dropdown-menu absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[220px] max-w-[280px] space-y-1.5">
               <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
                 <span class="font-bold text-slate-800">Status</span>
                 <div class="flex items-center gap-1.5">
@@ -1726,11 +1727,11 @@ function renderOperations(container) {
               </div>
               <div class="space-y-1 max-h-56 overflow-y-auto">
                 ${allStatusList.map(st => {
-                  const isChecked = isAllStatusesActive || operationsStatusFilter.some(s => s.toLowerCase() === st.toLowerCase());
-                  const safeKey = getOpsItemSafeKey('status', st);
-                  const dotColor = st === 'Pending' ? 'bg-amber-500' : (st === 'In Progress' ? 'bg-blue-500' : (st === 'Completed' ? 'bg-emerald-500' : 'bg-purple-500'));
-                  const badgeColor = st === 'Pending' ? 'bg-amber-100 text-amber-800' : (st === 'In Progress' ? 'bg-blue-100 text-blue-800' : (st === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'));
-                  return `
+    const isChecked = isAllStatusesActive || operationsStatusFilter.some(s => s.toLowerCase() === st.toLowerCase());
+    const safeKey = getOpsItemSafeKey('status', st);
+    const dotColor = st === 'Pending' ? 'bg-amber-500' : (st === 'In Progress' ? 'bg-blue-500' : (st === 'Completed' ? 'bg-emerald-500' : 'bg-purple-500'));
+    const badgeColor = st === 'Pending' ? 'bg-amber-100 text-amber-800' : (st === 'In Progress' ? 'bg-blue-100 text-blue-800' : (st === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'));
+    return `
                     <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition select-none ops-checklist-item" data-name="${st}">
                       <div class="flex items-center gap-2">
                         <input type="checkbox" id="ops_cb_status_${safeKey}" data-type="status" data-val="${encodeURIComponent(st)}" onchange="handleOpsFilterCheckboxFromEl(this)" ${isChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
@@ -1742,14 +1743,14 @@ function renderOperations(container) {
                       <span id="ops_count_status_${safeKey}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md ${badgeColor}">0</span>
                     </label>
                   `;
-                }).join('')}
+  }).join('')}
               </div>
             </div>
           </div>
 
           <!-- 2. Priority Filter Dropdown -->
           <div class="relative" id="opsPriorityDropdownContainer">
-            <button type="button" id="opsPriorityDropdownBtn" onclick="toggleOpsFilterDropdown('priority')" 
+            <button type="button" id="opsPriorityDropdownBtn" onclick="toggleOpsFilterDropdown('priority'); event.stopPropagation();" 
               class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
               <div class="flex items-center gap-1.5 truncate">
                 <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-amber-600 shrink-0"></i>
@@ -1760,7 +1761,7 @@ function renderOperations(container) {
                 <i data-lucide="chevron-down" id="opsPriorityChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
               </div>
             </button>
-            <div id="opsPriorityDropdownMenu" class="hidden ops-dropdown-menu absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[220px] max-w-[280px] space-y-1.5">
+            <div id="opsPriorityDropdownMenu" onclick="event.stopPropagation();" class="hidden ops-dropdown-menu absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[220px] max-w-[280px] space-y-1.5">
               <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
                 <span class="font-bold text-slate-800">Priority</span>
                 <div class="flex items-center gap-1.5">
@@ -1771,11 +1772,11 @@ function renderOperations(container) {
               </div>
               <div class="space-y-1 max-h-56 overflow-y-auto">
                 ${allPriorityList.map(pri => {
-                  const isChecked = operationsPrioritiesFilter.length === 0 || operationsPrioritiesFilter.some(p => p.toLowerCase() === pri.toLowerCase());
-                  const safeKey = getOpsItemSafeKey('priority', pri);
-                  const dotColor = pri === 'Critical' ? 'bg-rose-500' : (pri === 'High' ? 'bg-amber-500' : (pri === 'Medium' ? 'bg-blue-500' : 'bg-slate-400'));
-                  const badgeColor = pri === 'Critical' ? 'bg-rose-100 text-rose-800' : (pri === 'High' ? 'bg-amber-100 text-amber-800' : (pri === 'Medium' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'));
-                  return `
+    const isChecked = operationsPrioritiesFilter.length === 0 || operationsPrioritiesFilter.some(p => p.toLowerCase() === pri.toLowerCase());
+    const safeKey = getOpsItemSafeKey('priority', pri);
+    const dotColor = pri === 'Critical' ? 'bg-rose-500' : (pri === 'High' ? 'bg-amber-500' : (pri === 'Medium' ? 'bg-blue-500' : 'bg-slate-400'));
+    const badgeColor = pri === 'Critical' ? 'bg-rose-100 text-rose-800' : (pri === 'High' ? 'bg-amber-100 text-amber-800' : (pri === 'Medium' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'));
+    return `
                     <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition select-none ops-checklist-item" data-name="${pri}">
                       <div class="flex items-center gap-2">
                         <input type="checkbox" id="ops_cb_priority_${safeKey}" data-type="priority" data-val="${encodeURIComponent(pri)}" onchange="handleOpsFilterCheckboxFromEl(this)" ${isChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
@@ -1787,14 +1788,14 @@ function renderOperations(container) {
                       <span id="ops_count_priority_${safeKey}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md ${badgeColor}">0</span>
                     </label>
                   `;
-                }).join('')}
+  }).join('')}
               </div>
             </div>
           </div>
 
           <!-- 3. Workstream Filter Dropdown -->
           <div class="relative" id="opsWorkstreamDropdownContainer">
-            <button type="button" id="opsWorkstreamDropdownBtn" onclick="toggleOpsFilterDropdown('workstream')" 
+            <button type="button" id="opsWorkstreamDropdownBtn" onclick="toggleOpsFilterDropdown('workstream'); event.stopPropagation();" 
               class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
               <div class="flex items-center gap-1.5 truncate">
                 <i data-lucide="layers" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
@@ -1805,7 +1806,7 @@ function renderOperations(container) {
                 <i data-lucide="chevron-down" id="opsWorkstreamChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
               </div>
             </button>
-            <div id="opsWorkstreamDropdownMenu" class="hidden ops-dropdown-menu absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[240px] max-w-[300px] space-y-1.5">
+            <div id="opsWorkstreamDropdownMenu" onclick="event.stopPropagation();" class="hidden ops-dropdown-menu absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[240px] max-w-[300px] space-y-1.5">
               <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
                 <span class="font-bold text-slate-800">Workstream</span>
                 <div class="flex items-center gap-1.5">
@@ -1821,9 +1822,9 @@ function renderOperations(container) {
               ` : ''}
               <div class="space-y-1 max-h-56 overflow-y-auto">
                 ${workstreams.map(ws => {
-                  const isChecked = operationsWorkstreamsFilter.length === 0 || operationsWorkstreamsFilter.some(w => w.toLowerCase() === ws.toLowerCase());
-                  const safeKey = getOpsItemSafeKey('workstream', ws);
-                  return `
+    const isChecked = operationsWorkstreamsFilter.length === 0 || operationsWorkstreamsFilter.some(w => w.toLowerCase() === ws.toLowerCase());
+    const safeKey = getOpsItemSafeKey('workstream', ws);
+    return `
                     <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition select-none ops-checklist-item" data-name="${escapeHtml(ws)}">
                       <div class="flex items-center gap-2 truncate pr-2">
                         <input type="checkbox" id="ops_cb_workstream_${safeKey}" data-type="workstream" data-val="${encodeURIComponent(ws)}" onchange="handleOpsFilterCheckboxFromEl(this)" ${isChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0">
@@ -1832,14 +1833,14 @@ function renderOperations(container) {
                       <span id="ops_count_workstream_${safeKey}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 shrink-0">0</span>
                     </label>
                   `;
-                }).join('')}
+  }).join('')}
               </div>
             </div>
           </div>
 
           <!-- 4. Tasked Year Filter Dropdown -->
           <div class="relative" id="opsYearDropdownContainer">
-            <button type="button" id="opsYearDropdownBtn" onclick="toggleOpsFilterDropdown('year')" 
+            <button type="button" id="opsYearDropdownBtn" onclick="toggleOpsFilterDropdown('year'); event.stopPropagation();" 
               class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
               <div class="flex items-center gap-1.5 truncate">
                 <i data-lucide="calendar-days" class="w-3.5 h-3.5 text-blue-600 shrink-0"></i>
@@ -1850,7 +1851,7 @@ function renderOperations(container) {
                 <i data-lucide="chevron-down" id="opsYearChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
               </div>
             </button>
-            <div id="opsYearDropdownMenu" class="hidden ops-dropdown-menu absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[200px] max-w-[260px] space-y-1.5">
+            <div id="opsYearDropdownMenu" onclick="event.stopPropagation();" class="hidden ops-dropdown-menu absolute left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[200px] max-w-[260px] space-y-1.5">
               <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
                 <span class="font-bold text-slate-800">Tasked Year</span>
                 <div class="flex items-center gap-1.5">
@@ -1861,9 +1862,9 @@ function renderOperations(container) {
               </div>
               <div class="space-y-1 max-h-56 overflow-y-auto">
                 ${availableYears.map(yr => {
-                  const isChecked = operationsYearsFilter.length === 0 || operationsYearsFilter.includes(yr);
-                  const safeKey = getOpsItemSafeKey('year', yr);
-                  return `
+    const isChecked = operationsYearsFilter.length === 0 || operationsYearsFilter.includes(yr);
+    const safeKey = getOpsItemSafeKey('year', yr);
+    return `
                     <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition select-none ops-checklist-item" data-name="${yr}">
                       <div class="flex items-center gap-2">
                         <input type="checkbox" id="ops_cb_year_${safeKey}" data-type="year" data-val="${encodeURIComponent(yr)}" onchange="handleOpsFilterCheckboxFromEl(this)" ${isChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
@@ -1872,14 +1873,14 @@ function renderOperations(container) {
                       <span id="ops_count_year_${safeKey}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-800">0</span>
                     </label>
                   `;
-                }).join('')}
+  }).join('')}
               </div>
             </div>
           </div>
 
           <!-- 5. Tasked Month Filter Dropdown -->
           <div class="relative" id="opsMonthDropdownContainer">
-            <button type="button" id="opsMonthDropdownBtn" onclick="toggleOpsFilterDropdown('month')" 
+            <button type="button" id="opsMonthDropdownBtn" onclick="toggleOpsFilterDropdown('month'); event.stopPropagation();" 
               class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
               <div class="flex items-center gap-1.5 truncate">
                 <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
@@ -1890,7 +1891,7 @@ function renderOperations(container) {
                 <i data-lucide="chevron-down" id="opsMonthChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
               </div>
             </button>
-            <div id="opsMonthDropdownMenu" class="hidden ops-dropdown-menu absolute sm:right-0 sm:left-auto left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[220px] max-w-[280px] space-y-1.5">
+            <div id="opsMonthDropdownMenu" onclick="event.stopPropagation();" class="hidden ops-dropdown-menu absolute sm:right-0 sm:left-auto left-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[220px] max-w-[280px] space-y-1.5">
               <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
                 <span class="font-bold text-slate-800">Tasked Month</span>
                 <div class="flex items-center gap-1.5">
@@ -1901,9 +1902,9 @@ function renderOperations(container) {
               </div>
               <div class="space-y-1 max-h-56 overflow-y-auto">
                 ${CALENDAR_MONTHS.map(m => {
-                  const isChecked = operationsMonthsFilter.length === 0 || operationsMonthsFilter.includes(m.key.toLowerCase());
-                  const safeKey = getOpsItemSafeKey('month', m.key);
-                  return `
+    const isChecked = operationsMonthsFilter.length === 0 || operationsMonthsFilter.includes(m.key.toLowerCase());
+    const safeKey = getOpsItemSafeKey('month', m.key);
+    return `
                     <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition select-none ops-checklist-item" data-name="${m.name}">
                       <div class="flex items-center gap-2">
                         <input type="checkbox" id="ops_cb_month_${safeKey}" data-type="month" data-val="${encodeURIComponent(m.key)}" onchange="handleOpsFilterCheckboxFromEl(this)" ${isChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
@@ -1912,14 +1913,14 @@ function renderOperations(container) {
                       <span id="ops_count_month_${safeKey}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800">0</span>
                     </label>
                   `;
-                }).join('')}
+  }).join('')}
               </div>
             </div>
           </div>
 
           <!-- 6. Requester Filter Dropdown -->
           <div class="relative" id="opsRequesterDropdownContainer">
-            <button type="button" id="opsRequesterDropdownBtn" onclick="toggleOpsFilterDropdown('requester')" 
+            <button type="button" id="opsRequesterDropdownBtn" onclick="toggleOpsFilterDropdown('requester'); event.stopPropagation();" 
               class="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-2 text-xs text-slate-700 flex items-center justify-between gap-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition cursor-pointer">
               <div class="flex items-center gap-1.5 truncate">
                 <i data-lucide="user" class="w-3.5 h-3.5 text-teal-600 shrink-0"></i>
@@ -1930,7 +1931,7 @@ function renderOperations(container) {
                 <i data-lucide="chevron-down" id="opsRequesterChevron" class="w-3.5 h-3.5 text-slate-400 transition-transform duration-150"></i>
               </div>
             </button>
-            <div id="opsRequesterDropdownMenu" class="hidden ops-dropdown-menu absolute right-0 left-auto top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[240px] max-w-[300px] space-y-1.5">
+            <div id="opsRequesterDropdownMenu" onclick="event.stopPropagation();" class="hidden ops-dropdown-menu absolute right-0 left-auto top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 min-w-[240px] max-w-[300px] space-y-1.5">
               <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
                 <span class="font-bold text-slate-800">Requested By</span>
                 <div class="flex items-center gap-1.5">
@@ -1946,9 +1947,9 @@ function renderOperations(container) {
               ` : ''}
               <div class="space-y-1 max-h-56 overflow-y-auto">
                 ${requesters.map(r => {
-                  const isChecked = operationsRequestersFilter.length === 0 || operationsRequestersFilter.some(req => req.toLowerCase() === r.toLowerCase());
-                  const safeKey = getOpsItemSafeKey('requester', r);
-                  return `
+    const isChecked = operationsRequestersFilter.length === 0 || operationsRequestersFilter.some(req => req.toLowerCase() === r.toLowerCase());
+    const safeKey = getOpsItemSafeKey('requester', r);
+    return `
                     <label class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer text-xs transition select-none ops-checklist-item" data-name="${escapeHtml(r)}">
                       <div class="flex items-center gap-2 truncate pr-2">
                         <input type="checkbox" id="ops_cb_requester_${safeKey}" data-type="requester" data-val="${encodeURIComponent(r)}" onchange="handleOpsFilterCheckboxFromEl(this)" ${isChecked ? 'checked' : ''} class="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer shrink-0">
@@ -1957,7 +1958,7 @@ function renderOperations(container) {
                       <span id="ops_count_requester_${safeKey}" class="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-teal-50 text-teal-700 shrink-0">0</span>
                     </label>
                   `;
-                }).join('')}
+  }).join('')}
               </div>
             </div>
           </div>
@@ -2017,14 +2018,14 @@ function taskMatchesOpsFilters(t, excludeType = null) {
   const q = (document.getElementById('opsSearchInput')?.value || '').toLowerCase().trim();
   if (q) {
     const matchSearch = (t.title || '').toLowerCase().includes(q) ||
-                        (t.notes || '').toLowerCase().includes(q) ||
-                        (t.workstream || '').toLowerCase().includes(q) ||
-                        (t.requestedBy || '').toLowerCase().includes(q) ||
-                        (t.estimatedCost || '').toLowerCase().includes(q) ||
-                        (t.priority || '').toLowerCase().includes(q) ||
-                        (t.status || '').toLowerCase().includes(q) ||
-                        (t.assignedTo || '').toLowerCase().includes(q) ||
-                        String(t.no || '').toLowerCase().includes(q);
+      (t.notes || '').toLowerCase().includes(q) ||
+      (t.workstream || '').toLowerCase().includes(q) ||
+      (t.requestedBy || '').toLowerCase().includes(q) ||
+      (t.estimatedCost || '').toLowerCase().includes(q) ||
+      (t.priority || '').toLowerCase().includes(q) ||
+      (t.status || '').toLowerCase().includes(q) ||
+      (t.assignedTo || '').toLowerCase().includes(q) ||
+      String(t.no || '').toLowerCase().includes(q);
     if (!matchSearch) return false;
   }
 
@@ -2123,25 +2124,29 @@ function setOpsFilterState(type, val) {
 }
 
 function toggleOpsFilterDropdown(type, force) {
-  OPS_FILTER_TYPES.forEach(t => {
-    if (t !== type) {
-      const otherMenu = document.getElementById(`ops${t.charAt(0).toUpperCase() + t.slice(1)}DropdownMenu`);
-      const otherChevron = document.getElementById(`ops${t.charAt(0).toUpperCase() + t.slice(1)}Chevron`);
-      if (otherMenu) otherMenu.classList.add('hidden');
-      if (otherChevron) otherChevron.style.transform = 'rotate(0deg)';
-    }
-  });
-
   const cap = type.charAt(0).toUpperCase() + type.slice(1);
   const menu = document.getElementById(`ops${cap}DropdownMenu`);
   const chevron = document.getElementById(`ops${cap}Chevron`);
   if (!menu) return;
   const isCurrentlyOpen = !menu.classList.contains('hidden');
   const open = typeof force === 'boolean' ? force : !isCurrentlyOpen;
+
   if (open) {
+    // When opening this dropdown, close all other dropdowns
+    OPS_FILTER_TYPES.forEach(t => {
+      if (t !== type) {
+        const otherCap = t.charAt(0).toUpperCase() + t.slice(1);
+        const otherMenu = document.getElementById(`ops${otherCap}DropdownMenu`);
+        const otherChevron = document.getElementById(`ops${otherCap}Chevron`);
+        if (otherMenu) otherMenu.classList.add('hidden');
+        if (otherChevron) otherChevron.style.transform = 'rotate(0deg)';
+      }
+    });
+
     menu.classList.remove('hidden');
     if (chevron) chevron.style.transform = 'rotate(180deg)';
   } else {
+    // When closing, ONLY close this specific dropdown
     menu.classList.add('hidden');
     if (chevron) chevron.style.transform = 'rotate(0deg)';
   }
@@ -2242,7 +2247,7 @@ function updateOpsFilterDropdownUI(type) {
   const labelEl = document.getElementById(`ops${cap}DropdownLabel`);
   const badgeEl = document.getElementById(`ops${cap}DropdownCount`);
   const btnEl = document.getElementById(`ops${cap}DropdownBtn`);
-  
+
   const isAll = currentArr.length === 0 || currentArr.length === allOptions.length;
   const isNone = currentArr.length === 1 && currentArr[0] === '__none__';
 
@@ -2326,8 +2331,8 @@ function updateOpsDynamicCounts() {
     if (el) {
       el.textContent = count;
       const baseBadge = st === 'Pending' ? 'bg-amber-100 text-amber-800' :
-                        (st === 'In Progress' ? 'bg-blue-100 text-blue-800' :
-                        (st === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'));
+        (st === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+          (st === 'Completed' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'));
       if (count === 0) {
         el.className = 'text-[10px] font-normal px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400';
         if (labelParent) labelParent.classList.add('opacity-50');
@@ -2349,8 +2354,8 @@ function updateOpsDynamicCounts() {
     if (el) {
       el.textContent = count;
       const baseBadge = pri === 'Critical' ? 'bg-rose-100 text-rose-800' :
-                        (pri === 'High' ? 'bg-amber-100 text-amber-800' :
-                        (pri === 'Medium' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'));
+        (pri === 'High' ? 'bg-amber-100 text-amber-800' :
+          (pri === 'Medium' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'));
       if (count === 0) {
         el.className = 'text-[10px] font-normal px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400';
         if (labelParent) labelParent.classList.add('opacity-50');
@@ -2567,7 +2572,7 @@ function handleOperationsFilter() {
     container.innerHTML = operationsViewMode === 'table' ? renderOperationsTable(filtered) : renderOperationsKanban(filtered);
     if (window.lucide) lucide.createIcons();
   }
-  
+
   // Show/hide search clear button
   const clearBtn = document.getElementById('opsSearchClearBtn');
   const searchInput = document.getElementById('opsSearchInput');
@@ -2703,9 +2708,9 @@ function renderOperationsTable(tasks) {
           ${hasDateFilter ? `No tasks found tasked in ${filterPeriodDesc}` : 'No personal tasks recorded yet'}
         </div>
         <p class="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-          ${hasDateFilter 
-            ? `There are no deliverables with a Tasked Date recorded for ${filterPeriodDesc}. You can view tasks from other dates or record a new deliverable.` 
-            : (isPrivileged ? 'Select "👥 All Team Tasks" in the dropdown above to view company tasks, or click "Add Task" to record an executive deliverable.' : 'Click "Add Task" above to create your first deliverable.')}
+          ${hasDateFilter
+        ? `There are no deliverables with a Tasked Date recorded for ${filterPeriodDesc}. You can view tasks from other dates or record a new deliverable.`
+        : (isPrivileged ? 'Select "👥 All Team Tasks" in the dropdown above to view company tasks, or click "Add Task" to record an executive deliverable.' : 'Click "Add Task" above to create your first deliverable.')}
         </p>
         <div class="pt-1 flex items-center justify-center gap-2">
           ${hasDateFilter ? `
@@ -2824,8 +2829,8 @@ function renderOperationsKanban(tasks) {
   return `
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
       ${columns.map(col => {
-        const colTasks = tasks.filter(t => (t.status || 'Pending').toLowerCase() === col.toLowerCase());
-        return `
+    const colTasks = tasks.filter(t => (t.status || 'Pending').toLowerCase() === col.toLowerCase());
+    return `
           <div class="bg-slate-100/70 border border-slate-200 rounded-2xl p-4 flex flex-col h-full min-h-[450px]">
             <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 mb-3">
               <span class="font-semibold text-xs uppercase tracking-wider text-slate-700">${col}</span>
@@ -2877,7 +2882,7 @@ function renderOperationsKanban(tasks) {
             </div>
           </div>
         `;
-      }).join('')}
+  }).join('')}
     </div>
   `;
 }
@@ -3049,10 +3054,10 @@ function getFilteredCustomerRecords() {
   const type = (document.getElementById('custTypeFilter')?.value || '').toLowerCase();
 
   let filtered = customerRecords.filter(r => {
-    const compMatch = !q || 
-      (r['Company Name'] || '').toLowerCase().includes(q) || 
-      (r['Registration No'] || '').toLowerCase().includes(q) || 
-      (r['Box No'] || '').toLowerCase().includes(q) || 
+    const compMatch = !q ||
+      (r['Company Name'] || '').toLowerCase().includes(q) ||
+      (r['Registration No'] || '').toLowerCase().includes(q) ||
+      (r['Box No'] || '').toLowerCase().includes(q) ||
       (r['No'] || '').toLowerCase().includes(q) ||
       (r['Category'] || '').toLowerCase().includes(q);
     const cupMatch = customerCupboardFilter === 'All' || (r['Cupboard'] || '').toLowerCase() === customerCupboardFilter.toLowerCase();
@@ -3132,8 +3137,8 @@ function renderCustomerTable(records) {
           </thead>
           <tbody class="divide-y divide-slate-100">
             ${records.map(r => {
-              const isOrig = (r['Type'] || '').toLowerCase().includes('original');
-              return `
+    const isOrig = (r['Type'] || '').toLowerCase().includes('original');
+    return `
                 <tr class="hover:bg-slate-50/80 transition">
                   <td class="py-3 px-3.5 font-mono text-slate-400 font-medium">${r['No'] || ''}</td>
                   <td class="py-3 px-3.5 font-semibold text-slate-900">${r['Company Name'] || ''}</td>
@@ -3161,7 +3166,7 @@ function renderCustomerTable(records) {
                   </td>
                 </tr>
               `;
-            }).join('')}
+  }).join('')}
           </tbody>
         </table>
       </div>
@@ -3190,9 +3195,9 @@ function renderCustomerBoxes(records) {
   return `
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       ${sortedBoxes.map(b => {
-        const files = boxGroups[b];
-        const cup = files[0]?.Cupboard || 'Cupboard';
-        return `
+    const files = boxGroups[b];
+    const cup = files[0]?.Cupboard || 'Cupboard';
+    return `
           <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition space-y-3">
             <div class="flex items-center justify-between pb-2 border-b border-slate-100">
               <div class="flex items-center gap-2">
@@ -3214,7 +3219,7 @@ function renderCustomerBoxes(records) {
             </div>
           </div>
         `;
-      }).join('')}
+  }).join('')}
     </div>
   `;
 }
@@ -3277,11 +3282,11 @@ function getFilteredFinancialRecords() {
   const cat = (document.getElementById('finCategoryFilter')?.value || '').toLowerCase();
 
   let filtered = financialRecords.filter(r => {
-    const matchQ = !q || 
-      (r.entityName || '').toLowerCase().includes(q) || 
-      (r.tinNo || '').toLowerCase().includes(q) || 
-      (r.ssid || '').toLowerCase().includes(q) || 
-      (r.directorName || '').toLowerCase().includes(q) || 
+    const matchQ = !q ||
+      (r.entityName || '').toLowerCase().includes(q) ||
+      (r.tinNo || '').toLowerCase().includes(q) ||
+      (r.ssid || '').toLowerCase().includes(q) ||
+      (r.directorName || '').toLowerCase().includes(q) ||
       (r.notes || '').toLowerCase().includes(q) ||
       (r.filingStatus || '').toLowerCase().includes(q);
     const matchCat = !cat || (r.category || '').toLowerCase().includes(cat);
@@ -3344,8 +3349,8 @@ function renderFinancialTable(records) {
           </thead>
           <tbody class="divide-y divide-slate-100">
             ${records.map(r => {
-              const chk = getFilingChecklistStats(r);
-              return `
+    const chk = getFilingChecklistStats(r);
+    return `
               <tr class="hover:bg-slate-50/80 transition">
                 <td class="py-3 px-3.5">
                   <div class="font-semibold text-slate-900">${r.entityName || 'Unnamed'}</div>
@@ -3410,7 +3415,7 @@ function renderFinancialTable(records) {
                 </td>
               </tr>
             `;
-            }).join('')}
+  }).join('')}
           </tbody>
         </table>
       </div>
@@ -3431,7 +3436,7 @@ function openPhotoLightbox(photoFile, caption) {
   const tokenParam = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
   img.src = `/api/financial-files/photos/${encodeURIComponent(photoFile)}${tokenParam}`;
   img.alt = caption || 'Physical Register Notebook Page';
-  img.onerror = function() {
+  img.onerror = function () {
     this.onerror = null;
     cap.innerHTML = `
       <div class="text-red-400 font-semibold">Could not load photo: ${photoFile}</div>
@@ -3595,10 +3600,10 @@ function getFilteredUsers() {
   const role = (document.getElementById('userRoleFilter')?.value || '').toLowerCase();
 
   let filtered = usersList.filter(u => {
-    const matchQ = !q || 
-      (u.fullName || '').toLowerCase().includes(q) || 
-      (u.username || '').toLowerCase().includes(q) || 
-      (u.title || '').toLowerCase().includes(q) || 
+    const matchQ = !q ||
+      (u.fullName || '').toLowerCase().includes(q) ||
+      (u.username || '').toLowerCase().includes(q) ||
+      (u.title || '').toLowerCase().includes(q) ||
       (u.email || '').toLowerCase().includes(q);
     const matchRole = !role || (u.role || '').toLowerCase() === role;
     return matchQ && matchRole;
@@ -3653,9 +3658,9 @@ function renderUsersTable(users) {
           </thead>
           <tbody class="divide-y divide-slate-100">
             ${users.map(u => {
-              const isSelf = currentUser && u.id === currentUser.id;
-              const isRootAdmin = u.username === 'admin';
-              return `
+    const isSelf = currentUser && u.id === currentUser.id;
+    const isRootAdmin = u.username === 'admin';
+    return `
                 <tr class="hover:bg-slate-50/80 transition">
                   <td class="py-3 px-3.5">
                     <div class="font-semibold text-slate-900 flex items-center gap-1.5">
@@ -3711,7 +3716,7 @@ function renderUsersTable(users) {
                   </td>
                 </tr>
               `;
-            }).join('')}
+  }).join('')}
           </tbody>
         </table>
       </div>
@@ -3914,17 +3919,17 @@ function openAddOperationModal() {
       selectedOwnerId = operationsUserFilter;
     }
 
-    ownerOptionsHtml = sortedUsers.map(u => 
+    ownerOptionsHtml = sortedUsers.map(u =>
       `<option value="${escapeHtml(u.id)}" ${u.id === selectedOwnerId ? 'selected' : ''}>${escapeHtml(u.fullName)}</option>`
     ).join('');
   }
 
-  const requesterOptionsHtml = availableRequesters.map(r => 
+  const requesterOptionsHtml = availableRequesters.map(r =>
     `<option value="${r.replace(/"/g, '&quot;')}" ${r.toLowerCase() === defaultRequester.toLowerCase() ? 'selected' : ''}>${r.replace(/</g, '&lt;')}</option>`
   ).join('');
 
   const defaultWorkstream = 'Office Operations';
-  const workstreamOptionsHtml = availableWorkstreams.map(w => 
+  const workstreamOptionsHtml = availableWorkstreams.map(w =>
     `<option value="${w.replace(/"/g, '&quot;')}" ${w.toLowerCase() === defaultWorkstream.toLowerCase() ? 'selected' : ''}>${w.replace(/</g, '&lt;')}</option>`
   ).join('');
 
@@ -4499,7 +4504,7 @@ function computeOperationsReportData(sourceTasks, state) {
   // Search filter
   if (state.searchQuery) {
     const q = state.searchQuery.toLowerCase().trim();
-    tasks = tasks.filter(t => 
+    tasks = tasks.filter(t =>
       (t.title || '').toLowerCase().includes(q) ||
       (t.notes || '').toLowerCase().includes(q) ||
       (t.requestedBy || '').toLowerCase().includes(q) ||
@@ -4619,7 +4624,7 @@ function openOperationsReportModal() {
 
   const modalContent = document.getElementById('modalContent');
   modalContent.className = "bg-white border border-slate-200 rounded-3xl w-full max-w-5xl max-h-[92vh] overflow-y-auto p-5 md:p-7 shadow-2xl relative fade-in";
-  
+
   renderOperationsReportStudio();
   document.getElementById('modalBackdrop').classList.remove('hidden');
   initAllDatePickers(modalContent);
@@ -5439,10 +5444,10 @@ function printOperationsReport() {
             ${tasks.length === 0 ? `
               <tr><td colspan="8" style="text-align: center; padding: 20px; color: #94a3b8;">No deliverables recorded during this period.</td></tr>
             ` : tasks.map(t => {
-              const statusClass = (t.status || '').toLowerCase() === 'completed' ? 'badge-completed'
-                : ((t.status || '').toLowerCase() === 'in progress' ? 'badge-in-progress'
-                : ((t.status || '').toLowerCase() === 'on hold' ? 'badge-on-hold' : 'badge-pending'));
-              return `
+    const statusClass = (t.status || '').toLowerCase() === 'completed' ? 'badge-completed'
+      : ((t.status || '').toLowerCase() === 'in progress' ? 'badge-in-progress'
+        : ((t.status || '').toLowerCase() === 'on hold' ? 'badge-on-hold' : 'badge-pending'));
+    return `
                 <tr>
                   <td style="text-align: center; font-family: monospace; font-weight: bold;">${t.no ?? t.id}</td>
                   <td>
@@ -5460,7 +5465,7 @@ function printOperationsReport() {
                   </td>
                 </tr>
               `;
-            }).join('')}
+  }).join('')}
           </tbody>
         </table>
 
@@ -5511,7 +5516,7 @@ function exportOperationsReportCSV() {
   rows.push(["Total Estimated Expenditure", data.summary.formattedTotalCost]);
   rows.push([]);
   rows.push(["No.", "Task / Procurement Item", "Requested By", "Workstream", "Assigned To", "Tasked Date", "Completed Date", "Status", "Priority", "Estimated Cost (LKR)", "Notes / Action Details"]);
-  
+
   data.allTasks.forEach(t => {
     rows.push([
       t.no ?? t.id,
@@ -6196,7 +6201,7 @@ function getFilingChecklist(r) {
   if (r && r.filingChecklist && typeof r.filingChecklist === 'object' && r.filingChecklist.items) {
     return r.filingChecklist;
   }
-  
+
   // Intelligent auto-detection from existing filingStatus text if available
   const text = (r && r.filingStatus ? r.filingStatus : '').toLowerCase();
   const isIrdSubmitted = text.includes('submitted') || text.includes('ird submitted');
@@ -6233,10 +6238,10 @@ function getFilingChecklistStats(r) {
       completed++;
     }
   });
-  
+
   const total = FILING_CHECKLIST_ITEMS.length;
   const percent = Math.round((completed / total) * 100);
-  
+
   let stage = 'Draft Accounts';
   let badgeClass = 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200';
   let icon = 'list-checks';
@@ -6524,8 +6529,8 @@ function openFilingChecklistModal(recordId) {
         <!-- 7 Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="checklistCardsContainer">
           ${FILING_CHECKLIST_ITEMS.map(it => {
-            const itemData = (chk.items && chk.items[it.key]) ? chk.items[it.key] : { checked: false, status: 'Pending', date: '', notes: '' };
-            return `
+    const itemData = (chk.items && chk.items[it.key]) ? chk.items[it.key] : { checked: false, status: 'Pending', date: '', notes: '' };
+    return `
               <div id="card_${it.key}" class="checklist-card p-3.5 rounded-xl border ${itemData.checked ? 'checked border-emerald-300' : 'border-slate-200 bg-white'} space-y-2">
                 <div class="flex items-start justify-between gap-3">
                   <label class="flex items-start gap-2.5 cursor-pointer select-none">
@@ -6560,7 +6565,7 @@ function openFilingChecklistModal(recordId) {
                 </div>
               </div>
             `;
-          }).join('')}
+  }).join('')}
         </div>
       </div>
 
@@ -6731,16 +6736,16 @@ function updateChecklistLiveCount() {
 function handleAutoGenerateSummary(recordId) {
   const r = financialRecords.find(x => x.id === recordId);
   const year = document.getElementById('chkAssessmentYear')?.value || '2024/2025';
-  
+
   const draftStatus = document.getElementById('mChkDraftStatus')?.value || 'Pending';
   const draftDate = formatDisplayDate(document.getElementById('mChkDraftDate')?.value);
-  
+
   const auditStatus = document.getElementById('mChkAuditStatus')?.value || 'Pending';
   const auditDate = formatDisplayDate(document.getElementById('mChkAuditDate')?.value);
-  
+
   const taxStatus = document.getElementById('mChkTaxStatus')?.value || 'Pending';
   const taxDate = formatDisplayDate(document.getElementById('mChkTaxDate')?.value);
-  
+
   const irdStatus = document.getElementById('mChkIrdStatus')?.value || 'Pending';
   const irdDate = formatDisplayDate(document.getElementById('mChkIrdDate')?.value);
   const irdRef = document.getElementById('mChkIrdRef')?.value || '';
@@ -7245,7 +7250,7 @@ async function downloadSystemBackup() {
         } else {
           alert(`Backup exported successfully!\n\nNote for Render cloud: To have backup files automatically committed directly back to GitHub from Render, add GITHUB_TOKEN to your Render Environment Variables.\n\nOn your local machine, run Push_To_GitHub.bat anytime.`);
         }
-      } catch (e) {}
+      } catch (e) { }
     }, 500);
   } catch (err) {
     alert('Error exporting system backup: ' + err.message);
@@ -7314,7 +7319,7 @@ async function refreshCloudSyncIndicator() {
       if (dot) dot.className = 'w-2 h-2 rounded-full bg-blue-500';
       txt.textContent = 'Auto-Save active (local)';
     }
-  } catch (e) {}
+  } catch (e) { }
 }
 
 async function handleSystemRestoreFile(event) {
@@ -7576,9 +7581,9 @@ async function renderPayroll(container) {
 
   // Verify whether activePayrollPeriod already has complete details (employees array & totals object)
   const hasCompleteDetails = activePayrollPeriod &&
-                             Array.isArray(activePayrollPeriod.employees) &&
-                             activePayrollPeriod.totals &&
-                             Object.keys(activePayrollPeriod.totals).length > 0;
+    Array.isArray(activePayrollPeriod.employees) &&
+    activePayrollPeriod.totals &&
+    Object.keys(activePayrollPeriod.totals).length > 0;
 
   const isWrongCompany = activePayrollPeriod && activePayrollPeriod.companyId !== selectedComp.id;
   const isTargetMismatched = targetId && (!activePayrollPeriod || (!payrollLaunchPeriodSelected && activePayrollPeriod.id !== targetId));
@@ -7724,20 +7729,18 @@ async function renderPayroll(container) {
           <!-- Period Selector & Actions Toolbar -->
           <div class="flex flex-wrap items-center gap-2">
             <!-- Period Status Badge & Quick Dropdown -->
-            <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold ${
-              p?.status === 'Finalized' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
-              p?.status === 'Approved' ? 'bg-indigo-50 border-indigo-200 text-indigo-800' :
-              p?.status === 'Under Review' ? 'bg-blue-50 border-blue-200 text-blue-800' :
-              p?.status === 'Paid' ? 'bg-teal-50 border-teal-200 text-teal-800' :
-              'bg-amber-50 border-amber-200 text-amber-800'
-            }">
-              <span class="w-2 h-2 rounded-full ${
-                p?.status === 'Finalized' ? 'bg-emerald-500' :
-                p?.status === 'Approved' ? 'bg-indigo-500' :
-                p?.status === 'Under Review' ? 'bg-blue-500' :
-                p?.status === 'Paid' ? 'bg-teal-500' :
-                'bg-amber-500'
-              }"></span>
+            <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-semibold ${p?.status === 'Finalized' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
+      p?.status === 'Approved' ? 'bg-indigo-50 border-indigo-200 text-indigo-800' :
+        p?.status === 'Under Review' ? 'bg-blue-50 border-blue-200 text-blue-800' :
+          p?.status === 'Paid' ? 'bg-teal-50 border-teal-200 text-teal-800' :
+            'bg-amber-50 border-amber-200 text-amber-800'
+    }">
+              <span class="w-2 h-2 rounded-full ${p?.status === 'Finalized' ? 'bg-emerald-500' :
+      p?.status === 'Approved' ? 'bg-indigo-500' :
+        p?.status === 'Under Review' ? 'bg-blue-500' :
+          p?.status === 'Paid' ? 'bg-teal-500' :
+            'bg-amber-500'
+    }"></span>
               ${canEdit('payroll') && p ? `
                 <select onchange="handleQuickPeriodStatusChange('${p.id}', this.value)" title="Change Period Status"
                   class="bg-transparent border-none text-xs font-bold text-slate-800 focus:outline-none cursor-pointer">
@@ -7776,11 +7779,11 @@ async function renderPayroll(container) {
               <select id="payrollPeriodSelect" onchange="handlePayrollPeriodChange(this.value)"
                 class="appearance-none pl-3 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500/30 cursor-pointer">
                 ${[...compPeriods].sort((a, b) => {
-                  const valA = parsePeriodDateValue(a);
-                  const valB = parsePeriodDateValue(b);
-                  if (valA !== valB) return valB - valA;
-                  return compPeriods.indexOf(b) - compPeriods.indexOf(a);
-                }).map(per => `
+      const valA = parsePeriodDateValue(a);
+      const valB = parsePeriodDateValue(b);
+      if (valA !== valB) return valB - valA;
+      return compPeriods.indexOf(b) - compPeriods.indexOf(a);
+    }).map(per => `
                   <option value="${per.id}" ${p && per.id === p.id ? 'selected' : ''}>
                     ${escapeHtml(per.month)} (${per.employeeCount || 0} Staff) [${per.status || 'Draft'}]
                   </option>
@@ -8118,7 +8121,7 @@ function renderPayrollSheet(container) {
             </div>
             <div style="text-align: right;">
               <div class="font-bold text-slate-800">Authorized by: ${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
-              <div class="text-slate-500">${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (pvt)Ltd')}</div>
+              <div class="text-slate-500">${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
             </div>
           </div>
         ` : `
@@ -8193,7 +8196,7 @@ function renderPayrollSheet(container) {
             </div>
             <div style="text-align: right;">
               <div class="font-bold text-slate-800">Authorized by: ${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
-              <div class="text-slate-500">${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (pvt)Ltd')}</div>
+              <div class="text-slate-500">${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
             </div>
           </div>
 
@@ -8277,7 +8280,7 @@ function renderPayrollSheet(container) {
 // Resilient calculation helper ensuring all employee fields and period totals are properly calculated
 function getEmployeeCalculatedFields(e, exchangeRate = 440) {
   const rate = Number(exchangeRate) || 440;
-  
+
   // Basic salary in foreign currency (GBP)
   let basicGbp = 0;
   if (e.earnedGbp !== undefined && e.earnedGbp !== null && e.earnedGbp !== '') {
@@ -8750,7 +8753,7 @@ function resetEpfPositions() {
   if (!confirm('Reset all field positions on EPF Form C back to statutory defaults?')) return;
   try {
     localStorage.removeItem('spillburg_epf_c_positions');
-  } catch (e) {}
+  } catch (e) { }
   if (payrollData) {
     delete payrollData.epfCustomPositions;
     if (typeof autoSaveToCloud === 'function') autoSaveToCloud();
@@ -8781,7 +8784,7 @@ function setupEpfDraggables() {
     activeEl = target;
     try {
       activeEl.setPointerCapture(e.pointerId);
-    } catch (err) {}
+    } catch (err) { }
     sheetRect = sheet.getBoundingClientRect();
     startX = e.clientX;
     startY = e.clientY;
@@ -8812,7 +8815,7 @@ function setupEpfDraggables() {
     if (!activeEl) return;
     try {
       activeEl.releasePointerCapture(e.pointerId);
-    } catch (err) {}
+    } catch (err) { }
     activeEl.classList.remove('is-dragging');
     activeEl.style.zIndex = '10';
     activeEl = null;
@@ -9195,7 +9198,7 @@ function resetEtfPositions() {
   if (!confirm('Reset all field positions on ETF Form R-4 back to statutory defaults?')) return;
   try {
     localStorage.removeItem('spillburg_etf_r4_positions');
-  } catch (e) {}
+  } catch (e) { }
   if (payrollData) {
     delete payrollData.etfCustomPositions;
     if (typeof autoSaveToCloud === 'function') autoSaveToCloud();
@@ -9226,7 +9229,7 @@ function setupEtfDraggables() {
     activeEl = target;
     try {
       activeEl.setPointerCapture(e.pointerId);
-    } catch (err) {}
+    } catch (err) { }
     sheetRect = sheet.getBoundingClientRect();
     startX = e.clientX;
     startY = e.clientY;
@@ -9257,7 +9260,7 @@ function setupEtfDraggables() {
     if (!activeEl) return;
     try {
       activeEl.releasePointerCapture(e.pointerId);
-    } catch (err) {}
+    } catch (err) { }
     activeEl.classList.remove('is-dragging');
     activeEl.style.zIndex = '10';
     activeEl = null;
@@ -9516,12 +9519,12 @@ function renderBankRequestLetter(container) {
         <div class="bank-letter-sheet ${bankLetterheadEnabled ? '' : 'no-letterhead'}">
 
           <!-- Date -->
-          <div style="margin-bottom: 18px; font-weight: 600;">
+          <div style="margin-bottom: 12px; font-weight: 600;">
             ${escapeHtml(p.letterDate || '30.09.2026')}
           </div>
 
           <!-- Addressee -->
-          <div style="line-height: 1.35; margin-bottom: 20px;">
+          <div style="line-height: 1.3; margin-bottom: 12px;">
             <div>The Manager</div>
             <div style="font-weight: 500;">${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC')},</div>
             <div>${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')},</div>
@@ -9529,10 +9532,10 @@ function renderBankRequestLetter(container) {
           </div>
 
           <!-- Salutation -->
-          <div style="margin-bottom: 12px;">Dear Sir,</div>
+          <div style="margin-bottom: 8px;">Dear Sir,</div>
 
           <!-- Subject -->
-          <div style="margin-bottom: 16px; font-weight: 700; text-decoration: underline;">
+          <div style="margin-bottom: 10px; font-weight: 700; text-decoration: underline;">
             SALARY FOR STAFF MEMBERS OF ${escapeHtml(currentComp.name || 'APADMI SL (PRIVATE) LIMITED').toUpperCase()}
           </div>
 
@@ -9568,16 +9571,16 @@ function renderBankRequestLetter(container) {
           </table>
 
           <!-- Debit Authorization Paragraph -->
-          <div style="margin-top: 18px; line-height: 1.45; text-align: justify;">
+          <div style="margin-top: 10px; line-height: 1.4; text-align: justify;">
             Please be kind enough to remit the respective amount for above mentioned staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
           </div>
 
           <!-- Sign-off Block -->
-          <div style="margin-top: 25px;">
+          <div style="margin-top: 14px;">
             <div>Thank You,</div>
-            <div style="margin-bottom: 45px;">Yours faithfully,</div>
+            <div style="margin-bottom: 26px;">Yours faithfully,</div>
             <div style="font-weight: 700; color: #1e293b;">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
-            <div style="font-size: 11px; color: #475569;">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')} &middot; ${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || 'Spillburg Holdings (Private) Limited')}</div>
+            <div style="font-size: 11px; color: #475569;">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')} &middot; ${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
           </div>
 
         </div>
@@ -9619,17 +9622,40 @@ function renderIndividualPayslips(container) {
           </select>
         </div>
 
-        <div class="flex items-center gap-2">
-          <button onclick="printSinglePayslip('${selectedEmp.id}')"
-            class="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs">
+        <!-- Print Controls & Layout Options -->
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- 1 Slip / Page vs 2 Slips / Page Toggle -->
+          <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <span class="text-[11px] font-bold text-slate-500 pl-1.5 flex items-center gap-1">
+              <i data-lucide="layout-grid" class="w-3 h-3 text-slate-400"></i>
+              <span>Layout:</span>
+            </span>
+            <button type="button" onclick="setPayslipPrintLayout('1_per_page')"
+              class="px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${payslipPrintLayout === '1_per_page' ? 'bg-white text-teal-800 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'}">
+              <i data-lucide="file" class="w-3 h-3"></i>
+              <span>1 Slip / Page</span>
+            </button>
+            <button type="button" onclick="setPayslipPrintLayout('2_per_page')"
+              class="px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${payslipPrintLayout === '2_per_page' ? 'bg-white text-teal-800 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'}">
+              <i data-lucide="copy" class="w-3 h-3"></i>
+              <span>2 Slips / Page (Eco)</span>
+            </button>
+          </div>
+
+          <!-- Print This Payslip (1 by one) -->
+          <button onclick="printSinglePayslip('${selectedEmp.id}', payslipPrintLayout)"
+            class="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+            title="Print only this selected employee's payslip">
             <i data-lucide="printer" class="w-3.5 h-3.5"></i>
             <span>Print This Payslip</span>
           </button>
 
-          <button onclick="printAllPayslips()"
-            class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs">
-            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-            <span>Print All ${emps.length} Payslips</span>
+          <!-- Print All Payslips -->
+          <button onclick="printAllPayslips(payslipPrintLayout)"
+            class="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+            title="Batch print all ${emps.length} payslips">
+            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+            <span>Print All (${emps.length} Slips)</span>
           </button>
         </div>
       </div>
@@ -9653,6 +9679,13 @@ function renderIndividualPayslips(container) {
   `;
 }
 
+function setPayslipPrintLayout(layout) {
+  payslipPrintLayout = layout;
+  const container = document.getElementById('payrollSubContent');
+  if (container) renderIndividualPayslips(container);
+  if (window.lucide) lucide.createIcons();
+}
+
 function selectPayslipEmployee(empId) {
   activePayslipEmployeeId = empId;
   const container = document.getElementById('payrollSubContent');
@@ -9660,16 +9693,25 @@ function selectPayslipEmployee(empId) {
   if (window.lucide) lucide.createIcons();
 }
 
-function generatePayslipHtml(emp, period) {
+function generatePayslipHtml(emp, period, copyLabel = '') {
   const comp = (payrollData?.companies || []).find(c => c.id === period.companyId) || { name: 'APADMI SL (PRIVATE) LIMITED' };
   return `
-    <div class="payslip-voucher p-5 bg-white shadow-md">
+    <div class="payslip-voucher p-4 bg-white shadow-md">
       <table>
         <tr>
-          <td colspan="2" style="border-bottom: 2px solid #000; padding-bottom: 8px;">
-            <div style="font-weight: 800; font-size: 13px; text-transform: uppercase;">${escapeHtml(comp.name)}</div>
-            <div style="font-size: 11px; color: #475569;">Monthly Payroll ${escapeHtml(period.yearPeriod || comp.payrollYearPeriod || '2026-2027')}</div>
-            <div style="font-size: 11px; font-weight: 600; margin-top: 2px;">EPF NO :${escapeHtml(emp.epfNo || String(emp.no).padStart(2, '0'))}</div>
+          <td colspan="2" style="border-bottom: 2px solid #000; padding-bottom: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+              <div>
+                <div style="font-weight: 800; font-size: 12px; text-transform: uppercase;">${escapeHtml(comp.name)}</div>
+                <div style="font-size: 10px; color: #475569;">Monthly Payroll ${escapeHtml(period.yearPeriod || comp.payrollYearPeriod || '2026-2027')}</div>
+                <div style="font-size: 10px; font-weight: 600; margin-top: 1px;">EPF NO :${escapeHtml(emp.epfNo || String(emp.no).padStart(2, '0'))}</div>
+              </div>
+              ${copyLabel ? `
+                <div style="font-size: 8.5px; font-weight: 700; text-transform: uppercase; background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; padding: 2px 6px; border-radius: 4px; white-space: nowrap;">
+                  ${escapeHtml(copyLabel)}
+                </div>
+              ` : ''}
+            </div>
           </td>
         </tr>
         <tr>
@@ -9730,7 +9772,7 @@ function generatePayslipHtml(emp, period) {
           <td>Total Deduction</td>
           <td style="text-align: right; color: #dc2626;">${formatMoney(emp.totalDeductions, 2)}</td>
         </tr>
-        <tr style="font-weight: 800; font-size: 13px; background: #ecfdf5;">
+        <tr style="font-weight: 800; font-size: 12.5px; background: #ecfdf5;">
           <td style="color: #065f46;">Balance Pay</td>
           <td style="text-align: right; color: #065f46;">${formatMoney(emp.netSalaryLkr, 2)}</td>
         </tr>
@@ -9743,9 +9785,9 @@ function generatePayslipHtml(emp, period) {
           <td style="text-align: right;">${formatMoney(emp.etf3Lkr, 2)}</td>
         </tr>
         <tr>
-          <td colspan="2" style="border-top: 2px solid #000; padding-top: 15px; font-size: 10.5px; line-height: 1.4;">
-            <div style="margin-bottom: 25px;">Signature: ....................................................</div>
-            <div style="font-weight: bold;">Spillburg Holdings (Pvt) Ltd</div>
+          <td colspan="2" style="border-top: 2px solid #000; padding-top: 10px; font-size: 9.5px; line-height: 1.35;">
+            <div style="margin-bottom: 18px;">Signature: ....................................................</div>
+            <div style="font-weight: bold;">Spillburg Holdings (Pvt) Ltd.</div>
             <div>Office 14, Basement Level</div>
             <div>Cinnamon Lakeside Hotel - Colombo 02</div>
           </td>
@@ -9971,7 +10013,7 @@ function openAddCompanyModal() {
             </div>
             <div>
               <label class="block text-[11px] font-medium text-slate-600 mb-1">Signatory Title &amp; Company</label>
-              <input type="text" id="newCompSignatoryTitle" value="Director · Spillburg Holdings (pvt)Ltd" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
+              <input type="text" id="newCompSignatoryTitle" value="Director · Spillburg Holdings (Pvt) Ltd." class="w-full p-2 bg-white border border-slate-200 rounded-lg text-xs">
             </div>
             <div>
               <label class="block text-[11px] font-medium text-slate-600 mb-1">Prepared / Checked By</label>
@@ -10259,9 +10301,9 @@ function openCompanyDirectoryModal() {
 
       <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
         ${comps.map(comp => {
-          const compPers = (payrollData?.periods || []).filter(p => p.companyId === comp.id);
-          const isSelected = comp.id === selectedPayrollCompanyId;
-          return `
+    const compPers = (payrollData?.periods || []).filter(p => p.companyId === comp.id);
+    const isSelected = comp.id === selectedPayrollCompanyId;
+    return `
             <div class="p-3.5 rounded-xl border ${isSelected ? 'border-teal-500 bg-teal-50/40 ring-1 ring-teal-500/30' : 'border-slate-200 bg-white hover:border-slate-300'} transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div class="space-y-1">
                 <div class="flex items-center gap-2">
@@ -10298,7 +10340,7 @@ function openCompanyDirectoryModal() {
               </div>
             </div>
           `;
-        }).join('')}
+  }).join('')}
       </div>
 
       <div class="pt-3 flex justify-between items-center border-t border-slate-100">
@@ -10864,16 +10906,16 @@ function openManagePeriodsModal(targetCompanyId) {
       ${allCompanies.length > 1 ? `
         <div class="flex items-center gap-1 p-1 bg-slate-100 rounded-xl overflow-x-auto">
           ${allCompanies.map(cp => {
-            const isCur = cp.id === comp.id;
-            const count = (payrollData?.periods || []).filter(p => p.companyId === cp.id).length;
-            return `
+    const isCur = cp.id === comp.id;
+    const count = (payrollData?.periods || []).filter(p => p.companyId === cp.id).length;
+    return `
               <button onclick="openManagePeriodsModal('${cp.id}')"
                 class="px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap flex items-center gap-1.5 ${isCur ? 'bg-white text-teal-800 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'}">
                 <span>${escapeHtml(cp.name)}</span>
                 <span class="px-1.5 py-0.2 rounded-full text-[10px] ${isCur ? 'bg-teal-100 text-teal-800' : 'bg-slate-200 text-slate-600'}">${count}</span>
               </button>
             `;
-          }).join('')}
+  }).join('')}
         </div>
       ` : ''}
 
@@ -10891,21 +10933,21 @@ function openManagePeriodsModal(targetCompanyId) {
       ` : `
         <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
           ${[...compPeriods].sort((a, b) => {
-            const valA = parsePeriodDateValue(a);
-            const valB = parsePeriodDateValue(b);
-            if (valA !== valB) return valB - valA;
-            return compPeriods.indexOf(b) - compPeriods.indexOf(a);
-          }).map(per => {
-            const isCur = per.id === curPeriodId;
-            const status = per.status || 'Draft';
-            const statusClass =
-              status === 'Finalized' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
-              status === 'Approved' ? 'bg-indigo-50 text-indigo-800 border-indigo-200' :
-              status === 'Under Review' ? 'bg-blue-50 text-blue-800 border-blue-200' :
-              status === 'Paid' ? 'bg-teal-50 text-teal-800 border-teal-200' :
+    const valA = parsePeriodDateValue(a);
+    const valB = parsePeriodDateValue(b);
+    if (valA !== valB) return valB - valA;
+    return compPeriods.indexOf(b) - compPeriods.indexOf(a);
+  }).map(per => {
+    const isCur = per.id === curPeriodId;
+    const status = per.status || 'Draft';
+    const statusClass =
+      status === 'Finalized' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+        status === 'Approved' ? 'bg-indigo-50 text-indigo-800 border-indigo-200' :
+          status === 'Under Review' ? 'bg-blue-50 text-blue-800 border-blue-200' :
+            status === 'Paid' ? 'bg-teal-50 text-teal-800 border-teal-200' :
               'bg-amber-50 text-amber-800 border-amber-200';
 
-            return `
+    return `
               <div class="p-3.5 rounded-xl border ${isCur ? 'border-teal-500 bg-teal-50/30 ring-1 ring-teal-500/20' : 'border-slate-200 bg-white hover:border-slate-300'} transition flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
                 <!-- Left Details -->
                 <div class="space-y-1.5">
@@ -10983,7 +11025,7 @@ function openManagePeriodsModal(targetCompanyId) {
                 </div>
               </div>
             `;
-          }).join('')}
+  }).join('')}
         </div>
       `}
 
@@ -11185,7 +11227,7 @@ function openNewPeriodModal(targetCompanyId, cloneFromId) {
   const comp = (payrollData?.companies || []).find(c => c.id === compId) || { name: 'Managed Company', code: 'CO' };
   const compPeriods = (payrollData?.periods || []).filter(p => p.companyId === compId);
   const c = document.getElementById('modalContent');
-  
+
   // Suggest next month
   let defaultMonth = "October 2026";
   let defaultMonthCode = "Oct-26";
@@ -11854,7 +11896,7 @@ function printMasterSalarySheet() {
           </div>
           <div class="text-right">
             <div class="bold">Authorized by: ${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
-            <div>${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (pvt)Ltd')}</div>
+            <div>${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
           </div>
         </div>
       ` : `
@@ -11917,7 +11959,7 @@ function printMasterSalarySheet() {
           </div>
           <div class="text-right">
             <div class="bold">Authorized by: ${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
-            <div>${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (pvt)Ltd')}</div>
+            <div>${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
           </div>
         </div>
 
@@ -11987,7 +12029,7 @@ function printMasterSalarySheet() {
   printWin.document.close();
 }
 
-// 2. Print Official Bank Request Letter (A4 Portrait with Repeating Letterhead on All Pages)
+// 2. Print Official Bank Request Letter (A4 Portrait with Letterhead on Single Page)
 function printBankRequestLetter() {
   const p = activePayrollPeriod;
   if (!p) return;
@@ -12024,110 +12066,127 @@ function printBankRequestLetter() {
           print-color-adjust: exact;
         }
 
-        /* Fixed letterhead header on EVERY page */
+        /* Fixed letterhead header */
         .letterhead-header {
           position: fixed;
           top: 0;
           left: 0;
           width: 100%;
-          height: 42mm;
+          height: 35mm;
           z-index: 10;
           pointer-events: none;
         }
         .letterhead-header img {
           width: 100%;
-          height: 42mm;
+          height: 35mm;
           object-fit: cover;
           object-position: top;
           display: block;
         }
 
-        /* Fixed letterhead footer on EVERY page */
+        /* Fixed letterhead footer */
         .letterhead-footer {
           position: fixed;
           bottom: 0;
           left: 0;
           width: 100%;
-          height: 34mm;
+          height: 25mm;
           z-index: 10;
           pointer-events: none;
         }
         .letterhead-footer img {
           width: 100%;
-          height: 34mm;
+          height: 25mm;
           object-fit: cover;
           object-position: bottom;
           display: block;
         }
 
-        /* Browser print engine repeats thead & tfoot across all printed pages */
+        /* Subtle Center Watermark */
+        .letterhead-watermark {
+          position: fixed;
+          top: 48%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 140mm;
+          opacity: 0.08;
+          z-index: 0;
+          pointer-events: none;
+        }
+        .letterhead-watermark img {
+          width: 100%;
+          display: block;
+        }
+
+        /* Browser print engine repeats thead & tfoot across printed pages */
         .print-layout-table {
           width: 100%;
           border-collapse: collapse;
           border: none;
         }
         .print-layout-table > thead > tr > td {
-          height: 44mm;
-          padding: 0;
-          border: none;
-        }
-        .print-layout-table > tfoot > tr > td {
           height: 36mm;
           padding: 0;
           border: none;
         }
+        .print-layout-table > tfoot > tr > td {
+          height: 25mm;
+          padding: 0;
+          border: none;
+        }
         .print-layout-table > tbody > tr > td {
-          padding: 0 20mm;
+          padding: 0 16mm;
           border: none;
           vertical-align: top;
         }
 
         .doc-content {
-          font-size: 9pt;
-          line-height: 1.4;
+          font-size: 8.8pt;
+          line-height: 1.35;
           color: #111;
         }
         .date {
-          margin-bottom: 3.5mm;
+          margin-bottom: 2.5mm;
           font-weight: 600;
         }
         .recipient {
-          margin-bottom: 3.5mm;
-          line-height: 1.35;
+          margin-bottom: 2.5mm;
+          line-height: 1.3;
         }
         .salutation {
-          margin-bottom: 3mm;
+          margin-bottom: 2mm;
         }
         .subject {
           font-weight: bold;
           text-decoration: underline;
-          margin-bottom: 3.5mm;
-          font-size: 9pt;
+          margin-bottom: 2.5mm;
+          font-size: 8.8pt;
         }
         .staff-table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 3.5mm;
-          font-size: 8.5pt;
-        }
-        .staff-table th, .staff-table td {
-          border: 1px solid #333;
-          padding: 3px 5px;
-        }
-        .staff-table thead {
-          display: table-header-group;
-        }
-        .staff-table tr {
-          page-break-inside: avoid;
+          margin-bottom: 2.5mm;
+          font-size: 8.2pt;
         }
         .staff-table th {
+          border-bottom: 1.5px solid #111;
+          border-top: none;
+          border-left: none;
+          border-right: none;
+          padding: 2.5px 4px;
           font-weight: bold;
-          text-align: center;
-          background: #f8f8f8;
+          text-align: left;
+          background: transparent;
+        }
+        .staff-table td {
+          border: none;
+          padding: 2.2px 4px;
+          color: #111;
         }
         .staff-table .total-row td {
           font-weight: bold;
           border-top: 1.5px solid #000;
+          padding-top: 3.5px;
         }
         .double-underline {
           text-decoration: underline;
@@ -12135,25 +12194,25 @@ function printBankRequestLetter() {
         }
         .debit-note {
           text-align: justify;
-          margin-top: 3.5mm;
-          line-height: 1.4;
-          font-size: 8.5pt;
+          margin-top: 2.5mm;
+          line-height: 1.35;
+          font-size: 8.2pt;
           page-break-inside: avoid;
         }
         .signoff-block {
-          margin-top: 4mm;
+          margin-top: 3mm;
           line-height: 1.3;
           page-break-inside: avoid;
         }
         .signature-space {
-          height: 13mm;
+          height: 7mm;
         }
         .signatory-name {
           font-weight: bold;
-          font-size: 9pt;
+          font-size: 8.8pt;
         }
         .signatory-title {
-          font-size: 8pt;
+          font-size: 7.8pt;
           color: #333;
         }
 
@@ -12174,7 +12233,8 @@ function printBankRequestLetter() {
           }
         }
         body.no-letterhead .letterhead-header,
-        body.no-letterhead .letterhead-footer {
+        body.no-letterhead .letterhead-footer,
+        body.no-letterhead .letterhead-watermark {
           display: none !important;
         }
       </style>
@@ -12200,6 +12260,9 @@ function printBankRequestLetter() {
       </div>
       <div class="letterhead-footer">
         <img src="/letterhead_footer.png" alt="Footer">
+      </div>
+      <div class="letterhead-watermark">
+        <img src="/public/logo.png" alt="Watermark">
       </div>
 
       <table class="print-layout-table">
@@ -12228,19 +12291,19 @@ function printBankRequestLetter() {
                 <table class="staff-table">
                   <thead>
                     <tr>
-                      <th style="width: 38%; text-align: left;">Name</th>
-                      <th style="width: 17%;">ID Number</th>
-                      <th style="width: 17%;">A/C Number</th>
-                      <th style="width: 28%;">Bank/ Branch</th>
-                      <th style="width: 18%; text-align: right;">Amount</th>
+                      <th style="width: 32%; text-align: left;">Name</th>
+                      <th style="width: 17%; text-align: left;">ID Number</th>
+                      <th style="width: 17%; text-align: left;">A/C Number</th>
+                      <th style="width: 20%; text-align: left;">Bank/ Branch</th>
+                      <th style="width: 14%; text-align: right;">Amount</th>
                     </tr>
                   </thead>
                   <tbody>
                     ${emps.map((e, idx) => `
                       <tr>
                         <td style="font-weight: 600;">${idx + 1}.${escapeHtml(e.name)}</td>
-                        <td style="text-align: center;">${escapeHtml(e.idNo)}</td>
-                        <td style="font-family: monospace; text-align: center;">${escapeHtml(e.bankAccountNo)}</td>
+                        <td>${escapeHtml(e.idNo)}</td>
+                        <td style="font-family: monospace;">${escapeHtml(e.bankAccountNo)}</td>
                         <td>${escapeHtml(e.bankBranch)}</td>
                         <td style="text-align: right; font-weight: 600;">${formatMoney(e.netSalaryLkr, 2)}</td>
                       </tr>
@@ -12261,10 +12324,10 @@ function printBankRequestLetter() {
 
                 <div class="signoff-block">
                   <div>Thank You,</div>
-                  <div style="margin-top: 2.5mm;">Yours faithfully,</div>
+                  <div style="margin-top: 2mm;">Yours faithfully,</div>
                   <div class="signature-space"></div>
                   <div class="signatory-name">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
-                  <div class="signatory-title">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')} &middot; ${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || 'Spillburg Holdings (Private) Limited')}</div>
+                  <div class="signatory-title">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')} &middot; ${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
                 </div>
               </div>
             </td>
@@ -12288,12 +12351,15 @@ function printBankRequestLetter() {
   printWin.document.close();
 }
 
-// 3. Print Single Payslip (A4 Portrait Voucher - Long Rectangle View)
-function printSinglePayslip(empId) {
+// 3. Print Single Payslip (1 by One - with choice of 1 slip or 2 slips on page)
+function printSinglePayslip(empId, layoutMode) {
   const p = activePayrollPeriod;
   if (!p) return;
   const emp = (p.employees || []).find(e => e.id === empId);
   if (!emp) return;
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || { name: 'APADMI SL' };
+
+  const mode = layoutMode || payslipPrintLayout || '2_per_page';
 
   const printWin = window.open('', '_blank');
   if (!printWin) {
@@ -12309,24 +12375,78 @@ function printSinglePayslip(empId) {
       <style>
         @page {
           size: A4 portrait;
-          margin: 15mm 0;
+          margin: ${mode === '2_per_page' ? '6mm 0' : '15mm 0'};
         }
+        * { box-sizing: border-box; }
         body {
           font-family: Calibri, Arial, sans-serif;
           margin: 0;
-          padding: 10px 0;
-          display: flex;
-          justify-content: center;
+          padding: 0;
           background: #fff;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
+
+        /* 1 Slip per page */
+        .payslip-page-1up {
+          min-height: 260mm;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+          padding-top: 15mm;
+          page-break-after: always;
+          break-after: page;
+          box-sizing: border-box;
+        }
+
+        /* 2 Slips per page */
+        .payslip-page-2up {
+          min-height: 275mm;
+          max-height: 280mm;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          align-items: center;
+          padding: 3mm 0;
+          page-break-after: always;
+          break-after: page;
+          box-sizing: border-box;
+        }
+        .payslip-slot {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex: 1;
+        }
+        .cut-divider {
+          width: 160mm;
+          margin: 3mm auto;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          color: #94a3b8;
+          font-size: 8pt;
+          font-family: sans-serif;
+        }
+        .cut-line {
+          flex: 1;
+          border-bottom: 1px dashed #94a3b8;
+        }
+        .cut-label {
+          font-weight: bold;
+          font-size: 7.5pt;
+          color: #64748b;
+          letter-spacing: 0.5px;
+        }
+
         .payslip-voucher {
-          width: 115mm;
-          max-width: 115mm;
+          width: 110mm;
+          max-width: 110mm;
           border: 1.5px solid #111;
-          padding: 5mm;
-          font-size: 8.5pt;
+          padding: 3.5mm 5mm;
+          font-size: 8pt;
           box-sizing: border-box;
           margin: 0 auto;
           background: #fff;
@@ -12336,16 +12456,96 @@ function printSinglePayslip(empId) {
           border-collapse: collapse;
         }
         td {
-          padding: 3px 6px;
+          padding: 2.2px 5px;
           border: 1px solid #475569;
+          font-size: 8pt;
+          line-height: 1.25;
         }
-        .bold { font-weight: bold; }
-        .text-right { text-align: right; }
+
+        /* Interactive On-screen Toolbar */
+        .no-print-toolbar {
+          background: #1e293b;
+          color: white;
+          padding: 10px 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-family: sans-serif;
+          font-size: 13px;
+        }
+        @media print {
+          .no-print-toolbar {
+            display: none !important;
+          }
+        }
       </style>
     </head>
     <body>
-      ${generatePayslipHtml(emp, p)}
+      <div class="no-print-toolbar">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <strong>Payslip:</strong>
+          <span style="opacity: 0.9;">${escapeHtml(emp.name)} (${escapeHtml(p.month)})</span>
+        </div>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button id="btn1Up" onclick="switchSingleLayout('1_per_page')" style="background: ${mode === '1_per_page' ? '#0d9488' : '#334155'}; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">1 Slip / Page</button>
+          <button id="btn2Up" onclick="switchSingleLayout('2_per_page')" style="background: ${mode === '2_per_page' ? '#0d9488' : '#334155'}; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">2 Slips / Page</button>
+          <button onclick="window.print()" style="background: #0d9488; color: white; border: none; padding: 5px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">Print</button>
+          <button onclick="window.close()" style="background: #475569; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Close</button>
+        </div>
+      </div>
+
+      <div id="payslipContainer">
+        ${mode === '2_per_page' ? `
+          <div class="payslip-page-2up">
+            <div class="payslip-slot">
+              ${generatePayslipHtml(emp, p, 'Employee Copy')}
+            </div>
+            <div class="cut-divider">
+              <span class="cut-line"></span>
+              <span class="cut-label">✂ CUT HERE &middot; OFFICE COPY BELOW</span>
+              <span class="cut-line"></span>
+            </div>
+            <div class="payslip-slot">
+              ${generatePayslipHtml(emp, p, 'Office Copy')}
+            </div>
+          </div>
+        ` : `
+          <div class="payslip-page-1up">
+            <div class="payslip-slot">
+              ${generatePayslipHtml(emp, p)}
+            </div>
+          </div>
+        `}
+      </div>
+
       <script>
+        const slipEmpCopy = ${JSON.stringify(generatePayslipHtml(emp, p, 'Employee Copy'))};
+        const slipOfficeCopy = ${JSON.stringify(generatePayslipHtml(emp, p, 'Office Copy'))};
+        const slipSingle = ${JSON.stringify(generatePayslipHtml(emp, p))};
+
+        function switchSingleLayout(newMode) {
+          document.getElementById('btn1Up').style.background = (newMode === '1_per_page' ? '#0d9488' : '#334155');
+          document.getElementById('btn2Up').style.background = (newMode === '2_per_page' ? '#0d9488' : '#334155');
+          if (newMode === '2_per_page') {
+            document.getElementById('payslipContainer').innerHTML = \`
+              <div class="payslip-page-2up">
+                <div class="payslip-slot">\${slipEmpCopy}</div>
+                <div class="cut-divider">
+                  <span class="cut-line"></span>
+                  <span class="cut-label">✂ CUT HERE &middot; OFFICE COPY BELOW</span>
+                  <span class="cut-line"></span>
+                </div>
+                <div class="payslip-slot">\${slipOfficeCopy}</div>
+              </div>
+            \`;
+          } else {
+            document.getElementById('payslipContainer').innerHTML = \`
+              <div class="payslip-page-1up">
+                <div class="payslip-slot">\${slipSingle}</div>
+              </div>
+            \`;
+          }
+        }
         window.onload = function() {
           setTimeout(function() { window.print(); }, 400);
         };
@@ -12356,17 +12556,61 @@ function printSinglePayslip(empId) {
   printWin.document.close();
 }
 
-// 4. Batch Print All Payslips (Continuous A4 with Page Breaks - Long Rectangle View)
-function printAllPayslips() {
+// 4. Batch Print All Payslips (Supports 1 Slip / Page OR 2 Slips / Page)
+function printAllPayslips(layoutMode) {
   const p = activePayrollPeriod;
   if (!p) return;
   const emps = p.employees || [];
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || { name: 'APADMI SL' };
 
+  const mode = layoutMode || payslipPrintLayout || '2_per_page';
+
   const printWin = window.open('', '_blank');
   if (!printWin) {
     alert('Please allow popups to open the print view.');
     return;
+  }
+
+  // Pre-generate 1-up pages HTML
+  const html1Up = emps.map(emp => `
+    <div class="payslip-page-1up">
+      <div class="payslip-slot">
+        ${generatePayslipHtml(emp, p)}
+      </div>
+    </div>
+  `).join('');
+
+  // Pre-generate 2-up pages HTML (pairing 2 slips per page)
+  let html2Up = '';
+  for (let i = 0; i < emps.length; i += 2) {
+    const emp1 = emps[i];
+    const emp2 = emps[i + 1];
+    html2Up += `
+      <div class="payslip-page-2up">
+        <div class="payslip-slot">
+          ${generatePayslipHtml(emp1, p)}
+        </div>
+        ${emp2 ? `
+          <div class="cut-divider">
+            <span class="cut-line"></span>
+            <span class="cut-label">✂ CUT HERE</span>
+            <span class="cut-line"></span>
+          </div>
+          <div class="payslip-slot">
+            ${generatePayslipHtml(emp2, p)}
+          </div>
+        ` : `
+          <div class="cut-divider" style="opacity: 0.35;">
+            <span class="cut-line"></span>
+            <span class="cut-label">END OF PAYROLL</span>
+            <span class="cut-line"></span>
+          </div>
+          <div class="payslip-slot" style="visibility: hidden;">
+            ${generatePayslipHtml(emp1, p)}
+          </div>
+        `}
+      </div>
+    `;
   }
 
   printWin.document.write(`
@@ -12377,8 +12621,9 @@ function printAllPayslips() {
       <style>
         @page {
           size: A4 portrait;
-          margin: 12mm 0;
+          margin: 6mm 0;
         }
+        * { box-sizing: border-box; }
         body {
           font-family: Calibri, Arial, sans-serif;
           margin: 0;
@@ -12387,21 +12632,67 @@ function printAllPayslips() {
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
-        .payslip-page {
-          page-break-after: always;
+
+        /* 1 Slip per page */
+        .payslip-page-1up {
+          min-height: 260mm;
           display: flex;
           justify-content: center;
           align-items: flex-start;
-          padding-top: 8mm;
-          min-height: 250mm;
+          padding-top: 15mm;
+          page-break-after: always;
+          break-after: page;
           box-sizing: border-box;
         }
+
+        /* 2 Slips per page */
+        .payslip-page-2up {
+          min-height: 275mm;
+          max-height: 280mm;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          align-items: center;
+          padding: 2mm 0;
+          page-break-after: always;
+          break-after: page;
+          box-sizing: border-box;
+        }
+        .payslip-slot {
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex: 1;
+        }
+        .cut-divider {
+          width: 160mm;
+          margin: 3mm auto;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          color: #94a3b8;
+          font-size: 8pt;
+          font-family: sans-serif;
+        }
+        .cut-line {
+          flex: 1;
+          border-bottom: 1px dashed #94a3b8;
+        }
+        .cut-label {
+          font-weight: bold;
+          font-size: 7.5pt;
+          color: #64748b;
+          letter-spacing: 0.5px;
+        }
+
         .payslip-voucher {
-          width: 115mm;
-          max-width: 115mm;
-          border: 1.5px solid #000;
-          padding: 5mm;
-          font-size: 8.5pt;
+          width: 110mm;
+          max-width: 110mm;
+          border: 1.5px solid #111;
+          padding: 3.5mm 5mm;
+          font-size: 8pt;
           box-sizing: border-box;
           margin: 0 auto;
           background: #fff;
@@ -12411,18 +12702,57 @@ function printAllPayslips() {
           border-collapse: collapse;
         }
         td {
-          padding: 3px 6px;
+          padding: 2.2px 5px;
           border: 1px solid #475569;
+          font-size: 8pt;
+          line-height: 1.25;
+        }
+
+        /* Interactive On-screen Toolbar */
+        .no-print-toolbar {
+          background: #1e293b;
+          color: white;
+          padding: 10px 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-family: sans-serif;
+          font-size: 13px;
+        }
+        @media print {
+          .no-print-toolbar {
+            display: none !important;
+          }
         }
       </style>
     </head>
     <body>
-      ${emps.map(emp => `
-        <div class="payslip-page">
-          ${generatePayslipHtml(emp, p)}
+      <div class="no-print-toolbar">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <strong>All Payslips</strong>
+          <span style="opacity: 0.9;">&bull; ${escapeHtml(currentComp.name)} - ${escapeHtml(p.month)} (${emps.length} Staff)</span>
         </div>
-      `).join('')}
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <span style="font-size: 11px; opacity: 0.8;">Layout:</span>
+          <button id="btn1Up" onclick="switchAllLayout('1_per_page')" style="background: ${mode === '1_per_page' ? '#0d9488' : '#334155'}; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">1 Slip / Page</button>
+          <button id="btn2Up" onclick="switchAllLayout('2_per_page')" style="background: ${mode === '2_per_page' ? '#0d9488' : '#334155'}; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">2 Slips / Page (Eco)</button>
+          <button onclick="window.print()" style="background: #0d9488; color: white; border: none; padding: 5px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">Print</button>
+          <button onclick="window.close()" style="background: #475569; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Close</button>
+        </div>
+      </div>
+
+      <div id="payslipsContainer">
+        ${mode === '2_per_page' ? html2Up : html1Up}
+      </div>
+
       <script>
+        const content1Up = ${JSON.stringify(html1Up)};
+        const content2Up = ${JSON.stringify(html2Up)};
+        function switchAllLayout(newMode) {
+          document.getElementById('btn1Up').style.background = (newMode === '1_per_page' ? '#0d9488' : '#334155');
+          document.getElementById('btn2Up').style.background = (newMode === '2_per_page' ? '#0d9488' : '#334155');
+          document.getElementById('payslipsContainer').innerHTML = (newMode === '2_per_page' ? content2Up : content1Up);
+        }
         window.onload = function() {
           setTimeout(function() { window.print(); }, 500);
         };

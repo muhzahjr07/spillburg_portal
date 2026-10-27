@@ -568,11 +568,11 @@ span.flatpickr-weekday {
 
 .bank-letter-sheet {
   position: relative;
-  min-height: 1120px;
-  padding: 140px 58px 125px 58px; /* Clear letterhead top logo & bottom footer */
+  min-height: 1040px;
+  padding: 120px 52px 75px 52px; /* Clear letterhead top logo & bottom footer */
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 11.5px;
+  line-height: 1.4;
   color: #111827;
   background-image: url('/public/spillburg_letterhead.jpg');
   background-size: 100% 100%;
@@ -583,34 +583,34 @@ span.flatpickr-weekday {
 .bank-letter-sheet.no-letterhead {
   background-image: none !important;
   background-color: #ffffff !important;
-  padding: 40px 58px;
+  padding: 35px 52px;
 }
 
 .bank-letter-sheet table {
   width: 100%;
   border-collapse: collapse;
-  margin: 12px 0;
-  font-size: 11px;
+  margin: 8px 0;
+  font-size: 10.5px;
 }
 
 .bank-letter-sheet table th {
   text-align: left;
-  padding: 4px 6px;
+  padding: 3px 5px;
   font-weight: 700;
-  border-bottom: 1px solid #94a3b8;
+  border-bottom: 1.5px solid #000;
   color: #000;
 }
 
 .bank-letter-sheet table td {
-  padding: 3.5px 6px;
+  padding: 2.2px 5px;
   color: #111;
   vertical-align: middle;
 }
 
 .bank-letter-sheet table tr.letter-total-row td {
-  border-top: 1px solid #000;
+  border-top: 1.5px solid #000;
   font-weight: 700;
-  padding-top: 6px;
+  padding-top: 4px;
 }
 
 .double-underline {
