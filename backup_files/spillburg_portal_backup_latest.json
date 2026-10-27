@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-27T07:23:20Z",
+  "exportTimestamp": "2026-10-27T07:26:55Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -822,8 +822,8 @@
       "workstream": "Operational Task",
       "type": "Operational Task",
       "taskedDate": "03-Oct-2026",
-      "completedDate": "",
-      "status": "In Progress",
+      "completedDate": "22-Oct-2026",
+      "status": "On Hold",
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Transfer all domains and hostings from firzan to company email.\nUpdate - all except vacations hosting transfered"
