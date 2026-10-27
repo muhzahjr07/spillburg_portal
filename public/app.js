@@ -8127,7 +8127,7 @@ function renderPayrollSheet(container) {
         ` : `
           <!-- DUAL CURRENCY: TABLE 1 (${foreignCurr}) -->
           <div class="excel-header-title flex items-center justify-between">
-            <span>SALARY SHEET (IN ${foreignCurr} ) - ${p.month.toUpperCase()}</span>
+            <span>SALARY SHEET (IN ${foreignCurr}) - ${p.month.toUpperCase()}</span>
             <span class="text-[11px] font-normal text-slate-500">Base Currency: ${foreignCurr}</span>
           </div>
 
