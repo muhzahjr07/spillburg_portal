@@ -58,9 +58,6 @@ Here is a visual walkthrough of the portal's core operational modules:
 
 ### 4. Digitized Financial Files & System Administration
 
-| Financial Files & Tax Identity Register | High-Resolution Lightbox Inspection Modal |
-|:---:|:---:|
-| <a href="screenshots/06_financial_files_ledger.png"><img src="screenshots/06_financial_files_ledger.png" alt="Financial Register" width="100%"/></a> | <a href="screenshots/07_financial_files_lightbox.png"><img src="screenshots/07_financial_files_lightbox.png" alt="Lightbox Inspection" width="100%"/></a> |
 | **Digitized corporate entities, TINs, IRD PINs, & audit records** | **Full-resolution scanned physical ledger notebook page viewer** |
 
 | Access Control Center & Staff Directory | Secure Employee Sign-In Portal |
