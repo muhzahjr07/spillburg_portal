@@ -181,11 +181,6 @@ Here is a visual walkthrough of the portal's core operational modules:
 |:---|:---|:---|:---|
 | **Executive Director** | `director` | `director123` | Full access across all corporate modules |
 | **System Admin** | `admin` | `admin123` | Full access + User & Role Governance |
-| **Managing Director** | `hameez` | `spillburg123` | Executive oversight across corporate data |
-| **Operations Director**| `shameel` | `spillburg123` | Operations management & task allocation |
-| **Systems Administrator**| `zaharan` | `admin123` | Operations administration & systems management |
-| **Database Coordinator**| `staff_insaaf` | `staff123` | Customer files & operations editor |
-| **Operations Officer** | `staff_hemanthi` | `staff123` | Operations, customer files, & payroll editor |
 | **Staff Member (Editor)**| `staff_editor` | `staff123` | General editor access across active registers |
 | **Staff Member (Viewer)**| `staff_viewer` | `staff123` | Read-only access across registers |
 
