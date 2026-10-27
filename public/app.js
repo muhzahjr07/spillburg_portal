@@ -9578,7 +9578,8 @@ function renderBankRequestLetter(container) {
           <!-- Sign-off Block -->
           <div style="margin-top: 14px;">
             <div>Thank You,</div>
-            <div style="margin-bottom: 26px;">Yours faithfully,</div>
+            <div style="margin-top: 4px;">Yours faithfully,</div>
+            <div style="height: 48px;"></div>
             <div style="font-weight: 700; color: #1e293b;">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
             <div style="font-size: 11px; color: #475569;">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')} &middot; ${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
           </div>
@@ -9638,7 +9639,7 @@ function renderIndividualPayslips(container) {
             <button type="button" onclick="setPayslipPrintLayout('2_per_page')"
               class="px-2.5 py-1 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1 ${payslipPrintLayout === '2_per_page' ? 'bg-white text-teal-800 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'}">
               <i data-lucide="copy" class="w-3 h-3"></i>
-              <span>2 Slips / Page (Eco)</span>
+              <span>2 Slips / Page (Side by Side)</span>
             </button>
           </div>
 
@@ -9693,25 +9694,16 @@ function selectPayslipEmployee(empId) {
   if (window.lucide) lucide.createIcons();
 }
 
-function generatePayslipHtml(emp, period, copyLabel = '') {
+function generatePayslipHtml(emp, period) {
   const comp = (payrollData?.companies || []).find(c => c.id === period.companyId) || { name: 'APADMI SL (PRIVATE) LIMITED' };
   return `
     <div class="payslip-voucher p-4 bg-white shadow-md">
       <table>
         <tr>
           <td colspan="2" style="border-bottom: 2px solid #000; padding-bottom: 6px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-              <div>
-                <div style="font-weight: 800; font-size: 12px; text-transform: uppercase;">${escapeHtml(comp.name)}</div>
-                <div style="font-size: 10px; color: #475569;">Monthly Payroll ${escapeHtml(period.yearPeriod || comp.payrollYearPeriod || '2026-2027')}</div>
-                <div style="font-size: 10px; font-weight: 600; margin-top: 1px;">EPF NO :${escapeHtml(emp.epfNo || String(emp.no).padStart(2, '0'))}</div>
-              </div>
-              ${copyLabel ? `
-                <div style="font-size: 8.5px; font-weight: 700; text-transform: uppercase; background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; padding: 2px 6px; border-radius: 4px; white-space: nowrap;">
-                  ${escapeHtml(copyLabel)}
-                </div>
-              ` : ''}
-            </div>
+            <div style="font-weight: 800; font-size: 12px; text-transform: uppercase;">${escapeHtml(comp.name)}</div>
+            <div style="font-size: 10px; color: #475569;">Monthly Payroll ${escapeHtml(period.yearPeriod || comp.payrollYearPeriod || '2026-2027')}</div>
+            <div style="font-size: 10px; font-weight: 600; margin-top: 1px;">EPF NO :${escapeHtml(emp.epfNo || String(emp.no).padStart(2, '0'))}</div>
           </td>
         </tr>
         <tr>
@@ -12029,7 +12021,7 @@ function printMasterSalarySheet() {
   printWin.document.close();
 }
 
-// 2. Print Official Bank Request Letter (A4 Portrait with Letterhead on Single Page)
+// 2. Print Official Bank Request Letter (A4 Portrait with Full Letterhead Background on Single Page)
 function printBankRequestLetter() {
   const p = activePayrollPeriod;
   if (!p) return;
@@ -12066,55 +12058,19 @@ function printBankRequestLetter() {
           print-color-adjust: exact;
         }
 
-        /* Fixed letterhead header */
-        .letterhead-header {
+        /* Full-page exact letterhead background: preserves top logo padding, subtle center watermark, and complete bottom footer */
+        .letterhead-bg {
           position: fixed;
           top: 0;
           left: 0;
-          width: 100%;
-          height: 35mm;
-          z-index: 10;
+          width: 210mm;
+          height: 297mm;
+          z-index: -1;
           pointer-events: none;
         }
-        .letterhead-header img {
-          width: 100%;
-          height: 35mm;
-          object-fit: cover;
-          object-position: top;
-          display: block;
-        }
-
-        /* Fixed letterhead footer */
-        .letterhead-footer {
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          width: 100%;
-          height: 25mm;
-          z-index: 10;
-          pointer-events: none;
-        }
-        .letterhead-footer img {
-          width: 100%;
-          height: 25mm;
-          object-fit: cover;
-          object-position: bottom;
-          display: block;
-        }
-
-        /* Subtle Center Watermark */
-        .letterhead-watermark {
-          position: fixed;
-          top: 48%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: 140mm;
-          opacity: 0.08;
-          z-index: 0;
-          pointer-events: none;
-        }
-        .letterhead-watermark img {
-          width: 100%;
+        .letterhead-bg img {
+          width: 210mm;
+          height: 297mm;
           display: block;
         }
 
@@ -12125,12 +12081,12 @@ function printBankRequestLetter() {
           border: none;
         }
         .print-layout-table > thead > tr > td {
-          height: 36mm;
+          height: 40mm;
           padding: 0;
           border: none;
         }
         .print-layout-table > tfoot > tr > td {
-          height: 25mm;
+          height: 26mm;
           padding: 0;
           border: none;
         }
@@ -12141,17 +12097,17 @@ function printBankRequestLetter() {
         }
 
         .doc-content {
-          font-size: 8.8pt;
+          font-size: 8.5pt;
           line-height: 1.35;
           color: #111;
         }
         .date {
-          margin-bottom: 2.5mm;
+          margin-bottom: 2mm;
           font-weight: 600;
         }
         .recipient {
-          margin-bottom: 2.5mm;
-          line-height: 1.3;
+          margin-bottom: 2mm;
+          line-height: 1.25;
         }
         .salutation {
           margin-bottom: 2mm;
@@ -12160,33 +12116,35 @@ function printBankRequestLetter() {
           font-weight: bold;
           text-decoration: underline;
           margin-bottom: 2.5mm;
-          font-size: 8.8pt;
+          font-size: 8.5pt;
         }
         .staff-table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 2.5mm;
-          font-size: 8.2pt;
+          margin-bottom: 2mm;
+          font-size: 7.8pt;
         }
         .staff-table th {
           border-bottom: 1.5px solid #111;
           border-top: none;
           border-left: none;
           border-right: none;
-          padding: 2.5px 4px;
+          padding: 2px 3px;
           font-weight: bold;
           text-align: left;
           background: transparent;
+          line-height: 1.2;
         }
         .staff-table td {
           border: none;
-          padding: 2.2px 4px;
+          padding: 1.8px 3px;
           color: #111;
+          line-height: 1.2;
         }
         .staff-table .total-row td {
           font-weight: bold;
           border-top: 1.5px solid #000;
-          padding-top: 3.5px;
+          padding-top: 3px;
         }
         .double-underline {
           text-decoration: underline;
@@ -12196,7 +12154,7 @@ function printBankRequestLetter() {
           text-align: justify;
           margin-top: 2.5mm;
           line-height: 1.35;
-          font-size: 8.2pt;
+          font-size: 7.8pt;
           page-break-inside: avoid;
         }
         .signoff-block {
@@ -12205,14 +12163,14 @@ function printBankRequestLetter() {
           page-break-inside: avoid;
         }
         .signature-space {
-          height: 7mm;
+          height: 16mm;
         }
         .signatory-name {
           font-weight: bold;
-          font-size: 8.8pt;
+          font-size: 8.5pt;
         }
         .signatory-title {
-          font-size: 7.8pt;
+          font-size: 7.5pt;
           color: #333;
         }
 
@@ -12232,9 +12190,7 @@ function printBankRequestLetter() {
             display: none !important;
           }
         }
-        body.no-letterhead .letterhead-header,
-        body.no-letterhead .letterhead-footer,
-        body.no-letterhead .letterhead-watermark {
+        body.no-letterhead .letterhead-bg {
           display: none !important;
         }
       </style>
@@ -12255,14 +12211,8 @@ function printBankRequestLetter() {
         </div>
       </div>
 
-      <div class="letterhead-header">
-        <img src="/letterhead_header.png" alt="Header">
-      </div>
-      <div class="letterhead-footer">
-        <img src="/letterhead_footer.png" alt="Footer">
-      </div>
-      <div class="letterhead-watermark">
-        <img src="/public/logo.png" alt="Watermark">
+      <div class="letterhead-bg">
+        <img src="/public/spillburg_letterhead.jpg" alt="Spillburg Letterhead">
       </div>
 
       <table class="print-layout-table">
@@ -12275,7 +12225,7 @@ function printBankRequestLetter() {
           <tr>
             <td>
               <div class="doc-content">
-                <div class="date">${escapeHtml(p.letterDate || '30.09.2026')}</div>
+                <div class="date">${escapeHtml(p.letterDate || '31.10.2026')}</div>
 
                 <div class="recipient">
                   <div>The Manager</div>
@@ -12291,8 +12241,8 @@ function printBankRequestLetter() {
                 <table class="staff-table">
                   <thead>
                     <tr>
-                      <th style="width: 32%; text-align: left;">Name</th>
-                      <th style="width: 17%; text-align: left;">ID Number</th>
+                      <th style="width: 33%; text-align: left;">Name</th>
+                      <th style="width: 16%; text-align: left;">ID Number</th>
                       <th style="width: 17%; text-align: left;">A/C Number</th>
                       <th style="width: 20%; text-align: left;">Bank/ Branch</th>
                       <th style="width: 14%; text-align: right;">Amount</th>
@@ -12324,7 +12274,7 @@ function printBankRequestLetter() {
 
                 <div class="signoff-block">
                   <div>Thank You,</div>
-                  <div style="margin-top: 2mm;">Yours faithfully,</div>
+                  <div style="margin-top: 1.5mm;">Yours faithfully,</div>
                   <div class="signature-space"></div>
                   <div class="signatory-name">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
                   <div class="signatory-title">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')} &middot; ${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
@@ -12351,13 +12301,21 @@ function printBankRequestLetter() {
   printWin.document.close();
 }
 
-// 3. Print Single Payslip (1 by One - with choice of 1 slip or 2 slips on page)
+// 3. Print Single Payslip (Supports 1 Slip / Page Portrait OR 2 Slips Side-by-Side Landscape)
 function printSinglePayslip(empId, layoutMode) {
   const p = activePayrollPeriod;
   if (!p) return;
-  const emp = (p.employees || []).find(e => e.id === empId);
+  const emps = p.employees || [];
+  const empIndex = emps.findIndex(e => e.id === empId);
+  const emp = emps[empIndex] || emps[0];
   if (!emp) return;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || { name: 'APADMI SL' };
+
+  // For side-by-side mode: pair with adjacent employee in period roster
+  const partnerIndex = (empIndex % 2 === 0) ? empIndex + 1 : empIndex - 1;
+  const partnerEmp = (partnerIndex >= 0 && partnerIndex < emps.length) ? emps[partnerIndex] : null;
+  const empLeft = (empIndex % 2 === 0) ? emp : partnerEmp;
+  const empRight = (empIndex % 2 === 0) ? partnerEmp : emp;
 
   const mode = layoutMode || payslipPrintLayout || '2_per_page';
 
@@ -12374,8 +12332,8 @@ function printSinglePayslip(empId, layoutMode) {
       <title>Payslip - ${escapeHtml(emp.name)} - ${escapeHtml(p.month)}</title>
       <style>
         @page {
-          size: A4 portrait;
-          margin: ${mode === '2_per_page' ? '6mm 0' : '15mm 0'};
+          size: ${mode === '2_per_page' ? 'A4 landscape' : 'A4 portrait'};
+          margin: 0;
         }
         * { box-sizing: border-box; }
         body {
@@ -12387,65 +12345,69 @@ function printSinglePayslip(empId, layoutMode) {
           print-color-adjust: exact;
         }
 
-        /* 1 Slip per page */
+        /* 2 Slips Side by Side (A4 Landscape: 297mm x 210mm) */
+        .payslip-sheet-side-by-side {
+          width: 297mm;
+          height: 210mm;
+          max-height: 210mm;
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          page-break-after: always;
+          break-after: page;
+          padding: 8mm 12mm;
+          box-sizing: border-box;
+          position: relative;
+        }
+        .payslip-half {
+          width: 130mm;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+        .vertical-cut-divider {
+          width: 10mm;
+          height: 185mm;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          color: #94a3b8;
+        }
+        .cut-line-top, .cut-line-bottom {
+          flex: 1;
+          width: 0;
+          border-right: 1px dashed #94a3b8;
+        }
+        .cut-label-vert {
+          font-size: 7.5pt;
+          font-family: sans-serif;
+          font-weight: bold;
+          color: #64748b;
+          writing-mode: vertical-rl;
+          transform: rotate(180deg);
+          letter-spacing: 1px;
+          padding: 8px 0;
+        }
+
+        /* 1 Slip per page (A4 Portrait: 210mm x 297mm) */
         .payslip-page-1up {
           min-height: 260mm;
           display: flex;
           justify-content: center;
           align-items: flex-start;
-          padding-top: 15mm;
+          padding-top: 20mm;
           page-break-after: always;
           break-after: page;
           box-sizing: border-box;
-        }
-
-        /* 2 Slips per page */
-        .payslip-page-2up {
-          min-height: 275mm;
-          max-height: 280mm;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          align-items: center;
-          padding: 3mm 0;
-          page-break-after: always;
-          break-after: page;
-          box-sizing: border-box;
-        }
-        .payslip-slot {
-          width: 100%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          flex: 1;
-        }
-        .cut-divider {
-          width: 160mm;
-          margin: 3mm auto;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          color: #94a3b8;
-          font-size: 8pt;
-          font-family: sans-serif;
-        }
-        .cut-line {
-          flex: 1;
-          border-bottom: 1px dashed #94a3b8;
-        }
-        .cut-label {
-          font-weight: bold;
-          font-size: 7.5pt;
-          color: #64748b;
-          letter-spacing: 0.5px;
         }
 
         .payslip-voucher {
-          width: 110mm;
-          max-width: 110mm;
+          width: 120mm;
+          max-width: 120mm;
           border: 1.5px solid #111;
-          padding: 3.5mm 5mm;
+          padding: 4mm 6mm;
           font-size: 8pt;
           box-sizing: border-box;
           margin: 0 auto;
@@ -12487,8 +12449,8 @@ function printSinglePayslip(empId, layoutMode) {
           <span style="opacity: 0.9;">${escapeHtml(emp.name)} (${escapeHtml(p.month)})</span>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
-          <button id="btn1Up" onclick="switchSingleLayout('1_per_page')" style="background: ${mode === '1_per_page' ? '#0d9488' : '#334155'}; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">1 Slip / Page</button>
-          <button id="btn2Up" onclick="switchSingleLayout('2_per_page')" style="background: ${mode === '2_per_page' ? '#0d9488' : '#334155'}; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">2 Slips / Page</button>
+          <button id="btn1Up" onclick="switchSingleLayout('1_per_page')" style="background: ${mode === '1_per_page' ? '#0d9488' : '#334155'}; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">1 Slip / Page (Portrait)</button>
+          <button id="btn2Up" onclick="switchSingleLayout('2_per_page')" style="background: ${mode === '2_per_page' ? '#0d9488' : '#334155'}; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">2 Slips / Page (Side by Side)</button>
           <button onclick="window.print()" style="background: #0d9488; color: white; border: none; padding: 5px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">Print</button>
           <button onclick="window.close()" style="background: #475569; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Close</button>
         </div>
@@ -12496,53 +12458,49 @@ function printSinglePayslip(empId, layoutMode) {
 
       <div id="payslipContainer">
         ${mode === '2_per_page' ? `
-          <div class="payslip-page-2up">
-            <div class="payslip-slot">
-              ${generatePayslipHtml(emp, p, 'Employee Copy')}
+          <div class="payslip-sheet-side-by-side">
+            <div class="payslip-half">
+              ${empLeft ? generatePayslipHtml(empLeft, p) : ''}
             </div>
-            <div class="cut-divider">
-              <span class="cut-line"></span>
-              <span class="cut-label">✂ CUT HERE &middot; OFFICE COPY BELOW</span>
-              <span class="cut-line"></span>
+            <div class="vertical-cut-divider">
+              <div class="cut-line-top"></div>
+              <div class="cut-label-vert">✂ CUT HERE</div>
+              <div class="cut-line-bottom"></div>
             </div>
-            <div class="payslip-slot">
-              ${generatePayslipHtml(emp, p, 'Office Copy')}
+            <div class="payslip-half">
+              ${empRight ? generatePayslipHtml(empRight, p) : ''}
             </div>
           </div>
         ` : `
           <div class="payslip-page-1up">
-            <div class="payslip-slot">
-              ${generatePayslipHtml(emp, p)}
-            </div>
+            ${generatePayslipHtml(emp, p)}
           </div>
         `}
       </div>
 
       <script>
-        const slipEmpCopy = ${JSON.stringify(generatePayslipHtml(emp, p, 'Employee Copy'))};
-        const slipOfficeCopy = ${JSON.stringify(generatePayslipHtml(emp, p, 'Office Copy'))};
         const slipSingle = ${JSON.stringify(generatePayslipHtml(emp, p))};
+        const slipLeft = ${JSON.stringify(empLeft ? generatePayslipHtml(empLeft, p) : '')};
+        const slipRight = ${JSON.stringify(empRight ? generatePayslipHtml(empRight, p) : '')};
 
         function switchSingleLayout(newMode) {
           document.getElementById('btn1Up').style.background = (newMode === '1_per_page' ? '#0d9488' : '#334155');
           document.getElementById('btn2Up').style.background = (newMode === '2_per_page' ? '#0d9488' : '#334155');
           if (newMode === '2_per_page') {
             document.getElementById('payslipContainer').innerHTML = \`
-              <div class="payslip-page-2up">
-                <div class="payslip-slot">\${slipEmpCopy}</div>
-                <div class="cut-divider">
-                  <span class="cut-line"></span>
-                  <span class="cut-label">✂ CUT HERE &middot; OFFICE COPY BELOW</span>
-                  <span class="cut-line"></span>
+              <div class="payslip-sheet-side-by-side">
+                <div class="payslip-half">\${slipLeft}</div>
+                <div class="vertical-cut-divider">
+                  <div class="cut-line-top"></div>
+                  <div class="cut-label-vert">✂ CUT HERE</div>
+                  <div class="cut-line-bottom"></div>
                 </div>
-                <div class="payslip-slot">\${slipOfficeCopy}</div>
+                <div class="payslip-half">\${slipRight}</div>
               </div>
             \`;
           } else {
             document.getElementById('payslipContainer').innerHTML = \`
-              <div class="payslip-page-1up">
-                <div class="payslip-slot">\${slipSingle}</div>
-              </div>
+              <div class="payslip-page-1up">\${slipSingle}</div>
             \`;
           }
         }
@@ -12556,7 +12514,7 @@ function printSinglePayslip(empId, layoutMode) {
   printWin.document.close();
 }
 
-// 4. Batch Print All Payslips (Supports 1 Slip / Page OR 2 Slips / Page)
+// 4. Batch Print All Payslips (Supports 1 Slip / Page Portrait OR 2 Slips Side-by-Side Landscape)
 function printAllPayslips(layoutMode) {
   const p = activePayrollPeriod;
   if (!p) return;
@@ -12571,44 +12529,31 @@ function printAllPayslips(layoutMode) {
     return;
   }
 
-  // Pre-generate 1-up pages HTML
+  // Pre-generate 1-up pages HTML (A4 portrait per employee)
   const html1Up = emps.map(emp => `
     <div class="payslip-page-1up">
-      <div class="payslip-slot">
-        ${generatePayslipHtml(emp, p)}
-      </div>
+      ${generatePayslipHtml(emp, p)}
     </div>
   `).join('');
 
-  // Pre-generate 2-up pages HTML (pairing 2 slips per page)
+  // Pre-generate 2-up side-by-side pages HTML (A4 landscape with 2 employees side-by-side)
   let html2Up = '';
   for (let i = 0; i < emps.length; i += 2) {
     const emp1 = emps[i];
-    const emp2 = emps[i + 1];
+    const emp2 = (i + 1 < emps.length) ? emps[i + 1] : null;
     html2Up += `
-      <div class="payslip-page-2up">
-        <div class="payslip-slot">
+      <div class="payslip-sheet-side-by-side">
+        <div class="payslip-half">
           ${generatePayslipHtml(emp1, p)}
         </div>
-        ${emp2 ? `
-          <div class="cut-divider">
-            <span class="cut-line"></span>
-            <span class="cut-label">✂ CUT HERE</span>
-            <span class="cut-line"></span>
-          </div>
-          <div class="payslip-slot">
-            ${generatePayslipHtml(emp2, p)}
-          </div>
-        ` : `
-          <div class="cut-divider" style="opacity: 0.35;">
-            <span class="cut-line"></span>
-            <span class="cut-label">END OF PAYROLL</span>
-            <span class="cut-line"></span>
-          </div>
-          <div class="payslip-slot" style="visibility: hidden;">
-            ${generatePayslipHtml(emp1, p)}
-          </div>
-        `}
+        <div class="vertical-cut-divider">
+          <div class="cut-line-top"></div>
+          <div class="cut-label-vert">✂ CUT HERE</div>
+          <div class="cut-line-bottom"></div>
+        </div>
+        <div class="payslip-half">
+          ${emp2 ? generatePayslipHtml(emp2, p) : ''}
+        </div>
       </div>
     `;
   }
@@ -12620,8 +12565,8 @@ function printAllPayslips(layoutMode) {
       <title>All Payslips - ${escapeHtml(p.month)} - ${escapeHtml(currentComp.name)}</title>
       <style>
         @page {
-          size: A4 portrait;
-          margin: 6mm 0;
+          size: ${mode === '2_per_page' ? 'A4 landscape' : 'A4 portrait'};
+          margin: 0;
         }
         * { box-sizing: border-box; }
         body {
@@ -12633,65 +12578,69 @@ function printAllPayslips(layoutMode) {
           print-color-adjust: exact;
         }
 
-        /* 1 Slip per page */
+        /* 2 Slips Side by Side (A4 Landscape: 297mm x 210mm) */
+        .payslip-sheet-side-by-side {
+          width: 297mm;
+          height: 210mm;
+          max-height: 210mm;
+          display: flex;
+          flex-direction: row;
+          justify-content: space-between;
+          align-items: center;
+          page-break-after: always;
+          break-after: page;
+          padding: 8mm 12mm;
+          box-sizing: border-box;
+          position: relative;
+        }
+        .payslip-half {
+          width: 130mm;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+        .vertical-cut-divider {
+          width: 10mm;
+          height: 185mm;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          color: #94a3b8;
+        }
+        .cut-line-top, .cut-line-bottom {
+          flex: 1;
+          width: 0;
+          border-right: 1px dashed #94a3b8;
+        }
+        .cut-label-vert {
+          font-size: 7.5pt;
+          font-family: sans-serif;
+          font-weight: bold;
+          color: #64748b;
+          writing-mode: vertical-rl;
+          transform: rotate(180deg);
+          letter-spacing: 1px;
+          padding: 8px 0;
+        }
+
+        /* 1 Slip per page (A4 Portrait: 210mm x 297mm) */
         .payslip-page-1up {
           min-height: 260mm;
           display: flex;
           justify-content: center;
           align-items: flex-start;
-          padding-top: 15mm;
+          padding-top: 20mm;
           page-break-after: always;
           break-after: page;
           box-sizing: border-box;
-        }
-
-        /* 2 Slips per page */
-        .payslip-page-2up {
-          min-height: 275mm;
-          max-height: 280mm;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          align-items: center;
-          padding: 2mm 0;
-          page-break-after: always;
-          break-after: page;
-          box-sizing: border-box;
-        }
-        .payslip-slot {
-          width: 100%;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          flex: 1;
-        }
-        .cut-divider {
-          width: 160mm;
-          margin: 3mm auto;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          color: #94a3b8;
-          font-size: 8pt;
-          font-family: sans-serif;
-        }
-        .cut-line {
-          flex: 1;
-          border-bottom: 1px dashed #94a3b8;
-        }
-        .cut-label {
-          font-weight: bold;
-          font-size: 7.5pt;
-          color: #64748b;
-          letter-spacing: 0.5px;
         }
 
         .payslip-voucher {
-          width: 110mm;
-          max-width: 110mm;
+          width: 120mm;
+          max-width: 120mm;
           border: 1.5px solid #111;
-          padding: 3.5mm 5mm;
+          padding: 4mm 6mm;
           font-size: 8pt;
           box-sizing: border-box;
           margin: 0 auto;
@@ -12734,8 +12683,8 @@ function printAllPayslips(layoutMode) {
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
           <span style="font-size: 11px; opacity: 0.8;">Layout:</span>
-          <button id="btn1Up" onclick="switchAllLayout('1_per_page')" style="background: ${mode === '1_per_page' ? '#0d9488' : '#334155'}; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">1 Slip / Page</button>
-          <button id="btn2Up" onclick="switchAllLayout('2_per_page')" style="background: ${mode === '2_per_page' ? '#0d9488' : '#334155'}; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">2 Slips / Page (Eco)</button>
+          <button id="btn1Up" onclick="switchAllLayout('1_per_page')" style="background: ${mode === '1_per_page' ? '#0d9488' : '#334155'}; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">1 Slip / Page (Portrait)</button>
+          <button id="btn2Up" onclick="switchAllLayout('2_per_page')" style="background: ${mode === '2_per_page' ? '#0d9488' : '#334155'}; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">2 Slips / Page (Side by Side)</button>
           <button onclick="window.print()" style="background: #0d9488; color: white; border: none; padding: 5px 14px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 12px;">Print</button>
           <button onclick="window.close()" style="background: #475569; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">Close</button>
         </div>
