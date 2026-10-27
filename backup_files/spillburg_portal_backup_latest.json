@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-27T07:27:27Z",
+  "exportTimestamp": "2026-10-27T07:32:16Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1269,6 +1269,23 @@
       "priority": "Low",
       "estimatedCost": "",
       "notes": "create a report on Attanagala Waste Management based on images and raw data."
+    },
+    {
+      "id": "ops_7355a3",
+      "no": 67,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Company Laptops Audit & Review",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Office Operations",
+      "type": "Operational Task",
+      "taskedDate": "27-Oct-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Review and audit 3 company laptops and prepare to send off-company"
     }
   ],
   "payroll": {
