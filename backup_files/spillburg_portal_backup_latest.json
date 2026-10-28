@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-27T08:02:00Z",
+  "exportTimestamp": "2026-10-28T04:11:37Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1286,6 +1286,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Review and audit 3 company laptops and prepare to send off-company"
+    },
+    {
+      "id": "ops_48acb4",
+      "no": 68,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Add Spillburg Holdings And Vacation to Payroll System",
+      "requestedBy": "Miss. Hemanthi",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Office Operations",
+      "type": "Operational Task",
+      "taskedDate": "28-Oct-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Add Spillburg Holdings And Vacation to Payroll System"
     }
   ],
   "payroll": {
