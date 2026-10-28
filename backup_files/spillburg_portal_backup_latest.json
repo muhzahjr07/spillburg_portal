@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-28T10:22:25Z",
+  "exportTimestamp": "2026-10-28T10:25:34Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -535,7 +535,7 @@
       "taskedDate": "18-Sep-2026",
       "completedDate": "",
       "status": "In Progress",
-      "priority": "Medium",
+      "priority": "High",
       "estimatedCost": "",
       "notes": "Review the new company profile and find out shortcomings and suggestions"
     },
@@ -647,7 +647,7 @@
       "taskedDate": "22-Sep-2026",
       "completedDate": "",
       "status": "In Progress",
-      "priority": "Medium",
+      "priority": "High",
       "estimatedCost": "",
       "notes": "Create a company profile for Spillburg Corporate Services"
     },
@@ -679,7 +679,7 @@
       "taskedDate": "23-Sep-2026",
       "completedDate": "",
       "status": "In Progress",
-      "priority": "High",
+      "priority": "Low",
       "estimatedCost": "",
       "notes": "Fill the indemnity form for all clients"
     },
@@ -909,7 +909,7 @@
       "taskedDate": "07-Oct-2026",
       "completedDate": "",
       "status": "In Progress",
-      "priority": "Medium",
+      "priority": "Low",
       "estimatedCost": "",
       "notes": "Create a slideshow video for Spillburg Holdings, based on Mr. Shameel and Mr. Hameez LinkedIn Profiles"
     },
@@ -1011,7 +1011,7 @@
       "taskedDate": "14-Oct-2026",
       "completedDate": "",
       "status": "In Progress",
-      "priority": "Low",
+      "priority": "Medium",
       "estimatedCost": "",
       "notes": "Create a website Spillburg Logistics 1"
     },
@@ -1079,7 +1079,7 @@
       "taskedDate": "20-Oct-2026",
       "completedDate": "",
       "status": "In Progress",
-      "priority": "Medium",
+      "priority": "Low",
       "estimatedCost": "",
       "notes": "Create logo for Spillburg Corporate Services & Spillburg Logistics 1"
     },
@@ -1130,7 +1130,7 @@
       "taskedDate": "25-Sep-2026",
       "completedDate": "",
       "status": "In Progress",
-      "priority": "Medium",
+      "priority": "High",
       "estimatedCost": "",
       "notes": "Cordinate with Anisa and create a website for slfbc\nNotes - SL FR - Localization\nwhen doing the srii lanka france business council website check MEDEF International,  Business France India, Sri Lanka embassy in France,  IFCCI websited"
     },
@@ -1164,7 +1164,7 @@
       "taskedDate": "22-Oct-2026",
       "completedDate": "",
       "status": "In Progress",
-      "priority": "Medium",
+      "priority": "High",
       "estimatedCost": "",
       "notes": "create a unique Company Profile For Spillburg Logistics 1"
     },
