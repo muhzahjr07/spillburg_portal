@@ -1,8 +1,13 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
+<<<<<<< HEAD
   "exportTimestamp": "2026-10-28T08:42:43Z",
   "storageLocation": "C:\\Users\\User\\Desktop\\Spillburg Admin\\projects\\company_portal\\data",
+=======
+  "exportTimestamp": "2026-10-28T08:41:35Z",
+  "storageLocation": "/opt/render/project/src/data",
+>>>>>>> 0d895031e0fb7e220e446cc32c35cf6d337fda69
   "users": [
     {
       "id": "usr_dir_master",
@@ -1281,8 +1286,8 @@
       "workstream": "Office Operations",
       "type": "Operational Task",
       "taskedDate": "27-Oct-2026",
-      "completedDate": "",
-      "status": "In Progress",
+      "completedDate": "28-Oct-2026",
+      "status": "Completed",
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Review and audit 3 company laptops and prepare to send off-company"
@@ -1299,7 +1304,7 @@
       "type": "Operational Task",
       "taskedDate": "28-Oct-2026",
       "completedDate": "",
-      "status": "Pending",
+      "status": "In Progress",
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Add Spillburg Holdings And Vacation to Payroll System"
