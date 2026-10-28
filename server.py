@@ -1022,8 +1022,12 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             
         advance = float(emp.get('advance') or 0.0)
         loan = float(emp.get('loan') or 0.0)
+        if emp.get('otherDeductions') is not None and str(emp.get('otherDeductions')).strip() != '':
+            other_deductions = float(emp.get('otherDeductions'))
+        else:
+            other_deductions = float(advance + loan)
         
-        total_deductions = epf8_lkr + apit + advance + loan
+        total_deductions = epf8_lkr + apit + other_deductions
         net_salary_lkr = round(net_total_gross - total_deductions)
         
         return {
@@ -1046,6 +1050,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             'apit': apit,
             'advance': advance,
             'loan': loan,
+            'otherDeductions': other_deductions,
             'totalDeductions': total_deductions,
             'netSalaryLkr': net_salary_lkr
         }
@@ -1076,8 +1081,12 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             
         advance = float(emp.get('advance') or 0.0)
         loan = float(emp.get('loan') or 0.0)
+        if emp.get('otherDeductions') is not None and str(emp.get('otherDeductions')).strip() != '':
+            other_deductions = float(emp.get('otherDeductions'))
+        else:
+            other_deductions = float(advance + loan)
         
-        total_deductions = epf8_lkr + apit + advance + loan
+        total_deductions = epf8_lkr + apit + other_deductions
         net_salary_lkr = round(net_total_gross - total_deductions)
         
         return {
@@ -1098,6 +1107,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             'apit': apit,
             'advance': advance,
             'loan': loan,
+            'otherDeductions': other_deductions,
             'totalDeductions': total_deductions,
             'netSalaryLkr': net_salary_lkr
         }
@@ -1126,6 +1136,7 @@ def enrich_payroll_period(period):
     sum_apit_lkr = 0.0
     sum_deductions_lkr = 0.0
     sum_net_salary_lkr = 0.0
+    sum_other_deductions_lkr = 0.0
     
     for emp in employees:
         c = compute_employee_payroll(emp, rate, currency_mode)
@@ -1142,6 +1153,7 @@ def enrich_payroll_period(period):
         sum_apit_lkr += c.get('apit', 0.0)
         sum_deductions_lkr += c.get('totalDeductions', 0.0)
         sum_net_salary_lkr += c.get('netSalaryLkr', 0.0)
+        sum_other_deductions_lkr += c.get('otherDeductions', 0.0)
         
     enriched = copy.deepcopy(period)
     enriched['currencyMode'] = currency_mode
@@ -1159,6 +1171,7 @@ def enrich_payroll_period(period):
         'sumEpf12Lkr': round(sum_epf12_lkr, 2),
         'sumEtf3Lkr': round(sum_etf3_lkr, 2),
         'sumApitLkr': round(sum_apit_lkr, 2),
+        'sumOtherDeductionsLkr': round(sum_other_deductions_lkr, 2),
         'sumDeductionsLkr': round(sum_deductions_lkr, 2),
         'sumNetSalaryLkr': round(sum_net_salary_lkr, 2)
     }
@@ -1229,16 +1242,16 @@ def generate_payroll_csv(enriched_period, company_info=None):
         lines.append(f'SALARY SHEET (IN LKR) - {month.upper()} @ {rate_disp}')
         lines.append(f'No,Employee Name,POSITION,{base_curr} Salary,Working Days,Earned Base ({base_curr}),LKR,EPF 8%,EPF12%,ETF 3%,APIT,Other Deductions,Net Remittance (LKR)')
         for e in employees:
-            lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("lkrGross",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},,{e.get("netSalaryLkr",0)}')
-        lines.append(f',,,{totals.get("sumGbpSalary",0)},,{totals.get("sumEarnedGbp",0)},{totals.get("sumLkrGross",0)},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},,{totals.get("sumNetSalaryLkr",0)}')
+            lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("lkrGross",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},{e.get("otherDeductions",0)},{e.get("netSalaryLkr",0)}')
+        lines.append(f',,,{totals.get("sumGbpSalary",0)},,{totals.get("sumEarnedGbp",0)},{totals.get("sumLkrGross",0)},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},{totals.get("sumOtherDeductionsLkr",0)},{totals.get("sumNetSalaryLkr",0)}')
     else:
         lines.append(f'SALARY SHEET (IN LKR) - {month.upper()}')
         lines.append('No,Employee Name,POSITION,Basic Salary (LKR),Working Days,Earned Base (LKR),EPF 8%,EPF 12%,ETF 3%,APIT,Other Deductions,Net Remittance (LKR),BANK ACCOUNT NO,TIN NO,IDNO,Date Joined')
         for e in employees:
             bank_str = f"{e.get('bankAccountNo','')}({e.get('bankCode','')})" if e.get('bankCode') else str(e.get('bankAccountNo',''))
             base_sal = e.get("lkrSalary") or e.get("baseSalaryLkr") or e.get("lkrGross", 0)
-            lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{base_sal},"{e.get("workDays","")}",{e.get("lkrGross",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},,{e.get("netSalaryLkr",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
-        lines.append(f',,,{totals.get("sumLkrGross",0)},,{totals.get("sumLkrGross",0)},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},,{totals.get("sumNetSalaryLkr",0)},,,,')
+            lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{base_sal},"{e.get("workDays","")}",{e.get("lkrGross",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},{e.get("otherDeductions",0)},{e.get("netSalaryLkr",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
+        lines.append(f',,,{totals.get("sumLkrGross",0)},,{totals.get("sumLkrGross",0)},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},{totals.get("sumOtherDeductionsLkr",0)},{totals.get("sumNetSalaryLkr",0)},,,,')
         lines.append('')
         lines.append(f'Checked by: {enriched_period.get("checkedBy","")},{enriched_period.get("checkedTitle","Accountant")},,,Authorized by: {enriched_period.get("authorizedSignatory","")},{enriched_period.get("authorizedCompany","")}')
     return '\n'.join(lines)
@@ -3006,6 +3019,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "noPayLate": float(body.get("noPayLate", 0.0)),
                 "advance": float(body.get("advance", 0.0)),
                 "loan": float(body.get("loan", 0.0)),
+                "otherDeductions": float(body["otherDeductions"]) if ("otherDeductions" in body and body["otherDeductions"] is not None and str(body["otherDeductions"]).strip() != "") else float(body.get("advance", 0.0) + body.get("loan", 0.0)),
                 "apit": float(body["apit"]) if ("apit" in body and body["apit"] is not None and str(body["apit"]).strip() != "") else None
             }
             emps.append(new_emp)
@@ -3225,10 +3239,10 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Employee or period not found"}, 404)
                 return
 
-            for k in ["no", "epfNo", "name", "shortName", "position", "gbpSalary", "lkrSalary", "earnedLkr", "workDays", "earnedGbp", "bankAccountNo", "bankCode", "bankBranch", "tinNo", "idNo", "dateJoined", "specialAllowance", "noPayLate", "advance", "loan", "apit"]:
+            for k in ["no", "epfNo", "name", "shortName", "position", "gbpSalary", "lkrSalary", "earnedLkr", "workDays", "earnedGbp", "bankAccountNo", "bankCode", "bankBranch", "tinNo", "idNo", "dateJoined", "specialAllowance", "noPayLate", "advance", "loan", "otherDeductions", "apit"]:
                 if k in body:
-                    if k in ["gbpSalary", "lkrSalary", "earnedLkr", "earnedGbp", "specialAllowance", "noPayLate", "advance", "loan"]:
-                        target_emp[k] = float(body[k]) if body[k] is not None else 0.0
+                    if k in ["gbpSalary", "lkrSalary", "earnedLkr", "earnedGbp", "specialAllowance", "noPayLate", "advance", "loan", "otherDeductions"]:
+                        target_emp[k] = float(body[k]) if (body[k] is not None and str(body[k]).strip() != '') else 0.0
                     elif k == "apit":
                         target_emp[k] = float(body[k]) if (body[k] is not None and str(body[k]).strip() != '') else None
                     elif k == "no":

@@ -635,8 +635,8 @@
     "workstream": "Operational Task",
     "type": "Operational Task",
     "taskedDate": "03-Oct-2026",
-    "completedDate": "",
-    "status": "In Progress",
+    "completedDate": "22-Oct-2026",
+    "status": "On Hold",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Transfer all domains and hostings from firzan to company email.\nUpdate - all except vacations hosting transfered"
@@ -737,11 +737,11 @@
     "workstream": "Digital Marketing",
     "type": "Operational Task",
     "taskedDate": "08-Oct-2026",
-    "completedDate": "",
-    "status": "In Progress",
+    "completedDate": "27-Oct-2026",
+    "status": "Completed",
     "priority": "Medium",
     "estimatedCost": "",
-    "notes": "Create an Ad video based on Overseas Company Ad Video on Instagram"
+    "notes": "Create an Ad video based on Overseas Company Ad Video on Instagram\nLocalization - French and German\nAdd QR Code\nmail, two personal numbers"
   },
   {
     "id": "ops_51871b",
@@ -942,7 +942,7 @@
     "type": "Operational Task",
     "taskedDate": "25-Sep-2026",
     "completedDate": "",
-    "status": "Pending",
+    "status": "In Progress",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Cordinate with Anisa and create a website for slfbc\nNotes - SL FR - Localization\nwhen doing the srii lanka france business council website check MEDEF International,  Business France India, Sri Lanka embassy in France,  IFCCI websited"
@@ -976,7 +976,7 @@
     "type": "Operational Task",
     "taskedDate": "22-Oct-2026",
     "completedDate": "",
-    "status": "Pending",
+    "status": "In Progress",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "create a unique Company Profile For Spillburg Logistics 1"
@@ -993,10 +993,10 @@
     "type": "Operational Task",
     "taskedDate": "22-Oct-2026",
     "completedDate": "",
-    "status": "In Progress",
+    "status": "On Hold",
     "priority": "Medium",
     "estimatedCost": "",
-    "notes": "Apply for Director & Corporate Leadership Programme with CA"
+    "notes": "Apply for Director & Corporate Leadership Programme with CA\nNotes - Registered, payment to be made after 29th of October"
   },
   {
     "id": "ops_06d51c",
@@ -1060,8 +1060,8 @@
     "workstream": "Designing & Editing",
     "type": "Operational Task",
     "taskedDate": "22-Oct-2026",
-    "completedDate": "",
-    "status": "In Progress",
+    "completedDate": "27-Oct-2026",
+    "status": "Completed",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Create EPF, ETF Letter and Client Cost Letter generation in Spillburg Portal"
@@ -1082,5 +1082,39 @@
     "priority": "Low",
     "estimatedCost": "",
     "notes": "create a report on Attanagala Waste Management based on images and raw data."
+  },
+  {
+    "id": "ops_7355a3",
+    "no": 67,
+    "userId": "usr_admin_zaharan",
+    "ownerUsername": "zaharan",
+    "title": "Company Laptops Audit & Review",
+    "requestedBy": "Mr. Shameel",
+    "assignedTo": "Muhammad Zaharan",
+    "workstream": "Office Operations",
+    "type": "Operational Task",
+    "taskedDate": "27-Oct-2026",
+    "completedDate": "",
+    "status": "In Progress",
+    "priority": "Medium",
+    "estimatedCost": "",
+    "notes": "Review and audit 3 company laptops and prepare to send off-company"
+  },
+  {
+    "id": "ops_48acb4",
+    "no": 68,
+    "userId": "usr_admin_zaharan",
+    "ownerUsername": "zaharan",
+    "title": "Add Spillburg Holdings And Vacation to Payroll System",
+    "requestedBy": "Miss. Hemanthi",
+    "assignedTo": "Muhammad Zaharan",
+    "workstream": "Office Operations",
+    "type": "Operational Task",
+    "taskedDate": "28-Oct-2026",
+    "completedDate": "",
+    "status": "Pending",
+    "priority": "Medium",
+    "estimatedCost": "",
+    "notes": "Add Spillburg Holdings And Vacation to Payroll System"
   }
 ]

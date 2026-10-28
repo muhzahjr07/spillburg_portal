@@ -152,7 +152,7 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
                 ("I", 12, "num", e.get("epf12Lkr", 0)),
                 ("J", 12, "num", e.get("etf3Lkr", 0)),
                 ("K", 12, "num", e.get("apit", 0)),
-                ("L", 11, "inlineStr", ""),
+                ("L", 12, "num", e.get("otherDeductions", 0)),
                 ("M", 14, "num", e.get("netSalaryLkr", 0))
             ]
             sheet_rows.append((current_row_idx, row_cells))
@@ -170,7 +170,7 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
             ("I", 16, "num", totals.get("sumEpf12Lkr", 0)),
             ("J", 16, "num", totals.get("sumEtf3Lkr", 0)),
             ("K", 16, "num", totals.get("sumApitLkr", 0)),
-            ("L", 15, "inlineStr", ""),
+            ("L", 16, "num", totals.get("sumOtherDeductionsLkr", 0)),
             ("M", 17, "num", totals.get("sumNetSalaryLkr", 0))
         ]
         sheet_rows.append((current_row_idx, row_cells))
@@ -222,7 +222,7 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
                 ("H", 12, "num", e.get("epf12Lkr", 0)),
                 ("I", 12, "num", e.get("etf3Lkr", 0)),
                 ("J", 12, "num", e.get("apit", 0)),
-                ("K", 11, "inlineStr", ""),
+                ("K", 12, "num", e.get("otherDeductions", 0)),
                 ("L", 14, "num", e.get("netSalaryLkr", 0)),
                 ("M", 10, "inlineStr", bank_str),
                 ("N", 11, "inlineStr", e.get("tinNo", "")),
@@ -244,7 +244,7 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
             ("H", 16, "num", totals.get("sumEpf12Lkr", 0)),
             ("I", 16, "num", totals.get("sumEtf3Lkr", 0)),
             ("J", 16, "num", totals.get("sumApitLkr", 0)),
-            ("K", 15, "inlineStr", ""),
+            ("K", 16, "num", totals.get("sumOtherDeductionsLkr", 0)),
             ("L", 17, "num", totals.get("sumNetSalaryLkr", 0)),
             ("M", 15, "inlineStr", ""),
             ("N", 15, "inlineStr", ""),

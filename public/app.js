@@ -8083,7 +8083,17 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
-                  <td style="text-align: right;">${e.otherDeductions ? formatMoney(e.otherDeductions, 2) : '-'}</td>
+                  <td style="text-align: right; padding: 2px 4px;">
+                    <input type="number" step="1" min="0"
+                      value="${Math.round(e.otherDeductions || 0) || ''}"
+                      placeholder="0"
+                      title="Other Deductions (LKR) - Directly editable. Press Enter to recalculate."
+                      class="font-mono text-right text-amber-700 font-semibold bg-transparent hover:bg-amber-50 focus:bg-white focus:ring-1 focus:ring-amber-400 border border-transparent hover:border-amber-200 rounded px-1 py-0.5 transition"
+                      style="width: 82px;"
+                      onchange="updateEmployeeOtherDeductionsInline('${e.id}', this.value)"
+                      onkeydown="if(event.key==='Enter'){this.blur();}"
+                    />
+                  </td>
                   <td style="text-align: right; font-weight: 700; color: #047857; font-size: 11.5px;">${formatMoney(e.netSalaryLkr, 0)}</td>
                   <td style="text-align: left; font-family: monospace;">${escapeHtml(e.bankAccountNo)}${e.bankCode ? `(${escapeHtml(e.bankCode)})` : ''}</td>
                   <td style="text-align: center;">${escapeHtml(e.tinNo || '-')}</td>
@@ -8106,7 +8116,7 @@ function renderPayrollSheet(container) {
                 <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, 0)}</td>
                 <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 0)}</td>
                 <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, 0)}</td>
-                <td></td>
+                <td style="text-align: right; color: #b45309; font-weight: 700;">${formatMoney(totals.sumOtherDeductionsLkr || 0, 0)}</td>
                 <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 800;">${formatMoney(totals.sumNetSalaryLkr, 0)}</td>
                 <td colspan="5"></td>
               </tr>
@@ -8247,7 +8257,17 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
-                  <td></td>
+                  <td style="text-align: right; padding: 2px 4px;">
+                    <input type="number" step="1" min="0"
+                      value="${Math.round(e.otherDeductions || 0) || ''}"
+                      placeholder="0"
+                      title="Other Deductions (LKR) - Directly editable. Press Enter to recalculate."
+                      class="font-mono text-right text-amber-700 font-semibold bg-transparent hover:bg-amber-50 focus:bg-white focus:ring-1 focus:ring-amber-400 border border-transparent hover:border-amber-200 rounded px-1 py-0.5 transition"
+                      style="width: 82px;"
+                      onchange="updateEmployeeOtherDeductionsInline('${e.id}', this.value)"
+                      onkeydown="if(event.key==='Enter'){this.blur();}"
+                    />
+                  </td>
                   <td style="text-align: right; font-weight: 700; color: #047857; font-size: 11.5px;">${formatMoney(e.netSalaryLkr, 0)}</td>
                 </tr>
               `).join('')}
@@ -8263,7 +8283,7 @@ function renderPayrollSheet(container) {
                 <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, 0)}</td>
                 <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 0)}</td>
                 <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, 0)}</td>
-                <td></td>
+                <td style="text-align: right; color: #b45309; font-weight: 700;">${formatMoney(totals.sumOtherDeductionsLkr || 0, 0)}</td>
                 <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 800;">${formatMoney(totals.sumNetSalaryLkr, 0)}</td>
               </tr>
             </tbody>
@@ -9747,15 +9767,25 @@ function generatePayslipHtml(emp, period) {
         <tr>
           <td>(-) EPF 8%</td>
           <td style="text-align: right;">${formatMoney(emp.epf8Lkr, 2)}</td>
-        </tr>
-        <tr>
-          <td>(-) Advance</td>
-          <td style="text-align: right;">${emp.advance ? formatMoney(emp.advance, 2) : '-'}</td>
-        </tr>
-        <tr>
-          <td>(-) Loan</td>
-          <td style="text-align: right;">${emp.loan ? formatMoney(emp.loan, 2) : '-'}</td>
-        </tr>
+        ${emp.otherDeductions ? `
+          <tr>
+            <td>(-) Other Deductions</td>
+            <td style="text-align: right; color: #b45309;">${formatMoney(emp.otherDeductions, 2)}</td>
+          </tr>
+        ` : `
+          ${emp.advance ? `
+            <tr>
+              <td>(-) Advance</td>
+              <td style="text-align: right;">${formatMoney(emp.advance, 2)}</td>
+            </tr>
+          ` : ''}
+          ${emp.loan ? `
+            <tr>
+              <td>(-) Loan</td>
+              <td style="text-align: right;">${formatMoney(emp.loan, 2)}</td>
+            </tr>
+          ` : ''}
+        `}
         <tr>
           <td>(-) APIT</td>
           <td style="text-align: right; color: #dc2626;">${formatMoney(emp.apit, 2)}</td>
@@ -9824,6 +9854,7 @@ function renderPayrollStaffManager(container) {
               <th class="p-3">Position</th>
               <th class="p-3 text-right">${isSingle ? 'Basic Salary (LKR)' : `${escapeHtml(foreignCurr)} Base`}</th>
               <th class="p-3 text-right">APIT Tax (LKR)</th>
+              <th class="p-3 text-right">Other Deductions (LKR)</th>
               <th class="p-3">Bank Remittance Account</th>
               <th class="p-3">TIN &amp; NIC / Passport</th>
               <th class="p-3">Date Joined</th>
@@ -9842,6 +9873,9 @@ function renderPayrollStaffManager(container) {
                 <td class="p-3 text-right font-bold text-slate-900">${isSingle ? `Rs ${formatMoney(e.lkrSalary || e.lkrGross || 0, 2)}` : `${foreignCurr === 'GBP' ? '&pound;' : foreignCurr} ${formatMoney(e.gbpSalary, 2)}`}</td>
                 <td class="p-3 text-right font-mono font-semibold text-red-600">
                   ${e.apit !== null && e.apit !== undefined ? `Rs ${formatMoney(e.apit, 0)}` : '<span class="text-slate-400 italic font-sans text-[11px]">Auto</span>'}
+                </td>
+                <td class="p-3 text-right font-mono font-semibold text-amber-700">
+                  ${e.otherDeductions ? `Rs ${formatMoney(e.otherDeductions, 0)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
                 </td>
                 <td class="p-3">
                   <div class="font-mono font-medium text-slate-800">${escapeHtml(e.bankAccountNo)}</div>
@@ -11594,25 +11628,39 @@ function openEmployeeModal(emp) {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-red-50/70 rounded-xl border border-red-200">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
           <div>
             <label class="block font-semibold text-slate-800 mb-1 flex items-center justify-between">
               <span>APIT Tax (LKR)</span>
-              <span class="text-[10px] text-red-600 font-bold uppercase tracking-wider">Accountant / IRD Input</span>
+              <span class="text-[9px] text-red-600 font-bold uppercase">IRD Tax</span>
             </label>
             <input type="number" id="empApitInput" step="1" min="0"
               value="${isEdit && emp.apit !== undefined && emp.apit !== null ? Math.round(emp.apit) : ''}"
-              placeholder="Leave blank for auto-bracket tax"
+              placeholder="Blank = auto tax"
               class="w-full px-3 py-1.5 border border-red-200 focus:border-red-500 rounded-lg font-mono font-bold text-red-700 bg-white">
-            <p class="text-[10px] text-slate-500 mt-1">Directly editable APIT tax field. Enter manual IRD tax table value, or leave blank to auto-calculate with standard tax brackets.</p>
+            <p class="text-[10px] text-slate-500 mt-1">Manual IRD value, or blank for auto tax brackets.</p>
           </div>
           <div>
-            <label class="block font-semibold text-slate-800 mb-1">Special Allowance (LKR)</label>
+            <label class="block font-semibold text-slate-800 mb-1 flex items-center justify-between">
+              <span>Other Deductions (LKR)</span>
+              <span class="text-[9px] text-amber-600 font-bold uppercase">Deduction</span>
+            </label>
+            <input type="number" id="empOtherDeductionsInput" step="0.01" min="0"
+              value="${isEdit && emp.otherDeductions !== undefined && emp.otherDeductions !== null ? (emp.otherDeductions || '') : (isEdit && (emp.advance || emp.loan) ? ((emp.advance || 0) + (emp.loan || 0)) : '')}"
+              placeholder="e.g. 15000"
+              class="w-full px-3 py-1.5 border border-amber-200 focus:border-amber-500 rounded-lg font-mono font-bold text-amber-700 bg-white">
+            <p class="text-[10px] text-slate-500 mt-1">Advances, loans, or custom deductions subtracted from net pay.</p>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-800 mb-1 flex items-center justify-between">
+              <span>Special Allowance (LKR)</span>
+              <span class="text-[9px] text-teal-600 font-bold uppercase">Allowance</span>
+            </label>
             <input type="number" id="empSpecialAllowanceInput" step="0.01" min="0"
               value="${isEdit && emp.specialAllowance ? emp.specialAllowance : ''}"
               placeholder="e.g. 25000"
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono bg-white">
-            <p class="text-[10px] text-slate-500 mt-1">Non-contractual allowance added to monthly gross earnings.</p>
+            <p class="text-[10px] text-slate-500 mt-1">Non-contractual allowance added to gross earnings.</p>
           </div>
         </div>
 
@@ -11652,6 +11700,8 @@ async function submitEmployee(e, empId) {
   }
 
   const apitVal = document.getElementById('empApitInput').value.trim();
+  const otherDedInput = document.getElementById('empOtherDeductionsInput');
+  const otherDedVal = otherDedInput ? otherDedInput.value.trim() : '';
   const specVal = document.getElementById('empSpecialAllowanceInput').value.trim();
 
   const payload = {
@@ -11671,6 +11721,7 @@ async function submitEmployee(e, empId) {
     dateJoined: document.getElementById('empDateJoinedInput').value.trim(),
     epfNo: document.getElementById('empEpfNoInput').value.trim(),
     apit: apitVal !== '' ? parseFloat(apitVal) : null,
+    otherDeductions: otherDedVal !== '' ? parseFloat(otherDedVal) : 0.0,
     specialAllowance: specVal !== '' ? parseFloat(specVal) : 0.0
   };
 
@@ -11718,6 +11769,32 @@ async function updateEmployeeApitInline(empId, val) {
     } else {
       const err = await res.json();
       alert('Error updating APIT: ' + (err.error || 'Server error'));
+    }
+  } catch (err) {
+    alert('Connection error: ' + err.message);
+  }
+}
+
+async function updateEmployeeOtherDeductionsInline(empId, val) {
+  const dedNum = val.trim() === '' ? 0.0 : parseFloat(val);
+  try {
+    const res = await fetch('/api/payroll/employee', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        periodId: activePayrollPeriod.id,
+        id: empId,
+        otherDeductions: dedNum
+      })
+    });
+    if (res.ok) {
+      await refreshPayrollData();
+    } else {
+      const err = await res.json();
+      alert('Error updating Other Deductions: ' + (err.error || 'Server error'));
     }
   } catch (err) {
     alert('Connection error: ' + err.message);
