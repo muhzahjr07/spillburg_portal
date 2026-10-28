@@ -58,9 +58,6 @@ Here is a visual walkthrough of the portal's core operational modules:
 
 ### 4. Digitized Financial Files & System Administration
 
-| Financial Files & Tax Identity Register | High-Resolution Lightbox Inspection Modal |
-|:---:|:---:|
-| <a href="screenshots/06_financial_files_ledger.png"><img src="screenshots/06_financial_files_ledger.png" alt="Financial Register" width="100%"/></a> | <a href="screenshots/07_financial_files_lightbox.png"><img src="screenshots/07_financial_files_lightbox.png" alt="Lightbox Inspection" width="100%"/></a> |
 | **Digitized corporate entities, TINs, IRD PINs, & audit records** | **Full-resolution scanned physical ledger notebook page viewer** |
 
 | Access Control Center & Staff Directory | Secure Employee Sign-In Portal |
@@ -181,11 +178,6 @@ Here is a visual walkthrough of the portal's core operational modules:
 |:---|:---|:---|:---|
 | **Executive Director** | `director` | `director123` | Full access across all corporate modules |
 | **System Admin** | `admin` | `admin123` | Full access + User & Role Governance |
-| **Managing Director** | `hameez` | `spillburg123` | Executive oversight across corporate data |
-| **Operations Director**| `shameel` | `spillburg123` | Operations management & task allocation |
-| **Systems Administrator**| `zaharan` | `admin123` | Operations administration & systems management |
-| **Database Coordinator**| `staff_insaaf` | `staff123` | Customer files & operations editor |
-| **Operations Officer** | `staff_hemanthi` | `staff123` | Operations, customer files, & payroll editor |
 | **Staff Member (Editor)**| `staff_editor` | `staff123` | General editor access across active registers |
 | **Staff Member (Viewer)**| `staff_viewer` | `staff123` | Read-only access across registers |
 
