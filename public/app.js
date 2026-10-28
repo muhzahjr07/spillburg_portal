@@ -41,13 +41,18 @@ function parsePeriodDateValue(p) {
     if (!isNaN(t) && t > 0) return t;
   }
   if (p.letterDate && typeof p.letterDate === 'string') {
-    const parts = p.letterDate.split('.');
+    const parts = p.letterDate.split(/[.\-\/]/);
     if (parts.length === 3) {
-      const d = parseInt(parts[0], 10);
-      const m = parseInt(parts[1], 10) - 1;
-      const y = parseInt(parts[2], 10);
-      if (!isNaN(d) && !isNaN(m) && !isNaN(y)) {
-        return new Date(y, m, d).getTime();
+      if (parts[0].length === 4) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) return new Date(y, m, d).getTime();
+      } else {
+        const d = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const y = parseInt(parts[2], 10);
+        if (!isNaN(d) && !isNaN(m) && !isNaN(y)) return new Date(y, m, d).getTime();
       }
     }
   }
@@ -8126,12 +8131,12 @@ function renderPayrollSheet(container) {
           <!-- Sign-off Row -->
           <div class="excel-signoff-row">
             <div>
-              <div class="font-bold text-slate-800">Checked by: ${escapeHtml(p.checkedBy || 'Hemanthi Basnayake')}</div>
-              <div class="text-slate-500">${escapeHtml(p.checkedTitle || 'Accountant')}</div>
+              <div class="font-bold text-slate-800">Checked by: ${escapeHtml(p.checkedBy || currentComp.checkedBy || 'Hemanthi Basnayake')}</div>
+              <div class="text-slate-500">${escapeHtml(p.checkedTitle || currentComp.checkedTitle || 'Accountant')}</div>
             </div>
             <div style="text-align: right;">
-              <div class="font-bold text-slate-800">Authorized by: ${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
-              <div class="text-slate-500">${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
+              <div class="font-bold text-slate-800">Authorized by: ${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
+              <div class="text-slate-500">${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || currentComp.name || 'Spillburg Holdings (Pvt) Ltd.')}</div>
             </div>
           </div>
         ` : `
@@ -8201,12 +8206,12 @@ function renderPayrollSheet(container) {
           <!-- Sign-off Row -->
           <div class="excel-signoff-row">
             <div>
-              <div class="font-bold text-slate-800">Checked by: ${escapeHtml(p.checkedBy || 'Hemanthi Basnayake')}</div>
-              <div class="text-slate-500">${escapeHtml(p.checkedTitle || 'Accountant')}</div>
+              <div class="font-bold text-slate-800">Checked by: ${escapeHtml(p.checkedBy || currentComp.checkedBy || 'Hemanthi Basnayake')}</div>
+              <div class="text-slate-500">${escapeHtml(p.checkedTitle || currentComp.checkedTitle || 'Accountant')}</div>
             </div>
             <div style="text-align: right;">
-              <div class="font-bold text-slate-800">Authorized by: ${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
-              <div class="text-slate-500">${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
+              <div class="font-bold text-slate-800">Authorized by: ${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
+              <div class="text-slate-500">${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || currentComp.name || 'Spillburg Holdings (Pvt) Ltd.')}</div>
             </div>
           </div>
 
@@ -8481,8 +8486,8 @@ function renderStaffCostSummary(container) {
           <!-- Company Title & Invoice No (Positioned Below Header Space) -->
           <div class="flex justify-between items-end mb-4">
             <div>
-              <div style="font-size: 13.5px; font-weight: 800; color: #000; letter-spacing: 0.2px;">APADMI GROUP LIMITED</div>
-              <div style="font-size: 10.5px; font-weight: 700; color: #000; margin-top: 4px;">APADMI SL (PRIVATE) LIMITED</div>
+              <div style="font-size: 13.5px; font-weight: 800; color: #000; letter-spacing: 0.2px;">${escapeHtml(currentComp.parentGroup || currentComp.name || 'APADMI GROUP LIMITED').toUpperCase()}</div>
+              <div style="font-size: 10.5px; font-weight: 700; color: #000; margin-top: 4px;">${escapeHtml(currentComp.name || 'APADMI SL (PRIVATE) LIMITED').toUpperCase()}</div>
               <div style="font-size: 10.5px; font-weight: 700; color: #000; margin-top: 2px;">STAFF COST SUMMARY</div>
             </div>
 
@@ -8499,7 +8504,7 @@ function renderStaffCostSummary(container) {
           <!-- Period and Intro Text -->
           <div class="mb-3 text-[11px] text-black">
             <div style="font-weight: 700; margin-bottom: 2px;">Period: ${escapeHtml(periodMonth)}</div>
-            <div>Month of ${escapeHtml(p.month || 'September 2026')} salary spreadsheet, the employer contributions in GBP (${currSign}) would be as follows:</div>
+            <div>Month of ${escapeHtml(p.month || 'September 2026')} salary spreadsheet, the employer contributions in ${escapeHtml(foreignCurr)} (${currSign}) would be as follows:</div>
           </div>
 
           <!-- Table 1: 3 Columns matching Reference PDF (compact width, brought closer to employee column) -->
@@ -8574,7 +8579,7 @@ function renderStaffCostSummary(container) {
           <!-- Certification Statement -->
           <div style="font-size: 10px; color: #000; line-height: 1.35; margin-bottom: 14px;">
             <div style="font-weight: 700; margin-bottom: 2px;">Certification</div>
-            <div>We hereby confirm that the above staff costs were incurred on behalf of APADMI Group Limited and are being recharged accordingly.</div>
+            <div>We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.parentGroup || currentComp.name || 'APADMI Group Limited')} and are being recharged accordingly.</div>
           </div>
 
           <!-- Signatures (Official Lines with generous space for signing & company stamp) -->
@@ -8779,9 +8784,11 @@ function resetEpfPositions() {
     if (typeof autoSaveToCloud === 'function') autoSaveToCloud();
     else if (typeof savePayrollData === 'function') savePayrollData();
   }
-  const container = document.getElementById('tabContent');
+  const container = document.getElementById('payrollSubContent') || document.getElementById('tabContent');
   if (container) {
     renderEpfFormC(container);
+  } else if (typeof renderActivePayrollSubTab === 'function') {
+    renderActivePayrollSubTab();
   }
 }
 
@@ -9224,9 +9231,11 @@ function resetEtfPositions() {
     if (typeof autoSaveToCloud === 'function') autoSaveToCloud();
     else if (typeof savePayrollData === 'function') savePayrollData();
   }
-  const container = document.getElementById('tabContent');
+  const container = document.getElementById('payrollSubContent') || document.getElementById('tabContent');
   if (container) {
     renderEtfFormR4(container);
+  } else if (typeof renderActivePayrollSubTab === 'function') {
+    renderActivePayrollSubTab();
   }
 }
 
@@ -11960,12 +11969,12 @@ function printMasterSalarySheet() {
         <!-- Signoff -->
         <div class="signoff">
           <div>
-            <div class="bold">Checked by: ${escapeHtml(p.checkedBy || 'Hemanthi Basnayake')}</div>
-            <div>${escapeHtml(p.checkedTitle || 'Accountant')}</div>
+            <div class="bold">Checked by: ${escapeHtml(p.checkedBy || currentComp.checkedBy || 'Hemanthi Basnayake')}</div>
+            <div>${escapeHtml(p.checkedTitle || currentComp.checkedTitle || 'Accountant')}</div>
           </div>
           <div class="text-right">
-            <div class="bold">Authorized by: ${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
-            <div>${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
+            <div class="bold">Authorized by: ${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
+            <div>${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || currentComp.name || 'Spillburg Holdings (Pvt) Ltd.')}</div>
           </div>
         </div>
       ` : `
@@ -12023,12 +12032,12 @@ function printMasterSalarySheet() {
         <!-- Signoff -->
         <div class="signoff">
           <div>
-            <div class="bold">Checked by: ${escapeHtml(p.checkedBy || 'Hemanthi Basnayake')}</div>
-            <div>${escapeHtml(p.checkedTitle || 'Accountant')}</div>
+            <div class="bold">Checked by: ${escapeHtml(p.checkedBy || currentComp.checkedBy || 'Hemanthi Basnayake')}</div>
+            <div>${escapeHtml(p.checkedTitle || currentComp.checkedTitle || 'Accountant')}</div>
           </div>
           <div class="text-right">
-            <div class="bold">Authorized by: ${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}</div>
-            <div>${escapeHtml(p.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
+            <div class="bold">Authorized by: ${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
+            <div>${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || currentComp.name || 'Spillburg Holdings (Pvt) Ltd.')}</div>
           </div>
         </div>
 

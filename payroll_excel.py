@@ -102,8 +102,8 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
         current_row_idx += 1
 
         # Sign-off row
-        checked_str = f"Checked by: {enriched_period.get('checkedBy','')}, {enriched_period.get('checkedTitle','Accountant')}"
-        auth_str = f"Authorized by: {enriched_period.get('authorizedSignatory','')}, {enriched_period.get('authorizedCompany','')}"
+        checked_str = f"Checked by: {enriched_period.get('checkedBy') or comp.get('checkedBy') or 'Hemanthi Basnayake'}, {enriched_period.get('checkedTitle') or comp.get('checkedTitle') or 'Accountant'}"
+        auth_str = f"Authorized by: {enriched_period.get('authorizedSignatory') or comp.get('authorizedSignatory') or 'Shaameel Mohideen'}, {enriched_period.get('authorizedCompany') or comp.get('authorizedCompany') or comp.get('name') or 'Spillburg Holdings (Pvt) Ltd.'}"
         row_cells = [
             ("A", 18, "inlineStr", checked_str),
             ("F", 18, "inlineStr", auth_str)
@@ -255,8 +255,8 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
         current_row_idx += 1
 
         # Sign-off row
-        checked_str = f"Checked by: {enriched_period.get('checkedBy','')}, {enriched_period.get('checkedTitle','Accountant')}"
-        auth_str = f"Authorized by: {enriched_period.get('authorizedSignatory','')}, {enriched_period.get('authorizedCompany','')}"
+        checked_str = f"Checked by: {enriched_period.get('checkedBy') or comp.get('checkedBy') or 'Hemanthi Basnayake'}, {enriched_period.get('checkedTitle') or comp.get('checkedTitle') or 'Accountant'}"
+        auth_str = f"Authorized by: {enriched_period.get('authorizedSignatory') or comp.get('authorizedSignatory') or 'Shaameel Mohideen'}, {enriched_period.get('authorizedCompany') or comp.get('authorizedCompany') or comp.get('name') or 'Spillburg Holdings (Pvt) Ltd.'}"
         row_cells = [
             ("A", 18, "inlineStr", checked_str),
             ("F", 18, "inlineStr", auth_str)

@@ -1167,6 +1167,7 @@ def enrich_payroll_period(period):
         'sumEtf3Gbp': round(sum_etf3_gbp, 2),
         'sumTotalGbp': round(sum_total_gbp, 2),
         'sumLkrGross': round(sum_lkr_gross, 2),
+        'sumGrossSalaryLkr': round(sum_lkr_gross, 2),
         'sumEpf8Lkr': round(sum_epf8_lkr, 2),
         'sumEpf12Lkr': round(sum_epf12_lkr, 2),
         'sumEtf3Lkr': round(sum_etf3_lkr, 2),
@@ -2337,7 +2338,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     "isActive": (p.get("id") == active_id),
                     "employeeCount": len(p.get("employees", [])),
                     "totalNetRemittance": p_totals.get("sumNetSalaryLkr", 0),
-                    "totalGrossLkr": p_totals.get("sumGrossSalaryLkr", 0),
+                    "totalGrossLkr": p_totals.get("sumLkrGross", p_totals.get("sumGrossSalaryLkr", 0)),
                     "totalEarnedGbp": p_totals.get("sumEarnedGbp", 0),
                     "totalDeductionsLkr": p_totals.get("sumDeductionsLkr", 0),
                     "totals": p_totals,
@@ -2806,7 +2807,10 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     target_fullname = tu.get("fullName", target_username)
 
             user_tasks = [t for t in OPERATIONS if t.get("userId") == target_user_id]
-            new_no = max([t.get("no", 0) for t in user_tasks] or [0]) + 1
+            def safe_int_no(v):
+                try: return int(v)
+                except (ValueError, TypeError): return 0
+            new_no = max([safe_int_no(t.get("no", 0)) for t in user_tasks] or [0]) + 1
             new_task = {
                 "id": f"ops_{uuid.uuid4().hex[:6]}",
                 "no": new_no,
@@ -2859,6 +2863,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             }
             FINANCIAL_RECORDS.insert(0, new_rec)
             save_json_file("financial_records_active.json", FINANCIAL_RECORDS)
+            save_json_file("financial_records.json", FINANCIAL_RECORDS)
             self.send_json({"success": True, "record": new_rec})
             return
 
@@ -3201,7 +3206,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Period not found"}, 404)
                 return
 
-            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "invoiceNo", "bankCharges", "epfChequeNo", "etfChequeNo"]:
+            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "authorizedTitle", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "invoiceNo", "bankCharges", "epfChequeNo", "etfChequeNo", "completedDate", "currencyMode", "baseCurrency", "etfClarification", "phone", "notes"]:
                 if k in body:
                     if k in ["exchangeRate", "bankCharges"]:
                         target_period[k] = float(body[k])
@@ -3343,6 +3348,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             rec_id = path.replace("/api/financial-files/", "")
             FINANCIAL_RECORDS = [r for r in FINANCIAL_RECORDS if str(r.get("id")) != str(rec_id)]
             save_json_file("financial_records_active.json", FINANCIAL_RECORDS)
+            save_json_file("financial_records.json", FINANCIAL_RECORDS)
             self.send_json({"success": True, "message": "Financial record removed"})
             return
 
@@ -3370,10 +3376,18 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             period_id = query.get("periodId", [""])[0] or PAYROLL_RECORDS.get("activePeriodId")
 
             target_period = None
-            for p in PAYROLL_RECORDS.get("periods", []):
-                if not period_id or p.get("id") == period_id:
-                    target_period = p
-                    break
+            if period_id:
+                for p in PAYROLL_RECORDS.get("periods", []):
+                    if p.get("id") == period_id:
+                        target_period = p
+                        break
+            else:
+                for p in PAYROLL_RECORDS.get("periods", []):
+                    if any(e.get("id") == emp_id for e in p.get("employees", [])):
+                        target_period = p
+                        break
+                if not target_period and PAYROLL_RECORDS.get("periods"):
+                    target_period = PAYROLL_RECORDS["periods"][0]
 
             if not target_period:
                 self.send_json({"error": "Period not found"}, 404)
