@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-28T08:50:55Z",
+  "exportTimestamp": "2026-10-28T08:52:25Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -2201,7 +2201,8 @@
             "noPayLate": 0.0,
             "advance": 0.0,
             "loan": 0.0,
-            "apit": null
+            "apit": null,
+            "otherDeductions": 132066.0
           }
         ],
         "invoiceNo": "SBH008",
