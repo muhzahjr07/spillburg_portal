@@ -1,13 +1,8 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-<<<<<<< HEAD
-  "exportTimestamp": "2026-10-28T08:42:43Z",
-  "storageLocation": "C:\\Users\\User\\Desktop\\Spillburg Admin\\projects\\company_portal\\data",
-=======
-  "exportTimestamp": "2026-10-28T08:41:35Z",
+  "exportTimestamp": "2026-10-28T08:50:55Z",
   "storageLocation": "/opt/render/project/src/data",
->>>>>>> 0d895031e0fb7e220e446cc32c35cf6d337fda69
   "users": [
     {
       "id": "usr_dir_master",
