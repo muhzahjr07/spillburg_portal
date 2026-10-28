@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-28T06:09:45Z",
+  "exportTimestamp": "2026-10-28T06:12:18Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1335,7 +1335,7 @@
         "id": "comp_791e81",
         "name": "SPILLBURG HOLDINGS (PVT) LTD.",
         "code": "SPHOLD",
-        "registrationNo": "",
+        "registrationNo": "PV72874",
         "address": "Office 14, Basement Level, Cinnamon Lakeside Hotel",
         "bankName": "Nations Trust Bank PLC",
         "bankBranch": "",
