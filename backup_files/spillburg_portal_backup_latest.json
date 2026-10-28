@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-28T06:12:44Z",
+  "exportTimestamp": "2026-10-28T06:14:54Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1352,7 +1352,7 @@
         "defaultExchangeRate": 1
       }
     ],
-    "activePeriodId": "period_8f9a05",
+    "activePeriodId": "period_8ae2c5",
     "periods": [
       {
         "id": "period_2026_09",
@@ -2190,6 +2190,34 @@
         "epfChequeNo": "CHQ-890215",
         "etfChequeNo": "ETF-CHQ-7722",
         "createdAt": "2026-10-23T08:32:33Z"
+      },
+      {
+        "id": "period_8ae2c5",
+        "companyId": "comp_791e81",
+        "month": "October 2026",
+        "monthCode": "OCT-26",
+        "yearPeriod": "2026-2027",
+        "letterDate": "31.10.2026",
+        "exchangeRate": 440.0,
+        "createdAt": "2026-10-28T06:14:46Z",
+        "baseCurrency": "LKR",
+        "localCurrency": "LKR",
+        "currencyMode": "single",
+        "status": "Draft",
+        "invoiceNo": "SBH001",
+        "bankCharges": 50.0,
+        "epfChequeNo": "DIRECT DEBIT / SLIPS",
+        "etfChequeNo": "DIRECT DEBIT / SLIPS",
+        "checkedBy": "Hemanthi Basnayake",
+        "checkedTitle": null,
+        "authorizedSignatory": "Shaameel Mohideen",
+        "authorizedCompany": null,
+        "bankName": "Nations Trust Bank PLC",
+        "bankBranch": "Borella Branch",
+        "bankAddress": "67 D.S. Senanayake Mawatha, Colombo 08.",
+        "debitAccountNo": "1001 5000 7554",
+        "debitAccountName": "Spillburg Holdings (Private) Limited",
+        "employees": []
       }
     ]
   },
