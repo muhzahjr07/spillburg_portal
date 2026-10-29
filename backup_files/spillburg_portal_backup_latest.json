@@ -1,8 +1,8 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-29T07:09:34Z",
-  "storageLocation": "data",
+  "exportTimestamp": "2026-10-29T07:12:23Z",
+  "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
       "id": "usr_dir_master",
@@ -1454,7 +1454,7 @@
         "monthCode": "Sep-26",
         "yearPeriod": "2026-2027",
         "letterDate": "30.09.2026",
-        "exchangeRate": 440.0,
+        "exchangeRate": 440,
         "baseCurrency": "GBP",
         "localCurrency": "LKR",
         "status": "Paid",
@@ -1492,7 +1492,7 @@
             "advance": 0,
             "loan": 0,
             "apit": 213138,
-            "otherDeductions": 0.0
+            "otherDeductions": 0
           },
           {
             "id": "emp_02",
@@ -1722,7 +1722,7 @@
         ],
         "invoiceNo": "SBH007",
         "invoiceDate": "22.09.2026",
-        "bankCharges": 50.0,
+        "bankCharges": 50,
         "epfRegNo": "8483/C",
         "etfRegNo": "ETF-66291",
         "epfChequeNo": "CHQ-890214",
@@ -1985,7 +1985,7 @@
         "monthCode": "OCT-26",
         "yearPeriod": "2026-2027",
         "letterDate": "31.10.2026",
-        "exchangeRate": 435.0,
+        "exchangeRate": 435,
         "baseCurrency": "LKR",
         "localCurrency": "LKR",
         "currencyMode": "dual",
@@ -2023,7 +2023,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 209647.0
+            "apit": 209647
           },
           {
             "id": "emp_bea0ca",
@@ -2048,7 +2048,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 110363.0
+            "apit": 110363
           },
           {
             "id": "emp_fab7b3",
@@ -2073,7 +2073,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 382377.0
+            "apit": 382377
           },
           {
             "id": "emp_550682",
@@ -2098,7 +2098,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 147031.0
+            "apit": 147031
           },
           {
             "id": "emp_6bd856",
@@ -2123,7 +2123,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 362646.0
+            "apit": 362646
           },
           {
             "id": "emp_cb4ec9",
@@ -2148,7 +2148,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 265765.0
+            "apit": 265765
           },
           {
             "id": "emp_a8edc7",
@@ -2173,7 +2173,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 87664.0
+            "apit": 87664
           },
           {
             "id": "emp_f51ed1",
@@ -2198,7 +2198,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 51195.0
+            "apit": 51195
           },
           {
             "id": "emp_144b56",
@@ -2223,7 +2223,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 117347.0
+            "apit": 117347
           },
           {
             "id": "emp_696168",
@@ -2244,13 +2244,13 @@
             "tinNo": "108022086",
             "idNo": "908114167V",
             "dateJoined": "14.09.2026",
-            "specialAllowance": 0.0,
+            "specialAllowance": 0,
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 147031.0,
-            "lkrSalary": 0.0,
-            "earnedLkr": 0.0
+            "apit": 147031,
+            "lkrSalary": 0,
+            "earnedLkr": 0
           },
           {
             "id": "emp_c2eb78",
@@ -2260,25 +2260,25 @@
             "shortName": "MAPALAGAMA ACHARIGE APNA GEETHMI",
             "position": "QA ANALYST",
             "gbpSalary": 786.93,
-            "lkrSalary": 0.0,
-            "earnedLkr": 0.0,
+            "lkrSalary": 0,
+            "earnedLkr": 0,
             "workDays": "13 DAYS",
-            "earnedGbp": 330.0,
+            "earnedGbp": 330,
             "bankAccountNo": "202020086518",
             "bankCode": "",
             "bankBranch": "HATTON NATIONAL BANK PLC -HIKKADUWA",
             "tinNo": "170145712",
             "idNo": "986680390V",
             "dateJoined": "19/10/2026",
-            "specialAllowance": 0.0,
-            "noPayLate": 0.0,
-            "advance": 0.0,
-            "loan": 0.0,
+            "specialAllowance": 0,
+            "noPayLate": 0,
+            "advance": 0,
+            "loan": 0,
             "apit": null
           }
         ],
         "invoiceNo": "SBH008",
-        "bankCharges": 50.0,
+        "bankCharges": 50,
         "epfRegNo": "8483/C",
         "etfRegNo": "ETF-66291",
         "epfChequeNo": "CHQ-890215",
@@ -2292,14 +2292,14 @@
         "monthCode": "OCT-26",
         "yearPeriod": "2026-2027",
         "letterDate": "31.10.2026",
-        "exchangeRate": 440.0,
+        "exchangeRate": 440,
         "createdAt": "2026-10-28T06:14:46Z",
         "baseCurrency": "LKR",
         "localCurrency": "LKR",
         "currencyMode": "single",
         "status": "Draft",
         "invoiceNo": "SBH001",
-        "bankCharges": 50.0,
+        "bankCharges": 50,
         "epfChequeNo": "DIRECT DEBIT / SLIPS",
         "etfChequeNo": "DIRECT DEBIT / SLIPS",
         "checkedBy": "Hemanthi Basnayake",
@@ -2320,14 +2320,14 @@
         "monthCode": "OCT-26",
         "yearPeriod": "2026-2027",
         "letterDate": "31.10.2026",
-        "exchangeRate": 440.0,
+        "exchangeRate": 440,
         "createdAt": "2026-10-28T06:16:05Z",
         "baseCurrency": "LKR",
         "localCurrency": "LKR",
         "currencyMode": "single",
         "status": "Draft",
         "invoiceNo": "SBH001",
-        "bankCharges": 50.0,
+        "bankCharges": 50,
         "epfChequeNo": "DIRECT DEBIT / SLIPS",
         "etfChequeNo": "DIRECT DEBIT / SLIPS",
         "checkedBy": "Hemanthi Basnayake",
