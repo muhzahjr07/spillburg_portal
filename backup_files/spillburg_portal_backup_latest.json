@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-29T05:47:33Z",
+  "exportTimestamp": "2026-10-29T05:47:54Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -2348,13 +2348,13 @@
             "bankBranch": "HATTON NATIONAL BANK PLC",
             "tinNo": "",
             "idNo": "200422101600",
-            "dateJoined": "",
+            "dateJoined": "01.07.2026",
             "specialAllowance": 15000.0,
             "noPayLate": 0.0,
             "advance": 0.0,
             "loan": 0.0,
             "otherDeductions": 0.0,
-            "apit": null
+            "apit": 0.0
           }
         ]
       },
