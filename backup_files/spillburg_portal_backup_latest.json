@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-29T11:37:31Z",
+  "exportTimestamp": "2026-10-29T11:44:15Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5044,10 +5044,15 @@
         "payrollYearPeriod": "2026-2027",
         "parentGroup": "Apadmi Group Ltd",
         "parentAddress": "Manchester,\nUnited Kingdom.",
-        "epfRegNo": "8483/C",
-        "etfRegNo": "ETF-66291",
+        "epfRegNo": "A - 61279",
+        "etfRegNo": "A - 61279",
         "foreignCurrency": "GBP",
-        "swiftCode": "NTBLLKLX"
+        "swiftCode": "NTBLLKLX",
+        "currencyMode": "dual",
+        "baseCurrency": "LKR",
+        "defaultExchangeRate": 400,
+        "phone": "+94 11 233 6116",
+        "email": "info@spillburg.com"
       },
       {
         "id": "comp_791e81",
@@ -5376,8 +5381,8 @@
         "invoiceNo": "SBH007",
         "invoiceDate": "22.09.2026",
         "bankCharges": 50,
-        "epfRegNo": "8483/C",
-        "etfRegNo": "ETF-66291",
+        "epfRegNo": "A - 61279",
+        "etfRegNo": "A - 61279",
         "epfChequeNo": "CHQ-890214",
         "etfChequeNo": "ETF-CHQ-7721",
         "createdAt": "2026-09-30T09:00:00Z"
@@ -5629,7 +5634,9 @@
             "apit": 15460
           }
         ],
-        "createdAt": "2026-08-31T09:00:00Z"
+        "createdAt": "2026-08-31T09:00:00Z",
+        "epfRegNo": "A - 61279",
+        "etfRegNo": "A - 61279"
       },
       {
         "id": "period_8f9a05",
@@ -5932,8 +5939,8 @@
         ],
         "invoiceNo": "SBH008",
         "bankCharges": 50,
-        "epfRegNo": "8483/C",
-        "etfRegNo": "ETF-66291",
+        "epfRegNo": "A - 61279",
+        "etfRegNo": "A - 61279",
         "epfChequeNo": "CHQ-890215",
         "etfChequeNo": "ETF-CHQ-7722",
         "createdAt": "2026-10-23T08:32:33Z"
