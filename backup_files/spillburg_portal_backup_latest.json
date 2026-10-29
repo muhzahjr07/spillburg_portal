@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-29T06:05:50Z",
+  "exportTimestamp": "2026-10-29T06:06:07Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -2365,7 +2365,7 @@
             "position": "Business Executive",
             "gbpSalary": 0.0,
             "lkrSalary": 0.0,
-            "earnedLkr": 35000.0,
+            "earnedLkr": 0.0,
             "workDays": "",
             "earnedGbp": 0.0,
             "bankAccountNo": "8024219279",
