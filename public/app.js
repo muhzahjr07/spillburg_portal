@@ -13066,17 +13066,26 @@ function openEmployeeModal(emp) {
       </div>
 
       <form onsubmit="submitEmployee(event, '${isEdit ? emp.id : ''}')" class="space-y-3">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Sheet Row No</label>
+            <label class="block font-semibold text-slate-700 mb-1">Row No</label>
             <input type="number" id="empNoInput" value="${isEdit ? emp.no : nextNo}" required
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
           </div>
           <div class="md:col-span-2">
-            <label class="block font-semibold text-slate-700 mb-1">Employee Full Name</label>
+            <label class="block font-semibold text-slate-700 mb-1">Full Legal Name (Official)</label>
             <input type="text" id="empNameInput" value="${isEdit ? escapeHtml(emp.name) : ''}" required
-              placeholder="e.g. Wikum Jayasekara"
-              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-semibold">
+              placeholder="e.g. MS PIRIYATHARSHINI SENTHIL KUMARAN"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-semibold"
+              oninput="if(!document.getElementById('empShortNameInput').dataset.customModified){document.getElementById('empShortNameInput').value = this.value.toLowerCase().replace(/\\b[a-z]/g, c => c.toUpperCase());}">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Calling / Short Name</label>
+            <input type="text" id="empShortNameInput" value="${isEdit ? escapeHtml(emp.shortName || emp.name || '') : ''}"
+              placeholder="e.g. Piriyatharshini"
+              title="Used in Staff Cost Summary recharge & employee chips"
+              oninput="this.dataset.customModified = 'true'"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-medium">
           </div>
         </div>
 
@@ -13244,6 +13253,7 @@ async function submitEmployee(e, empId) {
     periodId: activePayrollPeriod.id,
     no: parseInt(document.getElementById('empNoInput').value, 10),
     name: document.getElementById('empNameInput').value.trim(),
+    shortName: (document.getElementById('empShortNameInput')?.value.trim()) || document.getElementById('empNameInput').value.trim(),
     position: document.getElementById('empPositionInput').value.trim(),
     gbpSalary: gbpSalary,
     earnedGbp: earnedGbp,
@@ -14653,30 +14663,42 @@ function printEpfFormC() {
   const p = activePayrollPeriod;
   if (!p) return;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const emps = p.employees || [];
+  const rate = Number(p.exchangeRate) || 440;
+  let sumEpf20 = 0, sumEpf12 = 0, sumEpf8 = 0;
+  emps.forEach(e => {
+    const calc = getEmployeeCalculatedFields(e, rate);
+    sumEpf20 += calc.epf20Lkr;
+    sumEpf12 += calc.epf12Lkr;
+    sumEpf8 += calc.epf8Lkr;
+  });
+  const epfSurcharges = Number(p.epfSurcharges) || 0;
 
   const regNo = document.getElementById('epf_c_reg_no')?.value || getCompanyStatutoryDefault(currentComp, p, 'epfRegNo');
   const monthYear = document.getElementById('epf_c_month_year')?.value || (p.month || 'October 2026').toUpperCase();
-  const totalContrib = document.getElementById('epf_c_total_contrib')?.value || '';
-  const surcharges = document.getElementById('epf_c_surcharges')?.value || '0.00';
-  const totalRemittance = document.getElementById('epf_c_total_remittance')?.value || '';
+  const totalContrib = document.getElementById('epf_c_total_contrib')?.value || formatMoney(sumEpf20, 2);
+  const surcharges = document.getElementById('epf_c_surcharges')?.value || formatMoney(epfSurcharges, 2);
+  const totalRemittance = document.getElementById('epf_c_total_remittance')?.value || formatMoney(sumEpf20 + epfSurcharges, 2);
   const chequeNo = document.getElementById('epf_c_cheque_no')?.value || p.epfChequeNo || 'CHQ-890214';
-  const defaultBankBranch = p.epfBankBranchCustom || `${p.bankName || currentComp.bankName || 'Nations Trust Bank PLC'}\n${p.bankBranch || currentComp.bankBranch || 'Borella Branch'}`;
+  const defaultBankBranch = p.epfBankBranchCustom || ${p.bankName || currentComp.bankName || 'Nations Trust Bank PLC'}\n;
   const bankBranch = document.getElementById('epf_c_bank_branch')?.value || defaultBankBranch;
-  const totalTot = document.getElementById('epf_c_total_tot')?.value || '';
-  const totalEr = document.getElementById('epf_c_total_er')?.value || '';
-  const totalEe = document.getElementById('epf_c_total_ee')?.value || '';
+  const totalTot = document.getElementById('epf_c_total_tot')?.value || formatMoney(sumEpf20, 2);
+  const totalEr = document.getElementById('epf_c_total_er')?.value || formatMoney(sumEpf12, 2);
+  const totalEe = document.getElementById('epf_c_total_ee')?.value || formatMoney(sumEpf8, 2);
   const phone = document.getElementById('epf_c_phone')?.value || p.phone || currentComp.phone || '+94 11 233 6116';
   const dateVal = document.getElementById('epf_c_date')?.value || p.letterDate || p.date || '31.10.2026';
 
   let rowFieldsHtml = '';
   for (let i = 0; i < 35; i++) {
-    const name = document.getElementById(`epf_c_name_${i}`)?.value || '';
-    const nic = document.getElementById(`epf_c_nic_${i}`)?.value || '';
-    const mem = document.getElementById(`epf_c_mem_${i}`)?.value || '';
-    const tot = document.getElementById(`epf_c_tot_${i}`)?.value || '';
-    const er = document.getElementById(`epf_c_er_${i}`)?.value || '';
-    const ee = document.getElementById(`epf_c_ee_${i}`)?.value || '';
-    const earn = document.getElementById(`epf_c_earn_${i}`)?.value || '';
+    const emp = emps[i] || null;
+    const calc = emp ? getEmployeeCalculatedFields(emp, rate) : null;
+    const name = document.getElementById(epf_c_name_)?.value || (emp ? emp.name : '');
+    const nic = document.getElementById(epf_c_nic_)?.value || (emp ? (emp.idNo || emp.tinNo || '') : '');
+    const mem = document.getElementById(epf_c_mem_)?.value || (emp ? (emp.epfNo || '') : '');
+    const tot = document.getElementById(epf_c_tot_)?.value || (calc ? formatMoney(calc.epf20Lkr, 2) : '');
+    const er = document.getElementById(epf_c_er_)?.value || (calc ? formatMoney(calc.epf12Lkr, 2) : '');
+    const ee = document.getElementById(epf_c_ee_)?.value || (calc ? formatMoney(calc.epf8Lkr, 2) : '');
+    const earn = document.getElementById(epf_c_earn_)?.value || (calc ? formatMoney(calc.lkrGross, 2) : '');
 
     if (!name && !nic && !mem && !tot && !er && !ee && !earn) continue;
 
@@ -14804,19 +14826,31 @@ function printEtfFormR4() {
   const p = activePayrollPeriod;
   if (!p) return;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const emps = p.employees || [];
+  const rate = Number(p.exchangeRate) || 440;
+  let sumEtf3 = 0;
+  emps.forEach(e => {
+    const calc = getEmployeeCalculatedFields(e, rate);
+    sumEtf3 += calc.etf3Lkr;
+  });
+  const etfSurcharge = Number(p.etfSurcharge) || 0;
+  const etfCharges = Number(p.etfCharges) || 0;
+  const totalEtfRemit = sumEtf3 + etfSurcharge + etfCharges;
+  const totEtfRs = Math.floor(totalEtfRemit).toLocaleString('en-US');
+  const totEtfCts = Math.round((totalEtfRemit - Math.floor(totalEtfRemit)) * 100).toString().padStart(2, '0');
 
-  const employer = document.getElementById('etf_r4_employer')?.value || p.etfEmployerCustom || `${currentComp.name || 'APADMI SL (PRIVATE) LIMITED'}\n${(currentComp.address || 'Colombo').replace(/\n/g, ' ')}`;
+  const employer = document.getElementById('etf_r4_employer')?.value || p.etfEmployerCustom || ${currentComp.name || 'APADMI SL (PRIVATE) LIMITED'}\n;
   const empNo = document.getElementById('etf_r4_emp_no')?.value || getCompanyStatutoryDefault(currentComp, p, 'etfRegNo');
   const monthYear = document.getElementById('etf_r4_month_year')?.value || (p.month || 'October 2026').toUpperCase();
-  const empCount = document.getElementById('etf_r4_emp_count')?.value || (p.employees?.length || 0);
-  const contrib = document.getElementById('etf_r4_contrib')?.value || '';
-  const surcharge = document.getElementById('etf_r4_surcharge')?.value || '0.00';
-  const charges = document.getElementById('etf_r4_charges')?.value || '0.00';
-  const total = document.getElementById('etf_r4_total')?.value || '';
+  const empCount = document.getElementById('etf_r4_emp_count')?.value || (emps.length || 0);
+  const contrib = document.getElementById('etf_r4_contrib')?.value || formatMoney(sumEtf3, 2);
+  const surcharge = document.getElementById('etf_r4_surcharge')?.value || formatMoney(etfSurcharge, 2);
+  const charges = document.getElementById('etf_r4_charges')?.value || formatMoney(etfCharges, 2);
+  const total = document.getElementById('etf_r4_total')?.value || formatMoney(totalEtfRemit, 2);
   const chequeNo = document.getElementById('etf_r4_cheque')?.value || p.etfChequeNo || 'CHQ-890214';
-  const bankBranch = document.getElementById('etf_r4_bank_branch')?.value || document.getElementById('etf_r4_bank')?.value || p.etfBankBranchCustom || `${p.bankName || currentComp.bankName || 'NTB'}\n${p.bankBranch || currentComp.bankBranch || 'Borella'}`;
-  const totRs = document.getElementById('etf_r4_tot_rs')?.value || '';
-  const totCts = document.getElementById('etf_r4_tot_cts')?.value || '';
+  const bankBranch = document.getElementById('etf_r4_bank_branch')?.value || document.getElementById('etf_r4_bank')?.value || p.etfBankBranchCustom || ${p.bankName || currentComp.bankName || 'NTB'}\n;
+  const totRs = document.getElementById('etf_r4_tot_rs')?.value || totEtfRs;
+  const totCts = document.getElementById('etf_r4_tot_cts')?.value || totEtfCts;
   const clarification = document.getElementById('etf_r4_clarification')?.value || p.etfClarification || '';
   const phone = document.getElementById('etf_r4_phone')?.value || p.phone || currentComp.phone || '+94 11 233 6116';
   const email = document.getElementById('etf_r4_email')?.value || p.email || currentComp.email || 'info@spillburg.com';
@@ -14824,11 +14858,17 @@ function printEtfFormR4() {
 
   let rowFieldsHtml = '';
   for (let r = 0; r < 15; r++) {
-    const name = document.getElementById(`etf_r4_name_${r}`)?.value || '';
-    const nic = document.getElementById(`etf_r4_nic_${r}`)?.value || '';
-    const mem = document.getElementById(`etf_r4_mem_${r}`)?.value || '';
-    const rs = document.getElementById(`etf_r4_rs_${r}`)?.value || '';
-    const cts = document.getElementById(`etf_r4_cts_${r}`)?.value || '';
+    const emp = emps[r] || null;
+    const calc = emp ? getEmployeeCalculatedFields(emp, rate) : null;
+    const etfVal = calc ? calc.etf3Lkr : 0;
+    const defaultRs = calc ? Math.floor(etfVal).toLocaleString('en-US') : '';
+    const defaultCts = calc ? Math.round((etfVal - Math.floor(etfVal)) * 100).toString().padStart(2, '0') : '';
+
+    const name = document.getElementById(etf_r4_name_)?.value || (emp ? emp.name : '');
+    const nic = document.getElementById(etf_r4_nic_)?.value || (emp ? (emp.idNo || emp.tinNo || '') : '');
+    const mem = document.getElementById(etf_r4_mem_)?.value || (emp ? (emp.epfNo || '') : '');
+    const rs = document.getElementById(etf_r4_rs_)?.value || defaultRs;
+    const cts = document.getElementById(etf_r4_cts_)?.value || defaultCts;
 
     if (!name && !nic && !mem && !rs && !cts) continue;
 

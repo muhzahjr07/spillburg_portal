@@ -3366,12 +3366,14 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
 
             emps = target_period.setdefault("employees", [])
             new_no = max([e.get("no", 0) for e in emps] or [0]) + 1
+            raw_name = str(body.get("name", "New Employee")).strip()
+            raw_short = str(body.get("shortName") or raw_name).strip()
             new_emp = {
                 "id": f"emp_{uuid.uuid4().hex[:6]}",
                 "no": new_no,
                 "epfNo": body.get("epfNo", f"{new_no:02d}"),
-                "name": body.get("name", "New Employee").strip(),
-                "shortName": body.get("shortName", body.get("name", "")).strip(),
+                "name": raw_name.upper(),
+                "shortName": raw_short.title() if raw_short.isupper() else raw_short,
                 "position": body.get("position", "Software Engineer").strip(),
                 "gbpSalary": float(body.get("gbpSalary", 1000.0)),
                 "lkrSalary": float(body.get("lkrSalary", body.get("gbpSalary", 0.0))),
@@ -3626,6 +3628,14 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                         target_emp[k] = float(body[k]) if (body[k] is not None and str(body[k]).strip() != '') else None
                     elif k == "no":
                         target_emp[k] = int(body[k])
+                    elif k == "name":
+                        target_emp["name"] = str(body["name"]).strip().upper()
+                        # If shortName not provided, synchronize shortName with updated name
+                        if "shortName" not in body or not body["shortName"]:
+                            target_emp["shortName"] = str(body["name"]).strip().title()
+                    elif k == "shortName":
+                        raw_s = str(body["shortName"]).strip()
+                        target_emp["shortName"] = raw_s.title() if raw_s.isupper() else raw_s
                     else:
                         target_emp[k] = body[k]
 
