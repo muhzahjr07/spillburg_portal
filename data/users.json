@@ -12,7 +12,8 @@
       "customer_files": "full",
       "financial_files": "full",
       "payroll": "full",
-      "user_management": "full"
+      "user_management": "full",
+      "spillburg_ai": "allowed"
     },
     "createdAt": "2026-09-01T08:00:00Z",
     "status": "active"
@@ -30,7 +31,8 @@
       "customer_files": "editor",
       "financial_files": "none",
       "payroll": "none",
-      "user_management": "none"
+      "user_management": "none",
+      "spillburg_ai": "allowed"
     },
     "createdAt": "2026-09-12T10:00:00Z",
     "status": "active"
@@ -48,7 +50,8 @@
       "customer_files": "editor",
       "financial_files": "editor",
       "payroll": "editor",
-      "user_management": "none"
+      "user_management": "none",
+      "spillburg_ai": "allowed"
     },
     "createdAt": "2026-09-10T09:30:00Z",
     "status": "active"
@@ -66,7 +69,8 @@
       "customer_files": "full",
       "financial_files": "full",
       "payroll": "full",
-      "user_management": "full"
+      "user_management": "full",
+      "spillburg_ai": "allowed"
     },
     "createdAt": "2026-09-01T08:00:00Z",
     "status": "active"
@@ -84,7 +88,8 @@
       "customer_files": "full",
       "financial_files": "full",
       "payroll": "full",
-      "user_management": "full"
+      "user_management": "full",
+      "spillburg_ai": "allowed"
     },
     "createdAt": "2026-09-01T08:00:00Z",
     "status": "active"
@@ -102,7 +107,8 @@
       "customer_files": "full",
       "financial_files": "full",
       "payroll": "full",
-      "user_management": "full"
+      "user_management": "full",
+      "spillburg_ai": "allowed"
     },
     "createdAt": "2026-09-01T08:00:00Z",
     "status": "active"
@@ -120,7 +126,8 @@
       "customer_files": "editor",
       "financial_files": "editor",
       "payroll": "editor",
-      "user_management": "none"
+      "user_management": "none",
+      "spillburg_ai": "allowed"
     },
     "createdAt": "2026-09-15T11:00:00Z",
     "status": "active"
@@ -138,7 +145,8 @@
       "customer_files": "viewer",
       "financial_files": "none",
       "payroll": "none",
-      "user_management": "none"
+      "user_management": "none",
+      "spillburg_ai": "allowed"
     },
     "createdAt": "2026-09-15T11:00:00Z",
     "status": "active"
@@ -156,7 +164,8 @@
       "customer_files": "full",
       "financial_files": "full",
       "payroll": "full",
-      "user_management": "full"
+      "user_management": "full",
+      "spillburg_ai": "allowed"
     },
     "createdAt": "2026-09-01T08:00:00Z",
     "status": "active"
@@ -174,7 +183,8 @@
       "customer_files": "editor",
       "financial_files": "none",
       "payroll": "none",
-      "user_management": "none"
+      "user_management": "none",
+      "spillburg_ai": "allowed"
     },
     "createdAt": "2026-10-15T05:16:00Z",
     "status": "active"
@@ -192,7 +202,8 @@
       "customer_files": "viewer",
       "financial_files": "none",
       "payroll": "none",
-      "user_management": "none"
+      "user_management": "none",
+      "spillburg_ai": "allowed"
     },
     "createdAt": "2026-10-29T06:23:31Z",
     "status": "active"

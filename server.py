@@ -28,6 +28,7 @@ import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 import payroll_excel
+import spillburg_ai
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -571,7 +572,7 @@ def queue_debounced_cloud_sync(reason="live edit saved"):
         AUTO_SYNC_TIMER.daemon = True
         AUTO_SYNC_TIMER.start()
 
-def flush_pending_cloud_sync():
+def flush_pending_cloud_sync(force=False):
     """Immediately executes any pending debounced sync (used on shutdown or manual trigger)."""
     global AUTO_SYNC_TIMER
     with AUTO_SYNC_LOCK:
@@ -581,7 +582,7 @@ def flush_pending_cloud_sync():
             except Exception:
                 pass
             AUTO_SYNC_TIMER = None
-    perform_auto_cloud_sync(reason="immediate flush")
+    if force or PENDING_EDITS_COUNT > 0: perform_auto_cloud_sync(reason="immediate flush")
 
 import atexit
 atexit.register(flush_pending_cloud_sync)
@@ -2467,6 +2468,43 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             self.wfile.write(xlsx_bytes)
             return
 
+        # 6.8. API: SpillburgAI Context & Access Profile
+        elif path == "/api/ai/context":
+            user = self.get_auth_user()
+            if not user:
+                self.send_json({"error": "Authentication required"}, 401)
+                return
+            if not spillburg_ai.can_user_access_spillburg_ai(user):
+                self.send_json({"error": "Access Denied: SpillburgAI is disabled for your account.", "restricted": True}, 403)
+                return
+            sync_users_from_disk()
+            sync_operations_from_disk()
+            sync_financials_from_disk()
+            sync_payroll_from_disk()
+            is_exec = user.get("role") in ["director", "admin"]
+            scoped_ops = self.resolve_scoped_operations("all" if is_exec else "me", user)
+            self.send_json({
+                "success": True,
+                "access": spillburg_ai.get_user_access_summary(user),
+                "users": [
+                    {
+                        "id": u.get("id"),
+                        "username": u.get("username"),
+                        "fullName": u.get("fullName"),
+                        "role": u.get("role"),
+                        "title": u.get("title")
+                    }
+                    for u in USERS
+                ],
+                "counts": {
+                    "operations": len(scoped_ops) if spillburg_ai.can_user_view_module(user, "operations") else 0,
+                    "customerFiles": len(CUSTOMER_RECORDS) if spillburg_ai.can_user_view_module(user, "customer_files") else 0,
+                    "financialFiles": len(FINANCIAL_RECORDS) if spillburg_ai.can_user_view_module(user, "financial_files") else 0,
+                    "payrollCompanies": len(PAYROLL_RECORDS.get("companies", [])) if spillburg_ai.can_user_view_module(user, "payroll") else 0
+                }
+            })
+            return
+
         # 7. Static file serving (SPA)
         if path == "/" or path == "/index.html":
             file_path = os.path.join(PUBLIC_DIR, "index.html")
@@ -2683,7 +2721,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Admin or Director privileges required to trigger cloud sync"}, 403)
                 return
 
-            flush_pending_cloud_sync()
+            flush_pending_cloud_sync(force=True)
 
             backup_data = {
                 "portal": "Spillburg Holdings Corporate Portal",
@@ -2755,7 +2793,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "customer_files": "viewer",
                 "financial_files": "viewer",
                 "payroll": "none",
-                "user_management": "full" if role == "admin" else "none"
+                "user_management": "full" if role == "admin" else "none",
+                "spillburg_ai": "allowed"
             })
 
             new_user = {
@@ -2797,6 +2836,124 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             safe = dict(new_user)
             safe.pop("password", None)
             self.send_json({"success": True, "user": safe})
+            return
+
+        # 4.5. SpillburgAI Chat & Task Automation
+        elif path == "/api/ai/chat":
+            user = self.get_auth_user()
+            if not user:
+                self.send_json({"error": "Authentication required"}, 401)
+                return
+            sync_users_from_disk()
+            sync_operations_from_disk()
+            sync_financials_from_disk()
+            sync_payroll_from_disk()
+            message = body.get("message", "")
+            history = body.get("history", [])
+            resp_data, status_code = spillburg_ai.process_spillburg_ai_message(
+                user=user,
+                message=message,
+                history=history,
+                users=USERS,
+                operations=OPERATIONS,
+                customer_records=CUSTOMER_RECORDS,
+                financial_records=FINANCIAL_RECORDS,
+                payroll_records=PAYROLL_RECORDS,
+                enrich_payroll_fn=enrich_payroll_period
+            )
+            self.send_json(resp_data, status_code)
+            return
+
+        elif path == "/api/ai/apply-tasks":
+            user = self.get_auth_user()
+            if not user:
+                self.send_json({"error": "Authentication required"}, 401)
+                return
+            if not spillburg_ai.can_user_access_spillburg_ai(user):
+                self.send_json({"error": "Access Denied: SpillburgAI is disabled for your account."}, 403)
+                return
+            if not spillburg_ai.can_user_edit_module(user, "operations"):
+                self.send_json({"error": "Access Denied: Operations Tracker editor permission is required to approve and apply tasks."}, 403)
+                return
+
+            sync_users_from_disk()
+            sync_operations_from_disk()
+
+            tasks_payload = body.get("tasks", [])
+            default_target_uid = body.get("targetUserId") or user.get("id")
+            if not isinstance(tasks_payload, list) or len(tasks_payload) == 0:
+                self.send_json({"error": "No tasks provided to apply."}, 400)
+                return
+
+            def safe_int_no(v):
+                try:
+                    return int(v)
+                except (ValueError, TypeError):
+                    return 0
+
+            created_count = 0
+            updated_count = 0
+            applied_tasks = []
+
+            for item in tasks_payload:
+                req_uid = item.get("userId") or default_target_uid
+                tu = next((u for u in USERS if u.get("id") == req_uid or (u.get("username") and u.get("username").lower() == str(req_uid).lower())), None)
+                if not tu:
+                    tu = user
+                t_uid = tu.get("id")
+                t_uname = tu.get("username")
+                t_fname = tu.get("fullName") or t_uname
+
+                action = (item.get("action") or "create").lower()
+                existing_id = item.get("existingTaskId")
+                target_task = None
+
+                if action == "update" and existing_id:
+                    for existing_t in OPERATIONS:
+                        if str(existing_t.get("id")) == str(existing_id):
+                            target_task = existing_t
+                            break
+
+                if target_task:
+                    target_task["userId"] = t_uid
+                    target_task["ownerUsername"] = t_uname
+                    target_task["assignedTo"] = item.get("assignedTo") or t_fname
+                    for k in ["title", "requestedBy", "workstream", "type", "taskedDate", "completedDate", "status", "priority", "estimatedCost", "notes"]:
+                        if k in item and item[k] is not None:
+                            target_task[k] = item[k]
+                    updated_count += 1
+                    applied_tasks.append({"action": "updated", "task": target_task})
+                else:
+                    user_tasks = [t for t in OPERATIONS if t.get("userId") == t_uid]
+                    new_no = max([safe_int_no(t.get("no", 0)) for t in user_tasks] or [0]) + 1
+                    new_task = {
+                        "id": f"ops_{uuid.uuid4().hex[:6]}",
+                        "no": new_no,
+                        "userId": t_uid,
+                        "ownerUsername": t_uname,
+                        "title": item.get("title") or "Operational Task",
+                        "requestedBy": item.get("requestedBy") or user.get("fullName", "Management"),
+                        "assignedTo": item.get("assignedTo") or t_fname,
+                        "workstream": item.get("workstream") or "Office Operations",
+                        "type": item.get("type") or "Operational Task",
+                        "taskedDate": item.get("taskedDate") or time.strftime("%d-%b-%Y"),
+                        "completedDate": item.get("completedDate") or ("", time.strftime("%d-%b-%Y"))[item.get("status") == "Completed" and not item.get("completedDate")],
+                        "status": item.get("status") or "Pending",
+                        "priority": item.get("priority") or "Medium",
+                        "estimatedCost": item.get("estimatedCost") or "",
+                        "notes": item.get("notes") or ""
+                    }
+                    OPERATIONS.append(new_task)
+                    created_count += 1
+                    applied_tasks.append({"action": "created", "task": new_task})
+
+            save_json_file("operations.json", OPERATIONS)
+            self.send_json({
+                "success": True,
+                "createdCount": created_count,
+                "updatedCount": updated_count,
+                "appliedTasks": applied_tasks
+            })
             return
 
         # 5. Operations: Add task (Personalized to user)

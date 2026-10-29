@@ -889,6 +889,19 @@ function updateUserUI() {
       navPayroll.classList.add('hidden');
     }
   }
+  const navAi = document.getElementById('nav-spillburg-ai');
+  const navMobileAi = document.getElementById('nav-mobile-spillburg-ai');
+  if (canView('spillburg_ai')) {
+    if (navAi) navAi.classList.remove('hidden');
+    if (navMobileAi) navMobileAi.classList.remove('hidden');
+  } else {
+    if (navAi) navAi.classList.add('hidden');
+    if (navMobileAi) navMobileAi.classList.add('hidden');
+  }
+  if (false) {
+    if (false) {
+    }
+  }
 
   if (window.lucide) lucide.createIcons();
 }
@@ -902,6 +915,11 @@ function canEdit(module) {
 }
 
 function canView(module) {
+  if (!currentUser) return false;
+  if (module === 'spillburg_ai') {
+    const aiPerm = (currentUser.permissions?.spillburg_ai || 'allowed').toLowerCase();
+    return !['none', 'disallowed', 'false', '0'].includes(aiPerm);
+  }
   if (!currentUser) return false;
   const perm = currentUser.permissions?.[module];
   if (perm === 'none') return false;
@@ -1055,7 +1073,11 @@ async function switchView(viewName) {
     case 'access-control':
       await renderAccessControl(container);
       break;
+    case 'spillburg-ai':
     case 'know-it-all':
+      await renderSpillburgAI(container);
+      break;
+    case 'know-it-all-legacy':
       renderDashboard(container);
       openKnowItAllModal();
       break;
@@ -1120,7 +1142,7 @@ function renderDashboard(container) {
             <button onclick="switchView('financial-files')" class="px-4 py-2 rounded-xl bg-emerald-900/40 hover:bg-emerald-900/60 text-white border border-white/20 font-medium text-xs md:text-sm flex items-center gap-2 transition">
               <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-300"></i> Financial Files DB
             </button>
-            <button onclick="openKnowItAllModal()" class="px-4 py-2 rounded-xl bg-purple-900/50 hover:bg-purple-900/70 text-white border border-purple-300/30 font-medium text-xs md:text-sm flex items-center gap-2 transition group shadow-md">
+            ${canView('spillburg_ai') ? `<button onclick="switchView('spillburg-ai')" class="px-4 py-2 rounded-xl bg-purple-900/50 hover:bg-purple-900/70 text-white border border-purple-300/30 font-medium text-xs md:text-sm flex items-center gap-2 transition group shadow-md"><i data-lucide="sparkles" class="w-4 h-4 text-purple-300 group-hover:rotate-12 transition-transform"></i><span>SpillburgAI</span><span class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-400/20 text-purple-200 border border-purple-300/30 font-semibold">Live AI</span></button>` : ''}<button class="hidden"
               <i data-lucide="brain" class="w-4 h-4 text-purple-300 group-hover:rotate-12 transition-transform"></i>
               <span>Know It All</span>
               <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-400/20 text-purple-200 border border-purple-300/30 font-semibold">To be done later</span>
@@ -1335,17 +1357,19 @@ function renderDashboard(container) {
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h3 class="font-display font-bold text-base text-slate-900">Know It All — Corporate Intelligence Engine</h3>
+              <h3 class="font-display font-bold text-base text-slate-900">SpillburgAI — Corporate Intelligence &amp; Task Automation Chatbot</h3>
               <span class="text-[10px] font-bold uppercase tracking-wider text-purple-700 bg-purple-100 px-2 py-0.5 rounded border border-purple-200">
-                To Be Done Later
+                Live &middot; Permission-Scoped AI
               </span>
             </div>
             <p class="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
-              Centralized AI-powered knowledge repository connecting bilateral business council archives, standard operating procedures (SOPs), company charters, IRD compliance blueprints, and automated querying.
+              Chat with Spillburg Holdings' live databases (scoped to your role &amp; module permissions), or paste daily team work reports (e.g. Ravi's ROC &amp; bank logs) to automatically generate, edit, and approve Operations Tracker tasks.
             </p>
           </div>
         </div>
-        <button onclick="openKnowItAllModal()" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shrink-0 transition flex items-center gap-2 shadow-sm">
+        <button onclick="switchView('spillburg-ai')" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shrink-0 transition flex items-center gap-2 shadow-sm">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Launch SpillburgAI
+        </button><button class="hidden"
           <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Preview Scope
         </button>
       </div>
@@ -1455,7 +1479,8 @@ function getOperationsUserFilterOptions(currentFilter, isReport = false) {
     { id: 'usr_staff_insaaf', username: 'staff_insaaf', fullName: 'Insaaf', role: 'staff' },
     { id: 'usr_staff_editor', username: 'staff_editor', fullName: 'Staff Member (Editor)', role: 'staff' },
     { id: 'usr_staff_viewer', username: 'staff_viewer', fullName: 'Staff Member (Viewer)', role: 'staff' },
-    { id: 'usr_bcc9abca', username: 'staff_bilal', fullName: 'Bilal Mohideen', role: 'staff' }
+    { id: 'usr_bcc9abca', username: 'staff_bilal', fullName: 'Bilal Mohideen', role: 'staff' },
+    { id: 'usr_6b04a953', username: 'ravi', fullName: 'Ravindralal Mahinda Wijeweera', role: 'staff' }
   ];
 
   defaultAccounts.forEach(da => {
@@ -3658,6 +3683,7 @@ function renderUsersTable(users) {
               <th class="py-3 px-3.5">Financial DB</th>
               <th class="py-3 px-3.5">Payroll</th>
               <th class="py-3 px-3.5">User Mgmt</th>
+              <th class="py-3 px-3.5">SpillburgAI</th>
               <th class="py-3 px-3.5 text-right sticky right-0 bg-slate-50 min-w-[140px]">Actions</th>
             </tr>
           </thead>
@@ -3703,6 +3729,14 @@ function renderUsersTable(users) {
                   <td class="py-3 px-3.5">
                     <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${u.permissions?.user_management === 'full' || ['director', 'admin'].includes(u.role) ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-slate-100 text-slate-500'}">
                       ${['director', 'admin'].includes(u.role) ? 'Full' : (u.permissions?.user_management || 'none')}
+                    </span>
+                  </td>
+                  <td class="py-3 px-3.5">
+                    <button type="button" onclick="toggleUserSpillburgAiAccess('${u.id}')" title="Click to toggle SpillburgAI access (Allow / Disallow)" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold transition cursor-pointer ${!['none', 'disallowed'].includes((u.permissions?.spillburg_ai || 'allowed').toLowerCase()) ? 'bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100' : 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'}">
+                      ${!['none', 'disallowed'].includes((u.permissions?.spillburg_ai || 'allowed').toLowerCase()) ? '✓ Allowed' : '✕ Disallowed'}
+                    </button>
+                  </td>
+                  <td class="hidden"><span>
                     </span>
                   </td>
                   <td class="py-3 px-3.5 text-right sticky right-0 bg-white/95 backdrop-blur-xs min-w-[140px] whitespace-nowrap">
@@ -6983,6 +7017,19 @@ function openAddUserModal() {
                 <option value="full">Full Control</option>
               </select>
             </div>
+            <div>
+              <label class="block text-[11px] font-medium text-purple-700 mb-1">SpillburgAI</label>
+              <select id="mUserPermAi" class="w-full p-1.5 bg-purple-50/50 border border-purple-200 rounded-lg text-xs font-semibold text-purple-900">
+                <option value="allowed" selected>Allowed</option>
+                <option value="none">Disallowed</option>
+              </select>
+            </div>
+            <div class="hidden"><select id="mUserPermUserMgmt_unused">
+                <option value="none" selected>No Access</option>
+                <option value="viewer">Viewer (Read Only)</option>
+                <option value="full">Full Control</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -7011,7 +7058,8 @@ async function submitAddUser(e) {
       customer_files: document.getElementById('mUserPermCust').value,
       financial_files: document.getElementById('mUserPermFin').value,
       payroll: document.getElementById('mUserPermPayroll').value,
-      user_management: document.getElementById('mUserPermUserMgmt').value
+      user_management: document.getElementById('mUserPermUserMgmt').value,
+      spillburg_ai: document.getElementById('mUserPermAi')?.value || 'allowed'
     }
   };
 
@@ -7132,6 +7180,19 @@ function openEditUserModal(userId) {
                 <option value="none" ${(!target.permissions?.user_management || target.permissions?.user_management === 'none') ? 'selected' : ''}>None</option>
               </select>
             </div>
+            <div>
+              <label class="block text-[11px] font-medium text-purple-700 mb-1">SpillburgAI</label>
+              <select id="mEditPermAi" class="w-full p-1.5 bg-purple-50/50 border border-purple-200 rounded-lg text-xs font-semibold text-purple-900">
+                <option value="allowed" ${!['none', 'disallowed'].includes((target.permissions?.spillburg_ai || 'allowed').toLowerCase()) ? 'selected' : ''}>Allowed</option>
+                <option value="none" ${['none', 'disallowed'].includes((target.permissions?.spillburg_ai || 'allowed').toLowerCase()) ? 'selected' : ''}>Disallowed</option>
+              </select>
+            </div>
+            <div class="hidden"><select id="mEditPermUserMgmt_unused">
+                <option value="full" ${target.permissions?.user_management === 'full' ? 'selected' : ''}>Full</option>
+                <option value="viewer" ${target.permissions?.user_management === 'viewer' ? 'selected' : ''}>Viewer</option>
+                <option value="none" ${(!target.permissions?.user_management || target.permissions?.user_management === 'none') ? 'selected' : ''}>None</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -7158,7 +7219,8 @@ async function submitEditUser(e, userId) {
       customer_files: document.getElementById('mEditPermCust').value,
       financial_files: document.getElementById('mEditPermFin').value,
       payroll: document.getElementById('mEditPermPayroll').value,
-      user_management: document.getElementById('mEditPermUserMgmt').value
+      user_management: document.getElementById('mEditPermUserMgmt').value,
+      spillburg_ai: document.getElementById('mEditPermAi')?.value || 'allowed'
     }
   };
 
@@ -7413,7 +7475,588 @@ function showPersistenceGuideModal() {
 }
 
 // Know It All Section Roadmap Modal
+async function toggleUserSpillburgAiAccess(userId) {
+  if (!isAdmin()) {
+    alert('Only Administrators or Directors can modify SpillburgAI access permissions.');
+    return;
+  }
+  const target = usersList.find(u => u.id === userId);
+  if (!target) return;
+  const currentAi = (target.permissions?.spillburg_ai || 'allowed').toLowerCase();
+  const nextAi = ['none', 'disallowed'].includes(currentAi) ? 'allowed' : 'none';
+  const updatedPerms = {
+    ...(target.permissions || {}),
+    spillburg_ai: nextAi
+  };
+  try {
+    const res = await fetch(`/api/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ permissions: updatedPerms })
+    });
+    const data = await res.json();
+    if (data.success) {
+      target.permissions = updatedPerms;
+      if (currentUser && currentUser.id === userId) {
+        currentUser.permissions = updatedPerms;
+        localStorage.setItem('spillburg_user', JSON.stringify(currentUser));
+        updateHeaderUserUI();
+      }
+      handleUsersFilter();
+    } else {
+      alert(data.error || 'Failed to update SpillburgAI access');
+    }
+  } catch (err) {
+    alert('Error updating SpillburgAI permission');
+  }
+}
+
+let spillburgAiHistory = [];
+let spillburgAiProposals = {};
+let spillburgAiContext = null;
+
+function formatAiMarkdown(md) {
+  if (!md) return '';
+  let html = escapeHtml(md);
+  html = html.replace(/^### (.*)$/gm, '<h4 class="font-display font-bold text-sm text-slate-900 mt-2 mb-1">$1</h4>');
+  html = html.replace(/^#### (.*)$/gm, '<h5 class="font-semibold text-xs text-purple-800 mt-2 mb-1">$1</h5>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>');
+  html = html.replace(/\*([^*]+)\*/g, '<em class=" italic text-slate-700">$1</em>');
+  html = html.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-slate-100 text-purple-800 font-mono text-[11px] border border-slate-200">$1</code>');
+  html = html.replace(/^---$/gm, '<hr class="my-2.5 border-slate-200">');
+  html = html.replace(/^\s*-\s+(.*)$/gm, '<div class="flex items-start gap-1.5 ml-1 my-0.5"><span class="text-purple-600 font-bold">&bull;</span><span class="flex-1">$1</span></div>');
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
+
+function renderAiTaskProposalCard(cardId) {
+  const prop = spillburgAiProposals[cardId];
+  if (!prop) return '';
+
+  if (prop.approved) {
+    return `
+      <div id="aiProposalCard_${cardId}" class="mt-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-300 space-y-2.5 text-xs shadow-xs">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-emerald-900 font-bold text-sm">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+            <span>Approved &amp; Synced to Operations Tracker</span>
+          </div>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/70 text-emerald-900">
+            ${prop.appliedSummary || 'Applied'}
+          </span>
+        </div>
+        <p class="text-emerald-800 text-xs">
+          Tasks have been saved to <strong>${escapeHtml(prop.targetUser?.fullName || 'User')}</strong>'s Operations Tracker and queued for cloud auto-sync.
+        </p>
+        <div class="pt-1 flex flex-wrap items-center gap-2">
+          <button type="button" onclick="viewUserTasksFromAi('${escapeHtml(prop.targetUser?.id || 'me')}')" class="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs flex items-center gap-1.5 transition shadow-xs cursor-pointer">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            <span>Open ${escapeHtml(prop.targetUser?.fullName || 'User')}'s Operations Tracker</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  const allUsers = (spillburgAiContext?.users && spillburgAiContext.users.length > 0)
+    ? spillburgAiContext.users
+    : (usersList && usersList.length > 0 ? usersList : [
+      { id: 'usr_6b04a953', username: 'ravi', fullName: 'Ravindralal Mahinda Wijeweera' },
+      { id: 'usr_bcc9abca', username: 'staff_bilal', fullName: 'Bilal Mohideen' },
+      { id: 'usr_admin_zaharan', username: 'zaharan', fullName: 'Muhammad Zaharan' },
+      { id: 'usr_staff_hemanthi', username: 'staff_hemanthi', fullName: 'Miss Hemanthi' },
+      { id: 'usr_staff_insaaf', username: 'staff_insaaf', fullName: 'Insaaf' },
+      { id: 'usr_dir_shameel', username: 'shameel', fullName: 'Mohamed Shaameel Mohideen' },
+      { id: 'usr_dir_hameez', username: 'hameez', fullName: 'Mohamed Hussain Kariapper Hameez' }
+    ]);
+
+  const existingTasks = prop.existingUserTasks || [];
+  const tasks = prop.proposedTasks || [];
+
+  return `
+    <div id="aiProposalCard_${cardId}" class="mt-3 rounded-2xl border border-purple-200 bg-white shadow-sm overflow-hidden text-xs">
+      <div class="bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 text-white px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <i data-lucide="clipboard-check" class="w-4 h-4 text-purple-200"></i>
+          <div>
+            <div class="font-bold text-sm">Proposed Operations Tasks — Pending Your Approval</div>
+            <div class="text-[11px] text-purple-200">Review, edit, or change action (Create vs Update) before applying</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] text-purple-100 font-medium">Assign User:</span>
+          <select id="aiPropUser_${cardId}" onchange="changeAiProposalTargetUser('${cardId}', this.value)" class="bg-white/15 hover:bg-white/25 text-white border border-white/30 rounded-lg px-2.5 py-1 text-xs font-semibold focus:outline-none">
+            ${allUsers.map(u => `<option value="${escapeHtml(u.id)}" class="text-slate-900" ${u.id === prop.targetUser?.id ? 'selected' : ''}>${escapeHtml(u.fullName)} (@${escapeHtml(u.username)})</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="p-4 space-y-3 bg-slate-50/60 max-h-[460px] overflow-y-auto">
+        ${tasks.map((t, idx) => `
+          <div class="p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
+              <label class="flex items-center gap-2 font-bold text-slate-800 cursor-pointer">
+                <input type="checkbox" id="aiTaskInc_${cardId}_${idx}" checked class="rounded text-purple-600 focus:ring-purple-500">
+                <span>Item #${idx + 1}</span>
+              </label>
+
+              <div class="flex flex-wrap items-center gap-2">
+                <select id="aiTaskAction_${cardId}_${idx}" onchange="toggleAiTaskExistingSelect('${cardId}', ${idx}, this.value)" class="px-2.5 py-1 rounded-lg border text-[11px] font-bold ${t.action === 'update' ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-emerald-50 text-emerald-800 border-emerald-300'}">
+                  <option value="create" ${t.action === 'create' ? 'selected' : ''}>+ Create New Task</option>
+                  <option value="update" ${t.action === 'update' ? 'selected' : ''}>✎ Update Existing Task</option>
+                </select>
+
+                <select id="aiTaskExistingId_${cardId}_${idx}" class="${t.action === 'update' ? '' : 'hidden'} px-2 py-1 rounded-lg border border-amber-300 bg-amber-50/50 text-[11px] text-slate-800 max-w-[220px]">
+                  <option value="">-- Select task to update --</option>
+                  ${existingTasks.map(et => `<option value="${escapeHtml(et.id)}" ${et.id === t.existingTaskId ? 'selected' : ''}>#${et.no} ${escapeHtml(et.title)} (${escapeHtml(et.status)})</option>`).join('')}
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-2.5">
+              <div class="md:col-span-6">
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Task Title</label>
+                <input type="text" id="aiTaskTitle_${cardId}_${idx}" value="${escapeHtml(t.title)}" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-900 focus:bg-white focus:border-purple-500 focus:outline-none">
+              </div>
+              <div class="md:col-span-3">
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Workstream</label>
+                <input type="text" id="aiTaskWs_${cardId}_${idx}" value="${escapeHtml(t.workstream)}" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:bg-white focus:border-purple-500 focus:outline-none">
+              </div>
+              <div class="md:col-span-3">
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Status</label>
+                <select id="aiTaskStatus_${cardId}_${idx}" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:bg-white">
+                  <option value="Completed" ${t.status === 'Completed' ? 'selected' : ''}>Completed</option>
+                  <option value="In Progress" ${t.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                  <option value="Pending" ${t.status === 'Pending' ? 'selected' : ''}>Pending</option>
+                  <option value="On Hold" ${t.status === 'On Hold' ? 'selected' : ''}>On Hold</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Priority</label>
+                <select id="aiTaskPri_${cardId}_${idx}" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800">
+                  <option value="Critical" ${t.priority === 'Critical' ? 'selected' : ''}>Critical</option>
+                  <option value="High" ${t.priority === 'High' ? 'selected' : ''}>High</option>
+                  <option value="Medium" ${t.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+                  <option value="Low" ${t.priority === 'Low' ? 'selected' : ''}>Low</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Tasked Date</label>
+                <input type="text" id="aiTaskDate_${cardId}_${idx}" value="${escapeHtml(t.taskedDate)}" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800">
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Completed Date</label>
+                <input type="text" id="aiTaskCompDate_${cardId}_${idx}" value="${escapeHtml(t.completedDate)}" placeholder="DD-MMM-YYYY" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Detailed Notes / Follow-up Context</label>
+              <textarea id="aiTaskNotes_${cardId}_${idx}" rows="2" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:bg-white focus:border-purple-500 focus:outline-none">${escapeHtml(t.notes)}</textarea>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="px-4 py-3 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+        <span class="text-[11px] text-slate-500">
+          Checked items will be committed to the selected user's Operations Tracker upon approval.
+        </span>
+        <div class="flex items-center gap-2">
+          <button type="button" id="aiApproveBtn_${cardId}" onclick="approveAiTasksProposal('${cardId}')" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer">
+            <i data-lucide="check-square" class="w-4 h-4"></i>
+            <span>Approve &amp; Apply Tasks (${tasks.length})</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function toggleAiTaskExistingSelect(cardId, idx, actionVal) {
+  const sel = document.getElementById(`aiTaskExistingId_${cardId}_${idx}`);
+  if (!sel) return;
+  if (actionVal === 'update') {
+    sel.classList.remove('hidden');
+  } else {
+    sel.classList.add('hidden');
+  }
+}
+
+function changeAiProposalTargetUser(cardId, newUserId) {
+  const prop = spillburgAiProposals[cardId];
+  if (!prop) return;
+  const allUsers = spillburgAiContext?.users || usersList || [];
+  const u = allUsers.find(x => x.id === newUserId);
+  if (u) {
+    prop.targetUser = u;
+  }
+}
+
+async function approveAiTasksProposal(cardId) {
+  const prop = spillburgAiProposals[cardId];
+  if (!prop || prop.approved) return;
+
+  const targetUserId = document.getElementById(`aiPropUser_${cardId}`)?.value || prop.targetUser?.id;
+  const tasks = prop.proposedTasks || [];
+  const selectedTasks = [];
+
+  for (let i = 0; i < tasks.length; i++) {
+    const inc = document.getElementById(`aiTaskInc_${cardId}_${i}`);
+    if (inc && !inc.checked) continue;
+
+    const action = document.getElementById(`aiTaskAction_${cardId}_${i}`)?.value || 'create';
+    const existingTaskId = document.getElementById(`aiTaskExistingId_${cardId}_${i}`)?.value || '';
+    const title = document.getElementById(`aiTaskTitle_${cardId}_${i}`)?.value.trim() || tasks[i].title;
+    const workstream = document.getElementById(`aiTaskWs_${cardId}_${i}`)?.value.trim() || tasks[i].workstream;
+    const status = document.getElementById(`aiTaskStatus_${cardId}_${i}`)?.value || tasks[i].status;
+    const priority = document.getElementById(`aiTaskPri_${cardId}_${i}`)?.value || tasks[i].priority;
+    const taskedDate = document.getElementById(`aiTaskDate_${cardId}_${i}`)?.value.trim() || tasks[i].taskedDate;
+    const completedDate = document.getElementById(`aiTaskCompDate_${cardId}_${i}`)?.value.trim() || '';
+    const notes = document.getElementById(`aiTaskNotes_${cardId}_${i}`)?.value.trim() || '';
+
+    selectedTasks.push({
+      action,
+      existingTaskId,
+      userId: targetUserId,
+      title,
+      workstream,
+      type: tasks[i].type || 'Operational Task',
+      status,
+      priority,
+      taskedDate,
+      completedDate: status === 'Completed' && !completedDate ? taskedDate : completedDate,
+      requestedBy: tasks[i].requestedBy || (currentUser ? currentUser.fullName : 'Management'),
+      notes
+    });
+  }
+
+  if (selectedTasks.length === 0) {
+    alert('Please select at least one task item to approve.');
+    return;
+  }
+
+  const btn = document.getElementById(`aiApproveBtn_${cardId}`);
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Applying...`;
+    if (window.lucide) lucide.createIcons();
+  }
+
+  try {
+    const res = await fetch('/api/ai/apply-tasks', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        targetUserId,
+        tasks: selectedTasks
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      prop.approved = true;
+      prop.appliedSummary = `${data.createdCount || 0} Created · ${data.updatedCount || 0} Updated`;
+      const allUsers = spillburgAiContext?.users || usersList || [];
+      const foundU = allUsers.find(x => x.id === targetUserId);
+      if (foundU) prop.targetUser = foundU;
+
+      const cardEl = document.getElementById(`aiProposalCard_${cardId}`);
+      if (cardEl) {
+        cardEl.outerHTML = renderAiTaskProposalCard(cardId);
+      }
+      if (window.lucide) lucide.createIcons();
+      await loadInitialData();
+      refreshCloudSyncIndicator();
+    } else {
+      alert(data.error || 'Failed to apply tasks.');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="check-square" class="w-4 h-4"></i> Approve & Apply Tasks`;
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+  } catch (err) {
+    alert('Error applying tasks: ' + err.message);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<i data-lucide="check-square" class="w-4 h-4"></i> Approve & Apply Tasks`;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+async function viewUserTasksFromAi(targetUserId) {
+  if (currentUser && ['director', 'admin'].includes(currentUser.role) && targetUserId) {
+    operationsUserFilter = targetUserId;
+  } else {
+    operationsUserFilter = 'me';
+  }
+  await loadInitialData();
+  await switchView('operations');
+}
+
+function loadSampleRaviReportIntoAi() {
+  const input = document.getElementById('spillburgAiInput');
+  if (!input) return;
+  input.value = `Ravi
+Yesterday on 28/10/2026 done the works by Ravi 
+
+1)Went to ROC got Approvels for 5 companies from level 2 to level 3 
+Last Monday Approved 5 companies forwarded from level 2 to level 3. To be gone to final approvals from Mrs.Harshanee Assistan Registrar. she has been attended to meeting since last Monday. To be follow up
+2)There was a system error,not to applying BO 2 the customer, Coconut Hut.went to ROC & sort it out
+3)Went to Comm Bank Keyzer Street. met Assistan Manager, ALP fund transfer, got approved  by him
+4)Went to People's Park SH needful..`;
+  input.focus();
+}
+
+function sendQuickAiPrompt(text) {
+  const input = document.getElementById('spillburgAiInput');
+  if (input) {
+    input.value = text;
+  }
+  sendSpillburgAiMessage();
+}
+
+function renderSpillburgAiMessagesList() {
+  const box = document.getElementById('spillburgAiMessages');
+  if (!box) return;
+  box.innerHTML = spillburgAiHistory.map(m => {
+    if (m.role === 'user') {
+      return `
+        <div class="flex justify-end">
+          <div class="max-w-2xl bg-purple-700 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-xs shadow-xs whitespace-pre-wrap leading-relaxed">${escapeHtml(m.content)}</div>
+        </div>
+      `;
+    } else {
+      return `
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+          </div>
+          <div class="flex-1 min-w-0 max-w-4xl bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-4 text-xs text-slate-700 shadow-xs leading-relaxed">
+            <div>${formatAiMarkdown(m.content)}</div>
+            ${m.proposalCardId ? renderAiTaskProposalCard(m.proposalCardId) : ''}
+          </div>
+        </div>
+      `;
+    }
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+  if (window.lucide) lucide.createIcons();
+}
+
+async function sendSpillburgAiMessage(e) {
+  if (e) e.preventDefault();
+  const input = document.getElementById('spillburgAiInput');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  spillburgAiHistory.push({ role: 'user', content: text });
+  renderSpillburgAiMessagesList();
+
+  const sendBtn = document.getElementById('spillburgAiSendBtn');
+  if (sendBtn) sendBtn.disabled = true;
+
+  try {
+    const res = await fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        message: text,
+        history: spillburgAiHistory.slice(-8).map(h => ({ role: h.role, content: h.content }))
+      })
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      spillburgAiHistory.push({
+        role: 'assistant',
+        content: `🔒 **Notice**: ${data.error || 'Unable to process request.'}`
+      });
+    } else {
+      let cardId = null;
+      if (data.intent === 'task_proposal' && Array.isArray(data.proposedTasks) && data.proposedTasks.length > 0) {
+        cardId = 'card_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        spillburgAiProposals[cardId] = {
+          targetUser: data.targetUser,
+          taskedDate: data.taskedDate,
+          proposedTasks: data.proposedTasks,
+          existingUserTasks: data.existingUserTasks || [],
+          approved: false
+        };
+      }
+      spillburgAiHistory.push({
+        role: 'assistant',
+        content: data.reply || 'Done.',
+        proposalCardId: cardId
+      });
+    }
+  } catch (err) {
+    spillburgAiHistory.push({
+      role: 'assistant',
+      content: 'Error connecting to SpillburgAI service: ' + err.message
+    });
+  } finally {
+    if (sendBtn) sendBtn.disabled = false;
+    renderSpillburgAiMessagesList();
+  }
+}
+
+function clearSpillburgAiChat() {
+  spillburgAiHistory = [];
+  spillburgAiProposals = {};
+  renderSpillburgAI(document.getElementById('mainContent'));
+}
+
+async function renderSpillburgAI(container) {
+  if (!canView('spillburg_ai')) {
+    container.innerHTML = `
+      <div class="p-12 text-center bg-white rounded-2xl border border-rose-200 space-y-3 max-w-lg mx-auto my-12 shadow-sm">
+        <div class="w-14 h-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+          <i data-lucide="lock" class="w-7 h-7"></i>
+        </div>
+        <h3 class="text-base font-bold text-slate-900">SpillburgAI Access Disallowed</h3>
+        <p class="text-xs text-slate-600 leading-relaxed">
+          Your account currently has SpillburgAI access set to <strong>Disallowed</strong> in User Management. Please contact an Administrator or Director to enable SpillburgAI for your profile.
+        </p>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/ai/context', {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (res.ok) {
+      spillburgAiContext = await res.json();
+    }
+  } catch (e) { }
+
+  const mods = spillburgAiContext?.access?.modules || {};
+  const counts = spillburgAiContext?.counts || {};
+  const isExec = currentUser && ['director', 'admin'].includes(currentUser.role);
+
+  if (spillburgAiHistory.length === 0) {
+    spillburgAiHistory.push({
+      role: 'assistant',
+      content:
+        `### 🤖 Welcome to SpillburgAI — Corporate Intelligence & Task Automation\n` +
+        `Hello **${currentUser ? currentUser.fullName : 'Team Member'}**! I am connected to Spillburg Holdings' live databases and strictly respect your **${currentUser ? currentUser.role.toUpperCase() : 'STAFF'}** module permissions.\n\n` +
+        `- **Paste Daily Work Reports to Generate or Update Tasks**: Paste a team member's WhatsApp/work log (e.g., *Ravi's 28/10/2026 ROC & Bank log*) and I will extract each deliverable, assign it to the right user, detect whether it creates or updates a task, and give you an interactive **Approval Card** before saving.\n` +
+        `- **Query Permitted Corporate Databases**: Ask about Operations Tasks, Customer Archive Files (Cupboards & Boxes), Financial & Tax Register (TIN, IRD PIN, SSID), or Corporate Payroll & EPF/ETF returns (according to your access level).`
+    });
+  }
+
+  container.innerHTML = `
+    <div class="space-y-4 fade-in">
+      <!-- Top Header & Active Access Scope -->
+      <div class="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white p-5 rounded-2xl shadow-md border border-purple-700/40 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div class="flex items-start gap-3.5">
+          <div class="w-11 h-11 rounded-2xl bg-purple-500/25 border border-purple-400/40 flex items-center justify-center text-purple-200 shrink-0 shadow-inner">
+            <i data-lucide="sparkles" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="font-display font-bold text-lg md:text-xl text-white">SpillburgAI Assistant</h2>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                Permission-Scoped Knowledge &amp; Task Engine
+              </span>
+            </div>
+            <p class="text-xs text-purple-200/90 mt-1">
+              Connected to your authorized datasets &bull; Paste daily staff reports to extract, edit, and approve Operations Tracker tasks
+            </p>
+            <div class="flex flex-wrap items-center gap-1.5 mt-2.5 text-[10px]">
+              <span class="text-purple-300 font-semibold uppercase tracking-wider mr-1">Your AI Data Scope:</span>
+              <span class="px-2 py-0.5 rounded-md font-semibold ${mods.operations?.view !== false ? 'bg-white/15 text-white border border-white/20' : 'bg-rose-500/20 text-rose-200 border border-rose-400/30'}">
+                Operations: ${isExec ? 'All Team' : 'Personal Only'} (${counts.operations ?? operationsTasks.length})
+              </span>
+              <span class="px-2 py-0.5 rounded-md font-semibold ${canView('customer_files') ? 'bg-white/15 text-white border border-white/20' : 'bg-rose-500/20 text-rose-200 border border-rose-400/30'}">
+                Customer DB: ${canView('customer_files') ? `Allowed (${counts.customerFiles ?? customerRecords.length})` : 'Restricted'}
+              </span>
+              <span class="px-2 py-0.5 rounded-md font-semibold ${canView('financial_files') ? 'bg-white/15 text-white border border-white/20' : 'bg-rose-500/20 text-rose-200 border border-rose-400/30'}">
+                Financial DB: ${canView('financial_files') ? `Allowed (${counts.financialFiles ?? financialRecords.length})` : 'Restricted'}
+              </span>
+              <span class="px-2 py-0.5 rounded-md font-semibold ${canView('payroll') ? 'bg-white/15 text-white border border-white/20' : 'bg-rose-500/20 text-rose-200 border border-rose-400/30'}">
+                Payroll: ${canView('payroll') ? 'Allowed' : 'Restricted'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <button type="button" onclick="loadSampleRaviReportIntoAi()" class="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer">
+            <i data-lucide="clipboard-paste" class="w-3.5 h-3.5"></i>
+            <span>Load Ravi's 28/10 Work Log</span>
+          </button>
+          <button type="button" onclick="clearSpillburgAiChat()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-100 border border-white/15 font-medium text-xs flex items-center gap-1.5 transition cursor-pointer">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Reset Chat</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Prompt Chips -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+        <span class="text-[11px] font-semibold text-slate-500 shrink-0">Quick Prompts:</span>
+        <button type="button" onclick="sendQuickAiPrompt('Show Ravi\\'s tasks in the Operations Tracker')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
+          📋 Ravi's Tasks
+        </button>
+        <button type="button" onclick="sendQuickAiPrompt('Show all pending and in progress operations tasks')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
+          ⏳ Active Operations Summary
+        </button>
+        <button type="button" onclick="sendQuickAiPrompt('Where is 113 East SL in the Customer File DB?')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
+          🗂️ Find Customer File (113 East SL)
+        </button>
+        <button type="button" onclick="sendQuickAiPrompt('What is the TIN and IRD PIN for Remi Dream Lanka?')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
+          📊 TIN &amp; IRD Lookup
+        </button>
+        <button type="button" onclick="sendQuickAiPrompt('Show Corporate Payroll summary and EPF/ETF registration numbers')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
+          🏦 Payroll &amp; EPF/ETF Summary
+        </button>
+      </div>
+
+      <!-- Chat Messages Stream & Input Box -->
+      <div class="bg-slate-100/80 border border-slate-200 rounded-2xl shadow-sm flex flex-col h-[620px] overflow-hidden">
+        <div id="spillburgAiMessages" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4"></div>
+
+        <form onsubmit="sendSpillburgAiMessage(event)" class="p-3.5 bg-white border-t border-slate-200 flex flex-col gap-2">
+          <div class="flex items-end gap-2">
+            <textarea id="spillburgAiInput" rows="3" placeholder="Ask SpillburgAI anything across your permitted databases, OR paste a multi-line staff work report (e.g. Ravi's 1) 2) 3) 4) log) to generate/update tasks..." onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendSpillburgAiMessage(); }" class="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 resize-y"></textarea>
+            <button type="submit" id="spillburgAiSendBtn" class="px-5 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition shrink-0 cursor-pointer">
+              <i data-lucide="send" class="w-4 h-4"></i>
+              <span>Send / Analyze</span>
+            </button>
+          </div>
+          <div class="flex items-center justify-between text-[11px] text-slate-400 px-1">
+            <span>Press <strong>Enter</strong> to send &middot; <strong>Shift + Enter</strong> for a new line when pasting multi-line task logs</span>
+            <span>All task creations &amp; edits require your explicit <strong>Approve &amp; Apply</strong> confirmation</span>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  renderSpillburgAiMessagesList();
+}
+
 function openKnowItAllModal() {
+  switchView('spillburg-ai');
+  if (true) return;
   const c = document.getElementById('modalContent');
   c.innerHTML = `
     <div class="space-y-5 text-xs">
