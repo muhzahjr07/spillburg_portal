@@ -45,3 +45,5 @@ desktop.ini
 scratch/
 .system_generated/
 data/backups/
+data/ai_config.json
+.env
