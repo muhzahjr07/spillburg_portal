@@ -7516,7 +7516,46 @@ async function toggleUserSpillburgAiAccess(userId) {
 
 let spillburgAiHistory = [];
 let spillburgAiProposals = {};
+let spillburgAiCrossProposals = {};
 let spillburgAiContext = null;
+let spillburgAiLoadedUserId = null;
+
+function getSpillburgAiStorageKey() {
+  const uid = currentUser?.id || currentUser?.username || 'guest';
+  return `spillburg_ai_state_${uid}`;
+}
+
+function saveSpillburgAiStateToStorage() {
+  try {
+    const payload = {
+      history: spillburgAiHistory.slice(-40),
+      proposals: spillburgAiProposals,
+      crossProposals: spillburgAiCrossProposals
+    };
+    localStorage.setItem(getSpillburgAiStorageKey(), JSON.stringify(payload));
+  } catch (e) { }
+}
+
+function loadSpillburgAiStateFromStorage() {
+  const uid = currentUser?.id || currentUser?.username || 'guest';
+  if (spillburgAiLoadedUserId === uid && spillburgAiHistory.length > 0) return;
+  spillburgAiLoadedUserId = uid;
+  try {
+    const raw = localStorage.getItem(getSpillburgAiStorageKey());
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.history) && parsed.history.length > 0) {
+        spillburgAiHistory = parsed.history;
+        spillburgAiProposals = parsed.proposals || {};
+        spillburgAiCrossProposals = parsed.crossProposals || {};
+        return;
+      }
+    }
+  } catch (e) { }
+  spillburgAiHistory = [];
+  spillburgAiProposals = {};
+  spillburgAiCrossProposals = {};
+}
 
 function formatAiMarkdown(md) {
   if (!md) return '';
@@ -7524,12 +7563,243 @@ function formatAiMarkdown(md) {
   html = html.replace(/^### (.*)$/gm, '<h4 class="font-display font-bold text-sm text-slate-900 mt-2 mb-1">$1</h4>');
   html = html.replace(/^#### (.*)$/gm, '<h5 class="font-semibold text-xs text-purple-800 mt-2 mb-1">$1</h5>');
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>');
-  html = html.replace(/\*([^*]+)\*/g, '<em class=" italic text-slate-700">$1</em>');
+  html = html.replace(/\*([^*]+)\*/g, '<em class="italic text-slate-700">$1</em>');
   html = html.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-slate-100 text-purple-800 font-mono text-[11px] border border-slate-200">$1</code>');
   html = html.replace(/^---$/gm, '<hr class="my-2.5 border-slate-200">');
   html = html.replace(/^\s*-\s+(.*)$/gm, '<div class="flex items-start gap-1.5 ml-1 my-0.5"><span class="text-purple-600 font-bold">&bull;</span><span class="flex-1">$1</span></div>');
   html = html.replace(/\n/g, '<br>');
   return html;
+}
+
+function convertMarkdownToWhatsApp(md) {
+  if (!md) return '';
+  return String(md)
+    .replace(/^###\s+(.*)$/gm, '*$1*')
+    .replace(/^####\s+(.*)$/gm, '*$1*')
+    .replace(/\*\*([^*]+)\*\*/g, '*$1*')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/&rarr;/g, '->')
+    .trim();
+}
+
+async function copyAiMessageForWhatsApp(msgIdx, btnEl) {
+  const msg = spillburgAiHistory[msgIdx];
+  if (!msg || !msg.content) return;
+  const waText = convertMarkdownToWhatsApp(msg.content);
+  try {
+    await navigator.clipboard.writeText(waText);
+    if (btnEl) {
+      const orig = btnEl.innerHTML;
+      btnEl.innerHTML = `<i data-lucide="check" class="w-3 h-3 text-emerald-600"></i> <span class="text-emerald-700 font-bold">Copied for WhatsApp!</span>`;
+      if (window.lucide) lucide.createIcons();
+      setTimeout(() => {
+        btnEl.innerHTML = orig;
+        if (window.lucide) lucide.createIcons();
+      }, 2000);
+    }
+  } catch (e) {
+    alert('Copied text:\n\n' + waText);
+  }
+}
+
+async function executeAiNavAction(viewName, forUser = '', searchQ = '') {
+  if (viewName === 'operations') {
+    if (forUser) {
+      operationsUserFilter = forUser;
+    }
+    await loadInitialData();
+    await switchView('operations');
+    if (searchQ) {
+      setTimeout(() => {
+        const inp = document.getElementById('opsSearchInput');
+        if (inp) {
+          inp.value = searchQ;
+          handleOperationsFilter();
+        }
+      }, 80);
+    }
+    return;
+  }
+  await switchView(viewName);
+  if (searchQ) {
+    setTimeout(() => {
+      if (viewName === 'customer-files') {
+        const inp = document.getElementById('customerSearchInput');
+        if (inp) {
+          inp.value = searchQ;
+          handleCustomerFilter();
+        }
+      } else if (viewName === 'financial-files') {
+        const inp = document.getElementById('finSearchInput');
+        if (inp) {
+          inp.value = searchQ;
+          handleFinancialFilter();
+        }
+      }
+    }, 80);
+  }
+}
+
+function renderAiNavChips(navActions) {
+  if (!Array.isArray(navActions) || navActions.length === 0) return '';
+  return `
+    <div class="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
+      <span class="text-[10px] font-bold uppercase text-slate-400 mr-1">Quick Jump:</span>
+      ${navActions.map(na => `
+        <button type="button" onclick="executeAiNavAction('${escapeHtml(na.view || 'dashboard')}', '${escapeHtml(na.forUser || '')}', '${escapeHtml(na.search || '')}')" class="px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-[11px] font-semibold flex items-center gap-1 transition cursor-pointer">
+          <i data-lucide="arrow-up-right" class="w-3 h-3 text-purple-600"></i>
+          <span>${escapeHtml(na.label || 'Open')}</span>
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderAiCrossModuleCard(cardId) {
+  const prop = spillburgAiCrossProposals[cardId];
+  if (!prop) return '';
+
+  if (prop.approved) {
+    return `
+      <div id="aiCrossCard_${cardId}" class="mt-3 p-4 rounded-2xl bg-emerald-50 border border-emerald-300 space-y-2 text-xs shadow-xs">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-emerald-900 font-bold text-sm">
+            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+            <span>Approved &amp; Updated in ${prop.module === 'customer_files' ? 'Customer File Register' : 'Financial &amp; Tax Register'}</span>
+          </div>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/70 text-emerald-900">Synced</span>
+        </div>
+        <div class="pt-1">
+          <button type="button" onclick="switchView('${prop.module === 'customer_files' ? 'customer-files' : 'financial-files'}')" class="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs flex items-center gap-1.5 transition cursor-pointer">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            <span>Open ${prop.module === 'customer_files' ? 'Customer Files DB' : 'Financial Files DB'}</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  const r = prop.proposedRecord || {};
+  if (prop.module === 'customer_files') {
+    return `
+      <div id="aiCrossCard_${cardId}" class="mt-3 rounded-2xl border border-amber-300 bg-white shadow-sm overflow-hidden text-xs">
+        <div class="bg-gradient-to-r from-amber-600 to-orange-600 text-white px-4 py-2.5 flex items-center justify-between">
+          <div class="flex items-center gap-2 font-bold text-sm">
+            <i data-lucide="folder-archive" class="w-4 h-4"></i>
+            <span>Customer File Archive Update — Pending Approval</span>
+          </div>
+          <span class="text-[11px] bg-white/20 px-2 py-0.5 rounded font-mono">Record #${escapeHtml(String(r.No || ''))}</span>
+        </div>
+        <div class="p-4 grid grid-cols-1 sm:grid-cols-3 gap-2.5 bg-amber-50/30">
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Company Name</label>
+            <input type="text" id="aiCustName_${cardId}" value="${escapeHtml(r['Company Name'] || '')}" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-900">
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Cupboard</label>
+            <input type="text" id="aiCustCup_${cardId}" value="${escapeHtml(r['Cupboard'] || '')}" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-900">
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Box No</label>
+            <input type="text" id="aiCustBox_${cardId}" value="${escapeHtml(r['Box No'] || '')}" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-900">
+          </div>
+        </div>
+        <div class="px-4 py-2.5 bg-white border-t border-slate-200 flex justify-end">
+          <button type="button" id="aiCrossApproveBtn_${cardId}" onclick="approveAiCrossModuleProposal('${cardId}')" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer">
+            <i data-lucide="check-square" class="w-4 h-4"></i>
+            <span>Approve &amp; Update File Register</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div id="aiCrossCard_${cardId}" class="mt-3 rounded-2xl border border-teal-300 bg-white shadow-sm overflow-hidden text-xs">
+      <div class="bg-gradient-to-r from-teal-700 to-emerald-700 text-white px-4 py-2.5 flex items-center justify-between">
+        <div class="flex items-center gap-2 font-bold text-sm">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+          <span>Financial &amp; Tax Register Update — Pending Approval</span>
+        </div>
+        <span class="text-[11px] bg-white/20 px-2 py-0.5 rounded">${escapeHtml(r.entityName || '')}</span>
+      </div>
+      <div class="p-4 grid grid-cols-1 sm:grid-cols-4 gap-2.5 bg-teal-50/30">
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">TIN No</label>
+          <input type="text" id="aiFinTin_${cardId}" value="${escapeHtml(r.tinNo || '')}" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-900">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">IRD PIN</label>
+          <input type="text" id="aiFinPin_${cardId}" value="${escapeHtml(r.irdPin || '')}" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-900">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">SSID</label>
+          <input type="text" id="aiFinSsid_${cardId}" value="${escapeHtml(r.ssid || '')}" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-900">
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Filing / Audit Status</label>
+          <input type="text" id="aiFinStatus_${cardId}" value="${escapeHtml(r.filingStatus || '')}" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-900">
+        </div>
+        <div class="sm:col-span-4">
+          <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Notes</label>
+          <input type="text" id="aiFinNotes_${cardId}" value="${escapeHtml(r.notes || '')}" class="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-800">
+        </div>
+      </div>
+      <div class="px-4 py-2.5 bg-white border-t border-slate-200 flex justify-end">
+        <button type="button" id="aiCrossApproveBtn_${cardId}" onclick="approveAiCrossModuleProposal('${cardId}')" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer">
+          <i data-lucide="check-square" class="w-4 h-4"></i>
+          <span>Approve &amp; Update Financial Record</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+async function approveAiCrossModuleProposal(cardId) {
+  const prop = spillburgAiCrossProposals[cardId];
+  if (!prop || prop.approved) return;
+
+  const rec = { ...(prop.proposedRecord || {}) };
+  if (prop.module === 'customer_files') {
+    rec['Company Name'] = document.getElementById(`aiCustName_${cardId}`)?.value.trim() || rec['Company Name'];
+    rec['Cupboard'] = document.getElementById(`aiCustCup_${cardId}`)?.value.trim() || rec['Cupboard'];
+    rec['Box No'] = document.getElementById(`aiCustBox_${cardId}`)?.value.trim() || rec['Box No'];
+  } else if (prop.module === 'financial_files') {
+    rec.tinNo = document.getElementById(`aiFinTin_${cardId}`)?.value.trim() ?? rec.tinNo;
+    rec.irdPin = document.getElementById(`aiFinPin_${cardId}`)?.value.trim() ?? rec.irdPin;
+    rec.ssid = document.getElementById(`aiFinSsid_${cardId}`)?.value.trim() ?? rec.ssid;
+    rec.filingStatus = document.getElementById(`aiFinStatus_${cardId}`)?.value.trim() ?? rec.filingStatus;
+    rec.notes = document.getElementById(`aiFinNotes_${cardId}`)?.value.trim() ?? rec.notes;
+  }
+
+  try {
+    const res = await fetch('/api/ai/apply-cross-module', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        module: prop.module,
+        record: rec
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      prop.approved = true;
+      prop.proposedRecord = rec;
+      saveSpillburgAiStateToStorage();
+      const el = document.getElementById(`aiCrossCard_${cardId}`);
+      if (el) el.outerHTML = renderAiCrossModuleCard(cardId);
+      if (window.lucide) lucide.createIcons();
+      await loadInitialData();
+      refreshCloudSyncIndicator();
+    } else {
+      alert(data.error || 'Failed to apply update.');
+    }
+  } catch (err) {
+    alert('Error applying update: ' + err.message);
+  }
 }
 
 function renderAiTaskProposalCard(cardId) {
@@ -7596,12 +7866,16 @@ function renderAiTaskProposalCard(cardId) {
 
       <div class="p-4 space-y-3 bg-slate-50/60 max-h-[460px] overflow-y-auto">
         ${tasks.map((t, idx) => `
-          <div class="p-3.5 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-2.5">
+          <div class="p-3.5 rounded-xl bg-white border ${t.isAutoFollowUp ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-200'} shadow-2xs space-y-2.5">
             <div class="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-100">
-              <label class="flex items-center gap-2 font-bold text-slate-800 cursor-pointer">
-                <input type="checkbox" id="aiTaskInc_${cardId}_${idx}" checked class="rounded text-purple-600 focus:ring-purple-500">
-                <span>Item #${idx + 1}</span>
-              </label>
+              <div class="flex items-center gap-2">
+                <label class="flex items-center gap-2 font-bold text-slate-800 cursor-pointer">
+                  <input type="checkbox" id="aiTaskInc_${cardId}_${idx}" checked class="rounded text-purple-600 focus:ring-purple-500">
+                  <span>Item #${idx + 1}</span>
+                </label>
+                ${t.isAutoFollowUp ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">🔔 Auto Follow-Up Reminder</span>` : ''}
+                ${t.action === 'update' && t.existingTaskNo ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">Matched Task #${t.existingTaskNo}</span>` : ''}
+              </div>
 
               <div class="flex flex-wrap items-center gap-2">
                 <select id="aiTaskAction_${cardId}_${idx}" onchange="toggleAiTaskExistingSelect('${cardId}', ${idx}, this.value)" class="px-2.5 py-1 rounded-lg border text-[11px] font-bold ${t.action === 'update' ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-emerald-50 text-emerald-800 border-emerald-300'}">
@@ -7636,7 +7910,11 @@ function renderAiTaskProposalCard(cardId) {
               </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+              <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Requested By</label>
+                <input type="text" id="aiTaskReq_${cardId}_${idx}" value="${escapeHtml(t.requestedBy || 'Mr. Shameel')}" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800">
+              </div>
               <div>
                 <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Priority</label>
                 <select id="aiTaskPri_${cardId}_${idx}" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800">
@@ -7716,6 +7994,7 @@ async function approveAiTasksProposal(cardId) {
     const title = document.getElementById(`aiTaskTitle_${cardId}_${i}`)?.value.trim() || tasks[i].title;
     const workstream = document.getElementById(`aiTaskWs_${cardId}_${i}`)?.value.trim() || tasks[i].workstream;
     const status = document.getElementById(`aiTaskStatus_${cardId}_${i}`)?.value || tasks[i].status;
+    const requestedBy = document.getElementById(`aiTaskReq_${cardId}_${i}`)?.value.trim() || tasks[i].requestedBy || (currentUser ? currentUser.fullName : 'Management');
     const priority = document.getElementById(`aiTaskPri_${cardId}_${i}`)?.value || tasks[i].priority;
     const taskedDate = document.getElementById(`aiTaskDate_${cardId}_${i}`)?.value.trim() || tasks[i].taskedDate;
     const completedDate = document.getElementById(`aiTaskCompDate_${cardId}_${i}`)?.value.trim() || '';
@@ -7732,7 +8011,7 @@ async function approveAiTasksProposal(cardId) {
       priority,
       taskedDate,
       completedDate: status === 'Completed' && !completedDate ? taskedDate : completedDate,
-      requestedBy: tasks[i].requestedBy || (currentUser ? currentUser.fullName : 'Management'),
+      requestedBy,
       notes
     });
   }
@@ -7768,6 +8047,7 @@ async function approveAiTasksProposal(cardId) {
       const allUsers = spillburgAiContext?.users || usersList || [];
       const foundU = allUsers.find(x => x.id === targetUserId);
       if (foundU) prop.targetUser = foundU;
+      saveSpillburgAiStateToStorage();
 
       const cardEl = document.getElementById(`aiProposalCard_${cardId}`);
       if (cardEl) {
@@ -7818,6 +8098,66 @@ Last Monday Approved 5 companies forwarded from level 2 to level 3. To be gone t
   input.focus();
 }
 
+function openGeminiConfigModal() {
+  const c = document.getElementById('modalContent');
+  if (!c) return;
+  const isConfigured = spillburgAiContext?.access?.geminiConfigured;
+  c.innerHTML = `
+    <div class="space-y-4 text-xs">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
+            <i data-lucide="key" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-display font-bold text-base text-slate-900">Configure Gemini 2.5 Flash API Key</h3>
+            <span class="text-[10px] font-semibold ${isConfigured ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-slate-600 bg-slate-100 border-slate-200'} px-2 py-0.5 rounded border">
+              Status: ${isConfigured ? 'Gemini 2.5 Flash Active' : 'Using Built-In Hybrid Engine'}
+            </span>
+          </div>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <p class="text-slate-600 leading-relaxed">
+        SpillburgAI includes a built-in corporate intelligence &amp; WhatsApp work-log parser that works with zero external setup. Optionally enter a Google Gemini API Key (<code class="font-mono bg-slate-100 px-1 rounded">gemini-2.5-flash</code>) to enable conversational synthesis on top of your permission-scoped portal records.
+      </p>
+      <div>
+        <label class="block text-[11px] font-bold text-slate-700 mb-1">Google Gemini API Key</label>
+        <input type="password" id="geminiApiKeyInput" placeholder="AIzaSy..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-900 focus:bg-white focus:border-purple-500 focus:outline-none">
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        <button type="button" onclick="closeModal()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Cancel</button>
+        <button type="button" onclick="saveGeminiConfigKey()" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold shadow-xs">Save API Key</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalBackdrop').classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+async function saveGeminiConfigKey() {
+  const key = document.getElementById('geminiApiKeyInput')?.value.trim() || '';
+  try {
+    const res = await fetch('/api/ai/config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({ geminiApiKey: key })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeModal();
+      await renderSpillburgAI(document.getElementById('mainContent'));
+    } else {
+      alert(data.error || 'Failed to save API key');
+    }
+  } catch (e) {
+    alert('Error saving API key: ' + e.message);
+  }
+}
+
 function sendQuickAiPrompt(text) {
   const input = document.getElementById('spillburgAiInput');
   if (input) {
@@ -7829,7 +8169,7 @@ function sendQuickAiPrompt(text) {
 function renderSpillburgAiMessagesList() {
   const box = document.getElementById('spillburgAiMessages');
   if (!box) return;
-  box.innerHTML = spillburgAiHistory.map(m => {
+  box.innerHTML = spillburgAiHistory.map((m, idx) => {
     if (m.role === 'user') {
       return `
         <div class="flex justify-end">
@@ -7845,6 +8185,15 @@ function renderSpillburgAiMessagesList() {
           <div class="flex-1 min-w-0 max-w-4xl bg-white border border-slate-200 rounded-2xl rounded-tl-sm p-4 text-xs text-slate-700 shadow-xs leading-relaxed">
             <div>${formatAiMarkdown(m.content)}</div>
             ${m.proposalCardId ? renderAiTaskProposalCard(m.proposalCardId) : ''}
+            ${m.crossCardId ? renderAiCrossModuleCard(m.crossCardId) : ''}
+            ${m.navActions ? renderAiNavChips(m.navActions) : ''}
+            <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+              <span>SpillburgAI &middot; Permission-Verified Response</span>
+              <button type="button" onclick="copyAiMessageForWhatsApp(${idx}, this)" class="px-2.5 py-1 rounded-lg hover:bg-slate-100 text-slate-600 hover:text-slate-900 font-medium flex items-center gap-1 transition cursor-pointer" title="Copy formatted summary for WhatsApp">
+                <i data-lucide="copy" class="w-3 h-3"></i>
+                <span>Copy for WhatsApp</span>
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -7863,6 +8212,7 @@ async function sendSpillburgAiMessage(e) {
 
   input.value = '';
   spillburgAiHistory.push({ role: 'user', content: text });
+  saveSpillburgAiStateToStorage();
   renderSpillburgAiMessagesList();
 
   const sendBtn = document.getElementById('spillburgAiSendBtn');
@@ -7888,6 +8238,7 @@ async function sendSpillburgAiMessage(e) {
       });
     } else {
       let cardId = null;
+      let crossCardId = null;
       if (data.intent === 'task_proposal' && Array.isArray(data.proposedTasks) && data.proposedTasks.length > 0) {
         cardId = 'card_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         spillburgAiProposals[cardId] = {
@@ -7897,11 +8248,21 @@ async function sendSpillburgAiMessage(e) {
           existingUserTasks: data.existingUserTasks || [],
           approved: false
         };
+      } else if (data.intent === 'cross_module_proposal' && data.proposedRecord) {
+        crossCardId = 'xcard_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        spillburgAiCrossProposals[crossCardId] = {
+          module: data.module,
+          proposedRecord: data.proposedRecord,
+          originalRecord: data.originalRecord,
+          approved: false
+        };
       }
       spillburgAiHistory.push({
         role: 'assistant',
         content: data.reply || 'Done.',
-        proposalCardId: cardId
+        proposalCardId: cardId,
+        crossCardId: crossCardId,
+        navActions: data.navActions || []
       });
     }
   } catch (err) {
@@ -7910,6 +8271,7 @@ async function sendSpillburgAiMessage(e) {
       content: 'Error connecting to SpillburgAI service: ' + err.message
     });
   } finally {
+    saveSpillburgAiStateToStorage();
     if (sendBtn) sendBtn.disabled = false;
     renderSpillburgAiMessagesList();
   }
@@ -7918,6 +8280,10 @@ async function sendSpillburgAiMessage(e) {
 function clearSpillburgAiChat() {
   spillburgAiHistory = [];
   spillburgAiProposals = {};
+  spillburgAiCrossProposals = {};
+  try {
+    localStorage.removeItem(getSpillburgAiStorageKey());
+  } catch (e) { }
   renderSpillburgAI(document.getElementById('mainContent'));
 }
 
@@ -7938,6 +8304,8 @@ async function renderSpillburgAI(container) {
     return;
   }
 
+  loadSpillburgAiStateFromStorage();
+
   try {
     const res = await fetch('/api/ai/context', {
       headers: { 'Authorization': `Bearer ${authToken}` }
@@ -7950,6 +8318,7 @@ async function renderSpillburgAI(container) {
   const mods = spillburgAiContext?.access?.modules || {};
   const counts = spillburgAiContext?.counts || {};
   const isExec = currentUser && ['director', 'admin'].includes(currentUser.role);
+  const geminiActive = spillburgAiContext?.access?.geminiConfigured;
 
   if (spillburgAiHistory.length === 0) {
     spillburgAiHistory.push({
@@ -7957,9 +8326,15 @@ async function renderSpillburgAI(container) {
       content:
         `### 🤖 Welcome to SpillburgAI — Corporate Intelligence & Task Automation\n` +
         `Hello **${currentUser ? currentUser.fullName : 'Team Member'}**! I am connected to Spillburg Holdings' live databases and strictly respect your **${currentUser ? currentUser.role.toUpperCase() : 'STAFF'}** module permissions.\n\n` +
-        `- **Paste Daily Work Reports to Generate or Update Tasks**: Paste a team member's WhatsApp/work log (e.g., *Ravi's 28/10/2026 ROC & Bank log*) and I will extract each deliverable, assign it to the right user, detect whether it creates or updates a task, and give you an interactive **Approval Card** before saving.\n` +
-        `- **Query Permitted Corporate Databases**: Ask about Operations Tasks, Customer Archive Files (Cupboards & Boxes), Financial & Tax Register (TIN, IRD PIN, SSID), or Corporate Payroll & EPF/ETF returns (according to your access level).`
+        `- **Paste Daily Work Reports + Auto Follow-Ups**: Paste a team member's WhatsApp/work log (e.g., *Ravi's 28/10/2026 ROC & Bank log*) and I will extract each deliverable, auto-detect follow-up reminders (like ROC Level 3 approvals with Mrs. Harshanee), match existing open tasks, and give you an interactive **Approval Card**.\n` +
+        `- **9:00 AM Morning Call Briefing**: Click **Morning Call Briefing** above for an instant standup summary across Ravi, Insaaf, Hemanthi, Bilal & Zaharan, with one-click **Copy for WhatsApp**.\n` +
+        `- **Cross-Module Register Updates**: Update Customer File Cupboards/Boxes or Financial Register TIN/Filing Status directly from chat.`,
+      navActions: [
+        { label: "Open Operations Tracker", view: "operations", forUser: isExec ? "all" : "me" },
+        { label: "Customer Files DB", view: "customer-files" }
+      ]
     });
+    saveSpillburgAiStateToStorage();
   }
 
   container.innerHTML = `
@@ -7974,11 +8349,11 @@ async function renderSpillburgAI(container) {
             <div class="flex flex-wrap items-center gap-2">
               <h2 class="font-display font-bold text-lg md:text-xl text-white">SpillburgAI Assistant</h2>
               <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                Permission-Scoped Knowledge &amp; Task Engine
+                ${geminiActive ? 'Gemini 2.5 Flash + Corporate Engine' : 'Permission-Scoped Knowledge &amp; Task Engine'}
               </span>
             </div>
             <p class="text-xs text-purple-200/90 mt-1">
-              Connected to your authorized datasets &bull; Paste daily staff reports to extract, edit, and approve Operations Tracker tasks
+              Connected to your authorized datasets &bull; Auto-detects follow-ups &bull; Morning Call Briefings &bull; Cross-Module Updates
             </p>
             <div class="flex flex-wrap items-center gap-1.5 mt-2.5 text-[10px]">
               <span class="text-purple-300 font-semibold uppercase tracking-wider mr-1">Your AI Data Scope:</span>
@@ -7999,10 +8374,20 @@ async function renderSpillburgAI(container) {
         </div>
 
         <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <button type="button" onclick="sendQuickAiPrompt('Generate 9:00 AM Morning Call Briefing and Compliance Alerts')" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer">
+            <i data-lucide="sun" class="w-3.5 h-3.5"></i>
+            <span>9:00 AM Morning Briefing</span>
+          </button>
           <button type="button" onclick="loadSampleRaviReportIntoAi()" class="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer">
             <i data-lucide="clipboard-paste" class="w-3.5 h-3.5"></i>
-            <span>Load Ravi's 28/10 Work Log</span>
+            <span>Load Ravi's 28/10 Log</span>
           </button>
+          ${isExec ? `
+            <button type="button" onclick="openGeminiConfigModal()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-100 border border-white/15 font-medium text-xs flex items-center gap-1.5 transition cursor-pointer" title="Configure optional Google Gemini API Key">
+              <i data-lucide="key" class="w-3.5 h-3.5"></i>
+              <span>AI Key</span>
+            </button>
+          ` : ''}
           <button type="button" onclick="clearSpillburgAiChat()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-100 border border-white/15 font-medium text-xs flex items-center gap-1.5 transition cursor-pointer">
             <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
             <span>Reset Chat</span>
@@ -8013,20 +8398,29 @@ async function renderSpillburgAI(container) {
       <!-- Quick Prompt Chips -->
       <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
         <span class="text-[11px] font-semibold text-slate-500 shrink-0">Quick Prompts:</span>
-        <button type="button" onclick="sendQuickAiPrompt('Show Ravi\\'s tasks in the Operations Tracker')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
-          📋 Ravi's Tasks
+        <button type="button" onclick="sendQuickAiPrompt('Generate 9:00 AM Morning Call Briefing')" class="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold whitespace-nowrap transition cursor-pointer">
+          ☀️ Morning Call Briefing
         </button>
-        <button type="button" onclick="sendQuickAiPrompt('Show all pending and in progress operations tasks')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
-          ⏳ Active Operations Summary
+        <button type="button" onclick="sendQuickAiPrompt('Show Ravi\'s tasks in the Operations Tracker')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
+          📋 Ravi's Tasks (172)
+        </button>
+        <button type="button" onclick="sendQuickAiPrompt('Show Insaaf\'s tasks in the Operations Tracker')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
+          📋 Insaaf's Tasks (16)
+        </button>
+        <button type="button" onclick="sendQuickAiPrompt('Show Hemanthi\'s tasks in the Operations Tracker')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
+          📋 Hemanthi's Tasks (14)
+        </button>
+        <button type="button" onclick="sendQuickAiPrompt('Show Bilal\'s tasks in the Operations Tracker')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
+          📋 Bilal's Tasks (14)
         </button>
         <button type="button" onclick="sendQuickAiPrompt('Where is 113 East SL in the Customer File DB?')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
-          🗂️ Find Customer File (113 East SL)
+          🗂️ Find Customer File
         </button>
         <button type="button" onclick="sendQuickAiPrompt('What is the TIN and IRD PIN for Remi Dream Lanka?')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
           📊 TIN &amp; IRD Lookup
         </button>
         <button type="button" onclick="sendQuickAiPrompt('Show Corporate Payroll summary and EPF/ETF registration numbers')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
-          🏦 Payroll &amp; EPF/ETF Summary
+          🏦 Payroll &amp; EPF/ETF
         </button>
       </div>
 
@@ -8036,7 +8430,7 @@ async function renderSpillburgAI(container) {
 
         <form onsubmit="sendSpillburgAiMessage(event)" class="p-3.5 bg-white border-t border-slate-200 flex flex-col gap-2">
           <div class="flex items-end gap-2">
-            <textarea id="spillburgAiInput" rows="3" placeholder="Ask SpillburgAI anything across your permitted databases, OR paste a multi-line staff work report (e.g. Ravi's 1) 2) 3) 4) log) to generate/update tasks..." onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendSpillburgAiMessage(); }" class="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 resize-y"></textarea>
+            <textarea id="spillburgAiInput" rows="3" placeholder="Ask SpillburgAI anything across your permitted databases, paste a multi-line staff work report (e.g. Ravi's 1) 2) 3) 4) log), or update a Customer/Financial file..." onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendSpillburgAiMessage(); }" class="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 resize-y"></textarea>
             <button type="submit" id="spillburgAiSendBtn" class="px-5 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition shrink-0 cursor-pointer">
               <i data-lucide="send" class="w-4 h-4"></i>
               <span>Send / Analyze</span>
@@ -8044,7 +8438,7 @@ async function renderSpillburgAI(container) {
           </div>
           <div class="flex items-center justify-between text-[11px] text-slate-400 px-1">
             <span>Press <strong>Enter</strong> to send &middot; <strong>Shift + Enter</strong> for a new line when pasting multi-line task logs</span>
-            <span>All task creations &amp; edits require your explicit <strong>Approve &amp; Apply</strong> confirmation</span>
+            <span>All task &amp; register updates require your explicit <strong>Approve &amp; Apply</strong> confirmation</span>
           </div>
         </form>
       </div>

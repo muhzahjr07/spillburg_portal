@@ -2956,6 +2956,64 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             })
             return
 
+        elif path == "/api/ai/apply-cross-module":
+            user = self.get_auth_user()
+            if not user:
+                self.send_json({"error": "Authentication required"}, 401)
+                return
+            if not spillburg_ai.can_user_access_spillburg_ai(user):
+                self.send_json({"error": "Access Denied: SpillburgAI is disabled for your account."}, 403)
+                return
+            mod_name = body.get("module", "")
+            rec_data = body.get("record") or {}
+            if mod_name == "customer_files":
+                if not spillburg_ai.can_user_edit_module(user, "customer_files"):
+                    self.send_json({"error": "Access Denied: Customer File Register editor permission required."}, 403)
+                    return
+                res = call_access_bridge("UpdateRecord", rec_data)
+                if res.get("success"):
+                    sync_customer_records_from_access()
+                    self.send_json({"success": True, "module": "customer_files", "record": rec_data})
+                else:
+                    self.send_json({"success": False, "error": res.get("error", "Failed to update customer file")}, 500)
+                return
+            elif mod_name == "financial_files":
+                if not spillburg_ai.can_user_edit_module(user, "financial_files"):
+                    self.send_json({"error": "Access Denied: Financial Register editor permission required."}, 403)
+                    return
+                sync_financials_from_disk()
+                rec_id = rec_data.get("id")
+                updated_rec = None
+                for r in FINANCIAL_RECORDS:
+                    if str(r.get("id")) == str(rec_id):
+                        for k in ["entityName", "category", "regNo", "dateOfIncorp", "tinNo", "economicCode", "irdPin", "irdPassword", "irdEmail", "ssid", "ssidPin", "directorName", "directorPassportOrId", "emails", "phones", "filingStatus", "notes"]:
+                            if k in rec_data and rec_data[k] is not None:
+                                r[k] = rec_data[k]
+                        updated_rec = r
+                        break
+                if not updated_rec:
+                    self.send_json({"error": "Financial record not found"}, 404)
+                    return
+                save_json_file("financial_records_active.json", FINANCIAL_RECORDS)
+                save_json_file("financial_records.json", FINANCIAL_RECORDS)
+                self.send_json({"success": True, "module": "financial_files", "record": updated_rec})
+                return
+            self.send_json({"error": f"Unsupported module: {mod_name}"}, 400)
+            return
+
+        elif path == "/api/ai/config":
+            user = self.get_auth_user()
+            if not user or user.get("role") not in ["director", "admin"]:
+                self.send_json({"error": "Director or Administrator privileges required"}, 403)
+                return
+            api_key = (body.get("geminiApiKey") or "").strip()
+            cfg_path = os.path.join(BASE_DIR, "data", "ai_config.json")
+            os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
+            with open(cfg_path, "w", encoding="utf-8") as f:
+                json.dump({"geminiApiKey": api_key, "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, f, indent=2)
+            self.send_json({"success": True, "geminiConfigured": bool(api_key)})
+            return
+
         # 5. Operations: Add task (Personalized to user)
         elif path == "/api/operations":
             user = self.require_permission("operations", "editor")
