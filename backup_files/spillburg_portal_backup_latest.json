@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-29T12:03:35Z",
+  "exportTimestamp": "2026-10-29T12:10:08Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6127,7 +6127,33 @@
         "bankAddress": "67 D.S. Senanayake Mawatha, Colombo 08.",
         "debitAccountNo": "1001 5000 7554",
         "debitAccountName": "Spillburg Holdings (Private) Limited",
-        "employees": [],
+        "employees": [
+          {
+            "id": "emp_14fc98",
+            "no": 1,
+            "epfNo": "",
+            "name": "A. A. M. MAFAZ",
+            "shortName": "A. A. M. MAFAZ",
+            "position": "Manager",
+            "gbpSalary": 0.0,
+            "lkrSalary": 40000.0,
+            "earnedLkr": 40000.0,
+            "workDays": "",
+            "earnedGbp": 0.0,
+            "bankAccountNo": "8007044188",
+            "bankCode": "",
+            "bankBranch": "Commercial Bank",
+            "tinNo": "",
+            "idNo": "780530375V",
+            "dateJoined": "",
+            "specialAllowance": 25000.0,
+            "noPayLate": 0.0,
+            "advance": 0.0,
+            "loan": 0.0,
+            "otherDeductions": 0.0,
+            "apit": null
+          }
+        ],
         "epfRegNo": "A - 55322",
         "etfRegNo": "A - 55322"
       }
