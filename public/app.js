@@ -4081,7 +4081,13 @@ function openAddOperationModal() {
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Notes / Action Details</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block font-semibold text-slate-700">Notes / Action Details</label>
+            <button type="button" id="btnGenOpsNotes" onclick="generateTaskNotes('mOpsTitle', 'mOpsNotes', 'mOpsWorkstream', 'mOpsRequestedBy', 'btnGenOpsNotes')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-[11px] flex items-center gap-1 transition shadow-2xs cursor-pointer" title="Auto-generate detailed action notes based on task title and workstream">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-600"></i>
+              <span>⚡ Generate Notes</span>
+            </button>
+          </div>
           <textarea id="mOpsNotes" rows="3" placeholder="Add specific procurement details, vendor contact, or completion requirements..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500"></textarea>
         </div>
 
@@ -4325,7 +4331,13 @@ function openEditOperationModal(taskId) {
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Notes / Action Details</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block font-semibold text-slate-700">Notes / Action Details</label>
+            <button type="button" id="btnEditGenOpsNotes" onclick="generateTaskNotes('mEditOpsTitle', 'mEditOpsNotes', 'mEditOpsWorkstream', 'mEditOpsReq', 'btnEditGenOpsNotes')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-[11px] flex items-center gap-1 transition shadow-2xs cursor-pointer" title="Auto-generate detailed action notes based on task title and workstream">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-600"></i>
+              <span>⚡ Generate Notes</span>
+            </button>
+          </div>
           <textarea id="mEditOpsNotes" rows="3" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">${task.notes || ''}</textarea>
         </div>
 
@@ -4482,6 +4494,80 @@ function parseOpsReportDate(str) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+function getOpsReportScopeInfo(userScope) {
+  const currentUid = currentUser ? currentUser.id : '';
+  const currentUname = currentUser ? currentUser.username : '';
+  const isMe = userScope === 'me' || (currentUid && userScope === currentUid) || (currentUname && userScope === currentUname);
+
+  if (userScope === 'all') {
+    return {
+      type: 'all',
+      code: 'all',
+      title: 'Company-wide (All Team Deliverables)',
+      targetName: 'All Team Members',
+      targetRole: 'Company-wide Operations',
+      badge: '👥 Company-wide Scope'
+    };
+  }
+
+  if (isMe) {
+    const name = currentUser ? (currentUser.fullName || currentUser.username) : 'Personal User';
+    const role = currentUser ? (currentUser.title || (currentUser.role ? currentUser.role.toUpperCase() : 'Staff')) : 'Operations Staff';
+    return {
+      type: 'user',
+      code: userScope,
+      title: `${name} (Personal Deliverables)`,
+      targetName: name,
+      targetRole: role,
+      badge: `👤 ${name}`
+    };
+  }
+
+  // Look up user from usersList or fallback list
+  let targetUser = (usersList || []).find(u => u.id === userScope || (u.username && u.username.toLowerCase() === String(userScope).toLowerCase()));
+  if (!targetUser) {
+    const defaultAccounts = [
+      { id: 'usr_dir_master', username: 'director', fullName: 'Executive Director', role: 'Executive Director' },
+      { id: 'usr_admin_master', username: 'admin', fullName: 'System Administrator', role: 'System Administrator' },
+      { id: 'usr_admin_zaharan', username: 'zaharan', fullName: 'Muhammad Zaharan', role: 'Management Trainee' },
+      { id: 'usr_dir_shameel', username: 'shameel', fullName: 'Mohamed Shaameel Mohideen', role: 'Managing Director' },
+      { id: 'usr_dir_hameez', username: 'hameez', fullName: 'Mohamed Hussain Kariapper Hameez', role: 'Director' },
+      { id: 'usr_staff_hemanthi', username: 'staff_hemanthi', fullName: 'Miss Hemanthi', role: 'Operations Officer' },
+      { id: 'usr_staff_insaaf', username: 'staff_insaaf', fullName: 'Insaaf', role: 'Operations Executive' },
+      { id: 'usr_bcc9abca', username: 'staff_bilal', fullName: 'Bilal Mohideen', role: 'Executive Assistant' },
+      { id: 'usr_6b04a953', username: 'ravi', fullName: 'Ravindralal Mahinda Wijeweera', role: 'Field Operations Specialist' }
+    ];
+    targetUser = defaultAccounts.find(da => da.id === userScope || da.username === userScope);
+  }
+  if (!targetUser) {
+    const taskMatch = (operationsTasks || []).find(t => t.userId === userScope || t.ownerUsername === userScope);
+    if (taskMatch && taskMatch.assignedTo) {
+      targetUser = { fullName: taskMatch.assignedTo, role: 'Operations Staff' };
+    }
+  }
+
+  const name = targetUser ? (targetUser.fullName || targetUser.username || userScope) : userScope;
+  const role = targetUser ? (targetUser.title || targetUser.role || 'Operations Staff') : 'Operations Staff';
+  return {
+    type: 'user',
+    code: userScope,
+    title: `${name} (${role})`,
+    targetName: name,
+    targetRole: role,
+    badge: `👤 ${name}`
+  };
+}
+
+function getOpsReportPreparedByInfo() {
+  const name = currentUser ? (currentUser.fullName || currentUser.username || 'Authorized Officer') : 'Authorized Officer';
+  const title = currentUser ? (currentUser.title || (currentUser.role ? currentUser.role.toUpperCase() : 'Operations Officer')) : 'Operations Management';
+  return {
+    name,
+    title,
+    full: `${name} (${title})`
+  };
+}
+
 function getOpsReportPeriodBounds(state) {
   const pType = state.periodType || 'daily';
   const today = new Date(); // Dynamically anchor to current day
@@ -4502,6 +4588,12 @@ function getOpsReportPeriodBounds(state) {
     end = sun;
     label = `Weekly Operations Report (${formatOpsReportStandardDate(start)} to ${formatOpsReportStandardDate(end)})`;
     badge = `Week: ${formatOpsReportStandardDate(start)} – ${formatOpsReportStandardDate(end)}`;
+  } else if (pType === 'all_time') {
+    // All-time anchor: since 01-Sep-2026
+    start = new Date(2026, 8, 1, 0, 0, 0, 0); // 01-Sep-2026
+    end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+    label = `All-Time Operations Audit Report (Since 01-Sep-2026 to Present)`;
+    badge = `All Time (01-Sep-2026 – Present)`;
   } else if (pType === 'custom') {
     const s = parseOpsReportDate(state.customStart) || new Date(today.getFullYear(), today.getMonth(), 1);
     const e = parseOpsReportDate(state.customEnd) || today;
@@ -4530,9 +4622,15 @@ function computeOperationsReportData(sourceTasks, state) {
 
   let tasks = [...(sourceTasks || [])];
 
-  // User scope filter
-  if (state.userScope && state.userScope !== 'all' && state.userScope !== 'me') {
-    tasks = tasks.filter(t => t.userId === state.userScope || t.ownerUsername === state.userScope);
+  // User scope filter (supports 'all', 'me', and specific target user ID / username)
+  if (state.userScope && state.userScope !== 'all') {
+    if (state.userScope === 'me') {
+      const myId = currentUser ? currentUser.id : '';
+      const myUname = currentUser ? currentUser.username : '';
+      tasks = tasks.filter(t => t.userId === myId || (myUname && t.ownerUsername === myUname));
+    } else {
+      tasks = tasks.filter(t => t.userId === state.userScope || t.ownerUsername === state.userScope);
+    }
   }
 
   // Workstream filter
@@ -4792,6 +4890,9 @@ function renderOperationsReportStudio() {
             <button onclick="setOpsReportPeriodType('custom')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${opsReportState.periodType === 'custom' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}">
               <i data-lucide="sliders" class="w-3.5 h-3.5"></i> Custom Range
             </button>
+            <button onclick="setOpsReportPeriodType('all_time')" class="px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${opsReportState.periodType === 'all_time' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}">
+              <i data-lucide="infinity" class="w-3.5 h-3.5"></i> All Time (Since Sep 01, 2026)
+            </button>
           </div>
 
           <!-- Active Period Label Badge -->
@@ -4860,6 +4961,14 @@ function renderOperationsReportStudio() {
                 <button type="button" onclick="setOpsReportCustom('${formatOpsReportStandardDate(startOfPrevMonth)}', '${formatOpsReportStandardDate(endOfPrevMonth)}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">${prevMonthName} Full</button>
                 <button type="button" onclick="setOpsReportCustom('${formatOpsReportStandardDate(thirtyDaysAgo)}', '${todayStr}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">Last 30 Days</button>
               </div>
+            </div>
+          ` : (opsReportState.periodType === 'all_time' ? `
+            <div class="flex flex-wrap items-center justify-between gap-2.5 bg-blue-50/50 p-2.5 rounded-xl border border-blue-200">
+              <div class="flex items-center gap-2">
+                <i data-lucide="info" class="w-4 h-4 text-blue-600"></i>
+                <span class="text-xs text-blue-950">Reporting all company deliverables tasked, completed, or active since the tracker inception on <strong>01-Sep-2026</strong> through today (<strong>${todayStr}</strong>).</span>
+              </div>
+              <span class="px-2.5 py-1 rounded-lg bg-white text-blue-700 border border-blue-200 font-bold text-[10px] tracking-wider uppercase">Cumulative Master Archive</span>
             </div>
           ` : `
             <!-- Monthly Selector -->
@@ -5097,8 +5206,8 @@ function renderOperationsReportStudio() {
       <!-- Executive Sign-off Preview & Footer -->
       <div class="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-[11px] text-slate-500">
         <div>
-          <span class="font-semibold text-slate-700">Prepared by:</span> ${currentUser ? currentUser.fullName : 'Muhammad Zaharan'} (${currentUser ? currentUser.title : 'Management Trainee'}) &middot; 
-          <span class="font-semibold text-slate-700">Scope:</span> ${opsReportState.userScope === 'all' ? 'Company-wide' : 'Personal Deliverables'}
+          <span class="font-semibold text-slate-700">Prepared by:</span> ${getOpsReportPreparedByInfo().full} &middot; 
+          <span class="font-semibold text-slate-700">Scope:</span> <span class="font-medium text-slate-800">${getOpsReportScopeInfo(opsReportState.userScope).title}</span>
         </div>
         <div class="flex items-center gap-2">
           <button onclick="printOperationsReport()" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer">
@@ -5194,9 +5303,11 @@ function printOperationsReport() {
 
   const generatedDateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   const generatedTimeStr = new Date().toLocaleTimeString();
-  const userName = currentUser ? currentUser.fullName : 'Muhammad Zaharan';
-  const userTitle = currentUser ? currentUser.title : 'Operations & Management Trainee';
-  const userScopeDesc = opsReportState.userScope === 'all' ? 'All Team Deliverables (Company-wide)' : `${userName}'s Personal Deliverables`;
+  const prepInfo = getOpsReportPreparedByInfo();
+  const scopeInfo = getOpsReportScopeInfo(opsReportState.userScope);
+  const userName = prepInfo.name;
+  const userTitle = prepInfo.title;
+  const userScopeDesc = scopeInfo.title;
 
   printWin.document.write(`
     <!DOCTYPE html>
@@ -5512,14 +5623,14 @@ function printOperationsReport() {
         <div class="signoff-box">
           <div>
             <div style="color: #64748b; font-size: 9px; text-transform: uppercase;">Prepared & Compiled By:</div>
-            <div style="margin-top: 4px; font-weight: 700; color: #0f172a;">${escapeHtml(userName)}</div>
-            <div style="color: #64748b;">${escapeHtml(userTitle)}</div>
+            <div style="margin-top: 4px; font-weight: 700; color: #0f172a;">${escapeHtml(prepInfo.name)}</div>
+            <div style="color: #64748b;">${escapeHtml(prepInfo.title)}</div>
             <div class="signature-line">Officer Signature & Date: ______________</div>
           </div>
           <div>
             <div style="color: #64748b; font-size: 9px; text-transform: uppercase;">Verified & Approved By:</div>
-            <div style="margin-top: 4px; font-weight: 700; color: #0f172a;">Executive Director / Administrator</div>
-            <div style="color: #64748b;">Spillburg Holdings (Pvt) Ltd</div>
+            <div style="margin-top: 4px; font-weight: 700; color: #0f172a;">Executive Director / Management</div>
+            <div style="color: #64748b;">Spillburg Holdings (Pvt) Ltd &bull; ${escapeHtml(scopeInfo.targetName)}</div>
             <div class="signature-line">Director Signature & Stamp: ______________</div>
           </div>
         </div>
@@ -5543,7 +5654,7 @@ function exportOperationsReportCSV() {
   const rows = [];
   rows.push(["SPILLBURG HOLDINGS (PVT) LTD - OPERATIONS TRACKER DELIVERABLES REPORT"]);
   rows.push([`Reporting Period: ${data.bounds.label}`]);
-  rows.push([`Generated On: ${new Date().toLocaleString()}`, `Scope: ${opsReportState.userScope}`]);
+  rows.push([`Generated On: ${new Date().toLocaleString()}`, `Scope: ${getOpsReportScopeInfo(opsReportState.userScope).title}`, `Prepared By: ${getOpsReportPreparedByInfo().full}`]);
   rows.push([]);
   rows.push(["EXECUTIVE METRICS SUMMARY"]);
   rows.push(["Total Deliverables in Scope", data.summary.total]);
@@ -14762,4 +14873,95 @@ function exportEtfFormR4Csv() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+
+// Auto-generate detailed action notes from task title using Gemini / Corporate AI
+async function generateTaskNotes(titleInputId, notesTextareaId, workstreamSelectId, requesterSelectId, btnId) {
+  const titleEl = document.getElementById(titleInputId);
+  const notesEl = document.getElementById(notesTextareaId);
+  const btnEl = document.getElementById(btnId);
+
+  const title = (titleEl ? titleEl.value : '').trim();
+  if (!title) {
+    alert('Please enter a Task / Procurement Title first to generate notes.');
+    if (titleEl) titleEl.focus();
+    return;
+  }
+
+  let workstream = '';
+  if (workstreamSelectId) {
+    const wsEl = document.getElementById(workstreamSelectId);
+    if (wsEl) {
+      workstream = wsEl.value === '__CREATE_NEW__' ? (document.getElementById(workstreamSelectId + 'Custom')?.value || '') : wsEl.value;
+    }
+  }
+
+  let requestedBy = '';
+  if (requesterSelectId) {
+    const reqEl = document.getElementById(requesterSelectId);
+    if (reqEl) {
+      requestedBy = reqEl.value === '__CREATE_NEW__' ? (document.getElementById(requesterSelectId + 'Custom')?.value || '') : reqEl.value;
+    }
+  }
+
+  const originalBtnHtml = btnEl ? btnEl.innerHTML : '';
+  if (btnEl) {
+    btnEl.disabled = true;
+    btnEl.innerHTML = `
+      <i data-lucide="loader-2" class="w-3.5 h-3.5 text-emerald-700 animate-spin"></i>
+      <span>Generating...</span>
+    `;
+    if (window.lucide) lucide.createIcons();
+  }
+
+  try {
+    const res = await fetch('/api/ai/generate-notes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        title: title,
+        workstream: workstream || 'Office Operations',
+        requestedBy: requestedBy || (currentUser ? currentUser.fullName : 'Management')
+      })
+    });
+    const data = await res.json();
+    if (data.success && data.notes) {
+      if (notesEl) {
+        notesEl.value = data.notes;
+        notesEl.focus();
+      }
+      if (btnEl) {
+        btnEl.innerHTML = `
+          <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-700"></i>
+          <span>Generated!</span>
+        `;
+        if (window.lucide) lucide.createIcons();
+        setTimeout(() => {
+          if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerHTML = originalBtnHtml;
+            if (window.lucide) lucide.createIcons();
+          }
+        }, 1800);
+      }
+    } else {
+      alert(data.error || 'Failed to generate notes.');
+      if (btnEl) {
+        btnEl.disabled = false;
+        btnEl.innerHTML = originalBtnHtml;
+        if (window.lucide) lucide.createIcons();
+      }
+    }
+  } catch (err) {
+    alert('Error connecting to AI note generator: ' + err.message);
+    if (btnEl) {
+      btnEl.disabled = false;
+      btnEl.innerHTML = originalBtnHtml;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
 }

@@ -3014,6 +3014,25 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             self.send_json({"success": True, "geminiConfigured": bool(api_key)})
             return
 
+        elif path == "/api/ai/generate-notes":
+            user = self.get_auth_user()
+            if not user:
+                self.send_json({"error": "Authentication required"}, 401)
+                return
+            title = (body.get("title") or "").strip()
+            workstream = (body.get("workstream") or "").strip()
+            requested_by = (body.get("requestedBy") or "").strip()
+            if not title:
+                self.send_json({"error": "Task title is required to generate notes"}, 400)
+                return
+            notes = spillburg_ai.generate_task_action_notes(title, workstream=workstream, requestedBy=requested_by, user=user)
+            self.send_json({
+                "success": True,
+                "title": title,
+                "notes": notes
+            })
+            return
+
         # 5. Operations: Add task (Personalized to user)
         elif path == "/api/operations":
             user = self.require_permission("operations", "editor")

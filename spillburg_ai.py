@@ -1441,3 +1441,66 @@ def process_spillburg_ai_message(user, message, history, users, operations, cust
         "success": True,
         **kb_res
     }, 200
+
+
+def generate_task_action_notes(title, workstream="", requestedBy="", user=None):
+    """
+    Generates detailed, professional action notes for a task based on its title,
+    workstream, and requester, adhering to real Spillburg Operations Tracker conventions.
+    Uses Gemini 3.5 Flash when configured, with a smart rule-based corporate synthesizer fallback.
+    """
+    clean_title = (title or "").strip()
+    if not clean_title:
+        return "Task deliverable details to be completed as instructed by management."
+
+    api_key = get_gemini_api_key()
+    if api_key:
+        models_to_try = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-latest"]
+        sys_prompt = (
+            "You are SpillburgAI, the corporate operations assistant for Spillburg Holdings (Pvt) Ltd, Colombo, Sri Lanka.\n"
+            "Your task is to generate 1 to 2 concise, professional action details / notes for an operations task based on its title.\n"
+            "STYLE GUIDELINES (Match Spillburg operations records):\n"
+            "- Direct, professional, actionable tone.\n"
+            "- Explicitly specify the operational action steps, government authorities or departments involved (e.g. ROC, IRD, Department of Immigration, Commercial Bank), deliverable outcome, and follow-up.\n"
+            "- Do NOT write introductory filler like 'Here are the notes:' or bullet points. Output ONLY the plain text notes (1 to 2 sentences max)."
+        )
+        user_prompt = f"Task Title: {clean_title}\nWorkstream: {workstream or 'Office Operations'}\nRequested By: {requestedBy or 'Management'}"
+        payload = {
+            "systemInstruction": {"parts": [{"text": sys_prompt}]},
+            "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 200}
+        }
+        encoded = json.dumps(payload).encode("utf-8")
+        for m in models_to_try:
+            try:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
+                req = urllib.request.Request(url, data=encoded, headers={"Content-Type": "application/json"}, method="POST")
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    cand = data.get("candidates") or []
+                    if cand:
+                        text = cand[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                        if text:
+                            text = re.sub(r'^["\']|["\']$', '', text).strip()
+                            return text
+            except Exception:
+                continue
+
+    # Built-in Corporate Synthesizer Fallback
+    t_lower = clean_title.lower()
+    if any(k in t_lower for k in ["roc", "registrar of companies", "form 1", "form 13", "form 15", "form 20", "incorporat", "level 2", "level 3"]):
+        return f"Liaise with Registrar of Companies (ROC) to submit documents for {clean_title}, follow up approval progression through Assistant Registrar, address system queries, and collect certified copies / seal."
+    elif any(k in t_lower for k in ["bank", "cheque", "fund transfer", "petty cash", "cash", "deposit", "account", "commercial bank", "sampath", "ntb"]):
+        return f"Visit bank branch to submit instructions for {clean_title}, process transaction/cheque clearance, obtain deposit slips, and reconcile vouchers with accounts."
+    elif any(k in t_lower for k in ["tin", "ird", "tax", "ramis", "vat", "sscl", "inland revenue", "pin", "ssid"]):
+        return f"Coordinate with Inland Revenue Department (IRD) regarding {clean_title}, verify tax registration status, update PIN/TIN credentials, and ensure compliance filings."
+    elif any(k in t_lower for k in ["embassy", "visa", "consul", "passport", "sltda", "tourist board", "attestation", "legaliz"]):
+        return f"Coordinate submission and consular follow-up for {clean_title}, verify supporting client documentation, and obtain required attestations/endorsements."
+    elif any(k in t_lower for k in ["file", "cabinet", "cupboard", "box", "customer file"]):
+        return f"Retrieve, review, and file original corporate documents for {clean_title} in the archive cupboard, ensuring record numbering and register updates are aligned."
+    elif any(k in t_lower for k in ["buy", "purchase", "procure", "stapler", "pins", "paper", "printer", "cartridge", "stand", "monitor"]):
+        return f"Obtain quotations, verify pricing & availability for {clean_title}, procure requested office items, and hand over vendor bill/receipt to accounts for reimbursement."
+    elif any(k in t_lower for k in ["website", "social", "facebook", "linkedin", "seo", "domain", "email", "portal", "marketing"]):
+        return f"Execute technical deliverables and content updates for {clean_title}, verify public responsiveness, and report completion status to management."
+    else:
+        return f"Execute deliverables for {clean_title} as instructed by {requestedBy or 'Management'}, coordinate with relevant team members, and document final completion in the operations tracker."
