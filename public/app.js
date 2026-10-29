@@ -8378,10 +8378,7 @@ async function renderSpillburgAI(container) {
             <i data-lucide="sun" class="w-3.5 h-3.5"></i>
             <span>9:00 AM Morning Briefing</span>
           </button>
-          <button type="button" onclick="loadSampleRaviReportIntoAi()" class="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer">
-            <i data-lucide="clipboard-paste" class="w-3.5 h-3.5"></i>
-            <span>Load Ravi's 28/10 Log</span>
-          </button>
+          
           ${isExec ? `
             <button type="button" onclick="openGeminiConfigModal()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-purple-100 border border-white/15 font-medium text-xs flex items-center gap-1.5 transition cursor-pointer" title="Configure optional Google Gemini API Key">
               <i data-lucide="key" class="w-3.5 h-3.5"></i>
