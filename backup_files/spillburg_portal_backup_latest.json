@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-29T06:21:47Z",
+  "exportTimestamp": "2026-10-29T06:23:39Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -183,9 +183,44 @@
       },
       "createdAt": "2026-10-15T05:16:00Z",
       "status": "active"
+    },
+    {
+      "id": "usr_6b04a953",
+      "username": "ravi",
+      "password": "ravi@123",
+      "fullName": "Ravindralal Mahinda Wijeweera",
+      "role": "staff",
+      "title": "Operations Executive",
+      "email": "ravi@spillburg.com",
+      "permissions": {
+        "operations": "editor",
+        "customer_files": "viewer",
+        "financial_files": "none",
+        "payroll": "none",
+        "user_management": "none"
+      },
+      "createdAt": "2026-10-29T06:23:31Z",
+      "status": "active"
     }
   ],
   "operations": [
+    {
+      "id": "ops_3857de",
+      "no": 1,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Spillburg Portal Onboarding - Operations Executive",
+      "requestedBy": "Muhammad Zaharan",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Personal Tasks",
+      "type": "Onboarding",
+      "taskedDate": "29-Oct-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Welcome to Spillburg Holdings. Review your assigned registers and manage your personal deliverables."
+    },
     {
       "id": "ops_b02114",
       "no": 1,
