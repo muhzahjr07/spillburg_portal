@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-29T05:58:03Z",
+  "exportTimestamp": "2026-10-29T05:59:48Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -2364,7 +2364,7 @@
             "shortName": "S. F. Rahuman",
             "position": "Business Executive",
             "gbpSalary": 0.0,
-            "lkrSalary": 35000.0,
+            "lkrSalary": 0.0,
             "earnedLkr": 35000.0,
             "workDays": "",
             "earnedGbp": 0.0,
@@ -2374,7 +2374,7 @@
             "tinNo": "",
             "idNo": "983125751V",
             "dateJoined": "01.09.2026",
-            "specialAllowance": 30000.0,
+            "specialAllowance": 65000.0,
             "noPayLate": 0.0,
             "advance": 0.0,
             "loan": 0.0,
