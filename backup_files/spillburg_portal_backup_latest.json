@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-29T12:14:59Z",
+  "exportTimestamp": "2026-10-29T12:17:11Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5084,11 +5084,11 @@
         "code": "SPVAC",
         "registrationNo": "PV205419",
         "address": "Office 14, Basement Level, Cinnamon Lakeside Hotel",
-        "bankName": "Nations Trust Bank PLC",
-        "bankBranch": "Borella Branch",
-        "bankAddress": "67 D.S. Senanayake Mawatha, Colombo 08.",
-        "debitAccountNo": "1001 5000 7554",
-        "debitAccountName": "Spillburg Holdings (Private) Limited",
+        "bankName": "Commercial Bank of Ceylon PLC",
+        "bankBranch": "Keyzer Street Branch",
+        "bankAddress": "Commercial Bank of Ceylon PLC, Keyzer Street Branch, 32, Keyzer Street, COLOMBO-11",
+        "debitAccountNo": "1000107348",
+        "debitAccountName": "Spillburg Vacation (Private) Limited",
         "authorizedSignatory": "Shaameel Mohideen",
         "authorizedTitle": "Director - Spillburg Vacation (Pvt) Ltd.",
         "checkedBy": "Hemanthi Basnayake",
