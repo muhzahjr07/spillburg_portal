@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-29T10:30:25Z",
+  "exportTimestamp": "2026-10-29T11:10:53Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5067,7 +5067,11 @@
         "currencyMode": "single",
         "baseCurrency": "LKR",
         "foreignCurrency": "",
-        "defaultExchangeRate": 1
+        "defaultExchangeRate": 1,
+        "epfRegNo": "A - 51349",
+        "etfRegNo": "A - 51349",
+        "phone": "+94 11 233 6116",
+        "email": "info@spillburg.com"
       },
       {
         "id": "comp_5eea88",
@@ -6082,7 +6086,9 @@
             "otherDeductions": 0,
             "apit": 0
           }
-        ]
+        ],
+        "epfRegNo": "A - 51349",
+        "etfRegNo": "A - 51349"
       },
       {
         "id": "period_d447b5",
