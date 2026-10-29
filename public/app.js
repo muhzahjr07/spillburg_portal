@@ -8398,6 +8398,63 @@ function clearSpillburgAiChat() {
   renderSpillburgAI(document.getElementById('mainContent'));
 }
 
+
+let spillburgAiPromptOffset = 0;
+
+const SPILLBURG_AI_GENERAL_PROMPT_POOL = [
+  { label: "☀️ Morning Standup Briefing", text: "Generate 9:00 AM Morning Call Briefing and Compliance Alerts", badge: "Daily", role: "all" },
+  { label: "📋 Active Deliverables", text: "Summarize active deliverables and in-progress tasks across the team", badge: "Operations", role: "exec" },
+  { label: "📋 My Active Deliverables", text: "Summarize my active deliverables and in-progress tasks", badge: "Personal", role: "staff" },
+  { label: "⚡ Urgent Follow-ups", text: "What tasks or approvals currently require urgent follow-up?", badge: "Urgent", role: "all" },
+  { label: "🏛️ Tax & TIN Compliance", text: "Which companies have missing TIN numbers, IRD PINs, or pending filing status?", badge: "Compliance", role: "all" },
+  { label: "🗂️ Customer File Archives", text: "Summarize customer files and primary archive cupboards and boxes", badge: "Archives", role: "all" },
+  { label: "⏳ Pending & On-Hold Queue", text: "Show pending and on-hold tasks that need management review", badge: "Review", role: "all" },
+  { label: "🎯 Operational Priorities", text: "Analyze open deliverables and recommend top operational priorities for today", badge: "Priorities", role: "all" },
+  { label: "📊 Workstream Breakdown", text: "Break down all operations deliverables by workstream and department", badge: "Workstreams", role: "all" },
+  { label: "🏢 Bank & Cheque Clearances", text: "Summarize bank transactions, fund transfers, and cheque clearances in progress", badge: "Banking", role: "all" },
+  { label: "📑 Recent Incorporations", text: "List recently incorporated client companies and their registration numbers", badge: "Corporate", role: "all" },
+  { label: "🏦 Payroll & EPF/ETF", text: "Show corporate payroll summary and EPF/ETF registration numbers", badge: "Payroll", requires: "payroll", role: "all" },
+  { label: "💡 Work Log Import Guide", text: "How should I format a staff member's daily work report for automatic task import?", badge: "Guide", role: "all" },
+  { label: "🔄 Cross-Module Update Guide", text: "How can I update Customer File cupboards or Financial Register TINs via chat?", badge: "Guide", role: "all" }
+];
+
+function getFilteredAiPrompts() {
+  const isExec = currentUser && ['director', 'admin'].includes(currentUser.role);
+  const hasPayroll = canView('payroll');
+  return SPILLBURG_AI_GENERAL_PROMPT_POOL.filter(p => {
+    if (p.requires === 'payroll' && !hasPayroll) return false;
+    if (p.role === 'exec' && !isExec) return false;
+    if (p.role === 'staff' && isExec) return false;
+    return true;
+  });
+}
+
+function renderSpillburgAiQuickPromptChips() {
+  const available = getFilteredAiPrompts();
+  if (!available.length) return '';
+  const count = Math.min(6, available.length);
+  const chips = [];
+  for (let i = 0; i < count; i++) {
+    const item = available[(spillburgAiPromptOffset + i) % available.length];
+    chips.push(`
+      <button type="button" onclick="sendQuickAiPrompt('${escapeHtml(item.text).replace(/'/g, "\'")}')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-900 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer shadow-2xs flex items-center gap-1.5">
+        <span>${escapeHtml(item.label)}</span>
+        <span class="text-[9px] px-1.5 py-0.2 rounded font-semibold bg-slate-100 text-slate-500 uppercase">${escapeHtml(item.badge)}</span>
+      </button>
+    `);
+  }
+  return chips.join('');
+}
+
+function shuffleSpillburgAiQuickPrompts() {
+  spillburgAiPromptOffset = (spillburgAiPromptOffset + 3) % (SPILLBURG_AI_GENERAL_PROMPT_POOL.length || 1);
+  const bar = document.getElementById('spillburgAiQuickPromptsBar');
+  if (bar) {
+    bar.innerHTML = renderSpillburgAiQuickPromptChips();
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
 async function renderSpillburgAI(container) {
   if (!canView('spillburg_ai')) {
     container.innerHTML = `
@@ -8437,8 +8494,8 @@ async function renderSpillburgAI(container) {
       content:
         `### 🤖 Welcome to SpillburgAI — Corporate Intelligence & Task Automation\n` +
         `Hello **${currentUser ? currentUser.fullName : 'Team Member'}**! I am connected to Spillburg Holdings' live databases and strictly respect your **${currentUser ? currentUser.role.toUpperCase() : 'STAFF'}** module permissions.\n\n` +
-        `- **Paste Daily Work Reports + Auto Follow-Ups**: Paste a team member's WhatsApp/work log (e.g., *Ravi's 28/10/2026 ROC & Bank log*) and I will extract each deliverable, auto-detect follow-up reminders (like ROC Level 3 approvals with Mrs. Harshanee), match existing open tasks, and give you an interactive **Approval Card**.\n` +
-        `- **9:00 AM Morning Call Briefing**: Click **Morning Call Briefing** above for an instant standup summary across Ravi, Insaaf, Hemanthi, Bilal & Zaharan, with one-click **Copy for WhatsApp**.\n` +
+        `- **Paste Daily Work Reports + Auto Follow-Ups**: Paste any staff member's WhatsApp work log or daily report (numbered items, ROC filings, bank visits, or "Today's works to be" lists). I will extract each deliverable, auto-generate follow-up reminder tasks, match open tasks, and prepare an interactive **Approval Card**.\n` +
+        `- **Executive & Morning Standup Briefings**: Click **Suggestions** or **9:00 AM Morning Briefing** for an instant summary of completed deliverables, active follow-ups, and compliance flags with one-click **Copy for WhatsApp**.\n` +
         `- **Cross-Module Register Updates**: Update Customer File Cupboards/Boxes or Financial Register TIN/Filing Status directly from chat.`,
       navActions: [
         { label: "Open Operations Tracker", view: "operations", forUser: isExec ? "all" : "me" },
@@ -8503,32 +8560,17 @@ async function renderSpillburgAI(container) {
         </div>
       </div>
 
-      <!-- Quick Prompt Chips -->
-      <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-        <span class="text-[11px] font-semibold text-slate-500 shrink-0">Quick Prompts:</span>
-        <button type="button" onclick="sendQuickAiPrompt('Generate 9:00 AM Morning Call Briefing')" class="px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold whitespace-nowrap transition cursor-pointer">
-          ☀️ Morning Call Briefing
-        </button>
-        <button type="button" onclick="sendQuickAiPrompt('Show Ravi\'s tasks in the Operations Tracker')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
-          📋 Ravi's Tasks (172)
-        </button>
-        <button type="button" onclick="sendQuickAiPrompt('Show Insaaf\'s tasks in the Operations Tracker')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
-          📋 Insaaf's Tasks (16)
-        </button>
-        <button type="button" onclick="sendQuickAiPrompt('Show Hemanthi\'s tasks in the Operations Tracker')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
-          📋 Hemanthi's Tasks (14)
-        </button>
-        <button type="button" onclick="sendQuickAiPrompt('Show Bilal\'s tasks in the Operations Tracker')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
-          📋 Bilal's Tasks (14)
-        </button>
-        <button type="button" onclick="sendQuickAiPrompt('Where is 113 East SL in the Customer File DB?')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
-          🗂️ Find Customer File
-        </button>
-        <button type="button" onclick="sendQuickAiPrompt('What is the TIN and IRD PIN for Remi Dream Lanka?')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
-          📊 TIN &amp; IRD Lookup
-        </button>
-        <button type="button" onclick="sendQuickAiPrompt('Show Corporate Payroll summary and EPF/ETF registration numbers')" class="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-800 border border-slate-200 text-xs font-medium whitespace-nowrap transition cursor-pointer">
-          🏦 Payroll &amp; EPF/ETF
+      <!-- Dynamic General Quick Prompts Bar -->
+      <div class="flex items-center justify-between gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200">
+        <div class="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-thin flex-1" id="spillburgAiQuickPromptsBar">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 shrink-0 flex items-center gap-1 pl-1">
+            <i data-lucide="compass" class="w-3.5 h-3.5 text-purple-600"></i> Suggestions:
+          </span>
+          ${renderSpillburgAiQuickPromptChips()}
+        </div>
+        <button type="button" onclick="shuffleSpillburgAiQuickPrompts()" class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-purple-50 text-purple-700 border border-slate-200 hover:border-purple-300 text-xs font-semibold flex items-center gap-1 shrink-0 transition shadow-2xs cursor-pointer" title="Get a fresh set of general prompts">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-purple-600"></i>
+          <span>Shuffle 🎲</span>
         </button>
       </div>
 
