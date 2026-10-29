@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-29T05:52:07Z",
+  "exportTimestamp": "2026-10-29T05:52:32Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -2373,7 +2373,7 @@
             "bankBranch": "Commercial Bank - Wattala",
             "tinNo": "",
             "idNo": "983125751V",
-            "dateJoined": "",
+            "dateJoined": "01.09.2026",
             "specialAllowance": 30000.0,
             "noPayLate": 0.0,
             "advance": 0.0,
