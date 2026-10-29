@@ -14680,7 +14680,7 @@ function printEpfFormC() {
   const surcharges = document.getElementById('epf_c_surcharges')?.value || formatMoney(epfSurcharges, 2);
   const totalRemittance = document.getElementById('epf_c_total_remittance')?.value || formatMoney(sumEpf20 + epfSurcharges, 2);
   const chequeNo = document.getElementById('epf_c_cheque_no')?.value || p.epfChequeNo || 'CHQ-890214';
-  const defaultBankBranch = p.epfBankBranchCustom || ${p.bankName || currentComp.bankName || 'Nations Trust Bank PLC'}\n;
+  const defaultBankBranch = p.epfBankBranchCustom || `${p.bankName || currentComp.bankName || "Nations Trust Bank PLC"}\n${p.bankBranch || currentComp.bankBranch || "Borella Branch"}`;
   const bankBranch = document.getElementById('epf_c_bank_branch')?.value || defaultBankBranch;
   const totalTot = document.getElementById('epf_c_total_tot')?.value || formatMoney(sumEpf20, 2);
   const totalEr = document.getElementById('epf_c_total_er')?.value || formatMoney(sumEpf12, 2);
@@ -14692,13 +14692,13 @@ function printEpfFormC() {
   for (let i = 0; i < 35; i++) {
     const emp = emps[i] || null;
     const calc = emp ? getEmployeeCalculatedFields(emp, rate) : null;
-    const name = document.getElementById(epf_c_name_)?.value || (emp ? emp.name : '');
-    const nic = document.getElementById(epf_c_nic_)?.value || (emp ? (emp.idNo || emp.tinNo || '') : '');
-    const mem = document.getElementById(epf_c_mem_)?.value || (emp ? (emp.epfNo || '') : '');
-    const tot = document.getElementById(epf_c_tot_)?.value || (calc ? formatMoney(calc.epf20Lkr, 2) : '');
-    const er = document.getElementById(epf_c_er_)?.value || (calc ? formatMoney(calc.epf12Lkr, 2) : '');
-    const ee = document.getElementById(epf_c_ee_)?.value || (calc ? formatMoney(calc.epf8Lkr, 2) : '');
-    const earn = document.getElementById(epf_c_earn_)?.value || (calc ? formatMoney(calc.lkrGross, 2) : '');
+    const name = document.getElementById(`epf_c_name_${i}`)?.value || (emp ? emp.name : '');
+    const nic = document.getElementById(`epf_c_nic_${i}`)?.value || (emp ? (emp.idNo || emp.tinNo || '') : '');
+    const mem = document.getElementById(`epf_c_mem_${i}`)?.value || (emp ? (emp.epfNo || '') : '');
+    const tot = document.getElementById(`epf_c_tot_${i}`)?.value || (calc ? formatMoney(calc.epf20Lkr, 2) : '');
+    const er = document.getElementById(`epf_c_er_${i}`)?.value || (calc ? formatMoney(calc.epf12Lkr, 2) : '');
+    const ee = document.getElementById(`epf_c_ee_${i}`)?.value || (calc ? formatMoney(calc.epf8Lkr, 2) : '');
+    const earn = document.getElementById(`epf_c_earn_${i}`)?.value || (calc ? formatMoney(calc.lkrGross, 2) : '');
 
     if (!name && !nic && !mem && !tot && !er && !ee && !earn) continue;
 
@@ -14839,7 +14839,7 @@ function printEtfFormR4() {
   const totEtfRs = Math.floor(totalEtfRemit).toLocaleString('en-US');
   const totEtfCts = Math.round((totalEtfRemit - Math.floor(totalEtfRemit)) * 100).toString().padStart(2, '0');
 
-  const employer = document.getElementById('etf_r4_employer')?.value || p.etfEmployerCustom || ${currentComp.name || 'APADMI SL (PRIVATE) LIMITED'}\n;
+  const employer = document.getElementById("etf_r4_employer")?.value || p.etfEmployerCustom || `${currentComp.name || "APADMI SL (PRIVATE) LIMITED"}\n${(currentComp.address || "Colombo").replace(/\n/g, " ")}`;
   const empNo = document.getElementById('etf_r4_emp_no')?.value || getCompanyStatutoryDefault(currentComp, p, 'etfRegNo');
   const monthYear = document.getElementById('etf_r4_month_year')?.value || (p.month || 'October 2026').toUpperCase();
   const empCount = document.getElementById('etf_r4_emp_count')?.value || (emps.length || 0);
@@ -14848,7 +14848,7 @@ function printEtfFormR4() {
   const charges = document.getElementById('etf_r4_charges')?.value || formatMoney(etfCharges, 2);
   const total = document.getElementById('etf_r4_total')?.value || formatMoney(totalEtfRemit, 2);
   const chequeNo = document.getElementById('etf_r4_cheque')?.value || p.etfChequeNo || 'CHQ-890214';
-  const bankBranch = document.getElementById('etf_r4_bank_branch')?.value || document.getElementById('etf_r4_bank')?.value || p.etfBankBranchCustom || ${p.bankName || currentComp.bankName || 'NTB'}\n;
+  const bankBranch = document.getElementById("etf_r4_bank_branch")?.value || document.getElementById("etf_r4_bank")?.value || p.etfBankBranchCustom || `${p.bankName || currentComp.bankName || "NTB"}\n${p.bankBranch || currentComp.bankBranch || "Borella"}`;
   const totRs = document.getElementById('etf_r4_tot_rs')?.value || totEtfRs;
   const totCts = document.getElementById('etf_r4_tot_cts')?.value || totEtfCts;
   const clarification = document.getElementById('etf_r4_clarification')?.value || p.etfClarification || '';
@@ -14864,11 +14864,11 @@ function printEtfFormR4() {
     const defaultRs = calc ? Math.floor(etfVal).toLocaleString('en-US') : '';
     const defaultCts = calc ? Math.round((etfVal - Math.floor(etfVal)) * 100).toString().padStart(2, '0') : '';
 
-    const name = document.getElementById(etf_r4_name_)?.value || (emp ? emp.name : '');
-    const nic = document.getElementById(etf_r4_nic_)?.value || (emp ? (emp.idNo || emp.tinNo || '') : '');
-    const mem = document.getElementById(etf_r4_mem_)?.value || (emp ? (emp.epfNo || '') : '');
-    const rs = document.getElementById(etf_r4_rs_)?.value || defaultRs;
-    const cts = document.getElementById(etf_r4_cts_)?.value || defaultCts;
+    const name = document.getElementById(`etf_r4_name_${r}`)?.value || (emp ? emp.name : '');
+    const nic = document.getElementById(`etf_r4_nic_${r}`)?.value || (emp ? (emp.idNo || emp.tinNo || '') : '');
+    const mem = document.getElementById(`etf_r4_mem_${r}`)?.value || (emp ? (emp.epfNo || '') : '');
+    const rs = document.getElementById(`etf_r4_rs_${r}`)?.value || defaultRs;
+    const cts = document.getElementById(`etf_r4_cts_${r}`)?.value || defaultCts;
 
     if (!name && !nic && !mem && !rs && !cts) continue;
 
