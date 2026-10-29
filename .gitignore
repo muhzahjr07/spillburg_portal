@@ -46,4 +46,7 @@ scratch/
 .system_generated/
 data/backups/
 data/ai_config.json
+data/.auth_secret
+data/sessions.json
+data/.last_deployed_backup*
 .env

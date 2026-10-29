@@ -25,6 +25,8 @@ import subprocess
 import sqlite3
 import re
 import datetime
+import hmac
+import hashlib
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 import payroll_excel
@@ -51,8 +53,83 @@ SQLITE_CUSTOMER_DB = os.path.join(BASE_DIR, "customer_file_db", "customers.sqlit
 BRIDGE_SCRIPT = os.path.join(BASE_DIR, "access_bridge.ps1")
 POWERSHELL_32 = r"C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe"
 
-# In-memory session store: token -> user dict
+# Session storage configuration & HMAC secret for seamless restart persistence
+SESSIONS_FILE = os.path.join(DATA_DIR, "sessions.json")
+AUTH_SECRET_FILE = os.path.join(DATA_DIR, ".auth_secret")
+
+def init_auth_secret():
+    env_sec = os.environ.get("SESSION_SECRET")
+    if env_sec:
+        return env_sec.encode("utf-8")
+    if os.path.exists(AUTH_SECRET_FILE):
+        try:
+            with open(AUTH_SECRET_FILE, "rb") as f:
+                s = f.read().strip()
+                if s:
+                    return s
+        except Exception:
+            pass
+    sec = (uuid.uuid4().hex + uuid.uuid4().hex).encode("utf-8")
+    try:
+        with open(AUTH_SECRET_FILE, "wb") as f:
+            f.write(sec)
+    except Exception:
+        pass
+    return sec
+
+AUTH_SECRET = init_auth_secret()
 SESSIONS = {}
+
+def sync_sessions_from_disk():
+    global SESSIONS
+    if os.path.exists(SESSIONS_FILE):
+        try:
+            with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    cutoff = time.time() - 30 * 86400
+                    SESSIONS = {t: v for t, v in data.items() if isinstance(v, dict) and v.get("createdAt", 0) > cutoff}
+        except Exception as e:
+            print(f"[AUTH] Notice syncing sessions: {e}")
+
+def save_sessions_to_disk():
+    try:
+        tmp = SESSIONS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(SESSIONS, f, indent=2)
+        if os.path.exists(SESSIONS_FILE):
+            os.replace(tmp, SESSIONS_FILE)
+        else:
+            os.rename(tmp, SESSIONS_FILE)
+    except Exception as e:
+        print(f"[AUTH] Notice saving sessions: {e}")
+
+def generate_auth_token(user_id):
+    rand_prefix = uuid.uuid4().hex[:12]
+    now_ts = int(time.time())
+    payload = f"{user_id}:{now_ts}:{rand_prefix}".encode("utf-8")
+    sig = hmac.new(AUTH_SECRET, payload, hashlib.sha256).hexdigest()[:20]
+    return f"tok_{rand_prefix}.{user_id}.{now_ts}.{sig}"
+
+def verify_auth_token_signature(token):
+    if not token or not token.startswith("tok_"):
+        return None
+    raw = token[4:]
+    parts = raw.split(".")
+    if len(parts) == 4:
+        rand_prefix, user_id, ts_str, sig = parts
+        try:
+            ts = int(ts_str)
+        except ValueError:
+            return None
+        now = int(time.time())
+        if now - ts > 30 * 86400 or ts > now + 3600:
+            return None
+        payload = f"{user_id}:{ts}:{rand_prefix}".encode("utf-8")
+        expected_sig = hmac.new(AUTH_SECRET, payload, hashlib.sha256).hexdigest()[:20]
+        if hmac.compare_digest(sig, expected_sig):
+            return user_id
+    return None
 
 # In-memory caches for high-speed responsiveness
 USERS = []
@@ -949,6 +1026,7 @@ def init_data():
     global USERS, OPERATIONS, FINANCIAL_RECORDS, CUSTOMER_RECORDS, PAYROLL_RECORDS
     auto_sync_latest_backup_to_data(force=False)
     bootstrap_persistent_data()
+    sync_sessions_from_disk()
 
     existing_users = load_json_file("users.json", None)
     if not existing_users or not isinstance(existing_users, list) or len(existing_users) == 0:
@@ -1849,15 +1927,42 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             except Exception:
                 pass
         
-        if token and token in SESSIONS:
-            user_id = SESSIONS[token]["userId"]
-            for u in USERS:
-                if u["id"] == user_id:
-                    return u
-            sync_users_from_disk()
-            for u in USERS:
-                if u["id"] == user_id:
-                    return u
+        if token:
+            # 1. In-memory session check
+            if token in SESSIONS:
+                user_id = SESSIONS[token]["userId"]
+                for u in USERS:
+                    if u["id"] == user_id:
+                        return u
+                sync_users_from_disk()
+                for u in USERS:
+                    if u["id"] == user_id:
+                        return u
+
+            # 2. Check disk sessions (handles process restart)
+            sync_sessions_from_disk()
+            if token in SESSIONS:
+                user_id = SESSIONS[token]["userId"]
+                for u in USERS:
+                    if u["id"] == user_id:
+                        return u
+                sync_users_from_disk()
+                for u in USERS:
+                    if u["id"] == user_id:
+                        return u
+
+            # 3. Stateless cryptographic signature verification fallback
+            verified_uid = verify_auth_token_signature(token)
+            if verified_uid:
+                sync_users_from_disk()
+                for u in USERS:
+                    if u["id"] == verified_uid:
+                        SESSIONS[token] = {
+                            "userId": verified_uid,
+                            "createdAt": time.time()
+                        }
+                        save_sessions_to_disk()
+                        return u
         return None
 
     def resolve_scoped_operations(self, for_user, user):
@@ -2601,11 +2706,12 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     break
 
             if matched:
-                token = f"tok_{uuid.uuid4().hex}"
+                token = generate_auth_token(matched["id"])
                 SESSIONS[token] = {
                     "userId": matched["id"],
                     "createdAt": time.time()
                 }
+                save_sessions_to_disk()
                 safe_user = dict(matched)
                 safe_user.pop("password", None)
                 self.send_json({
@@ -2623,6 +2729,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             if auth_header.startswith("Bearer "):
                 t = auth_header[7:].strip()
                 SESSIONS.pop(t, None)
+                save_sessions_to_disk()
             self.send_json({"success": True})
             return
 

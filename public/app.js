@@ -1016,7 +1016,41 @@ async function loadInitialData() {
   }
 }
 
-// ================= VIEW SWITCHING =================
+// ================= HEADER QUICK RELOAD =================
+async function handleHeaderReload(btn, event) {
+  if (event && event.shiftKey) {
+    window.location.reload();
+    return;
+  }
+  const icon = btn ? btn.querySelector('i') : null;
+  if (icon) icon.classList.add('animate-spin');
+  try {
+    if (authToken) {
+      await loadInitialData();
+      if (typeof currentView !== 'undefined' && currentView) {
+        await switchView(currentView);
+      }
+      const syncText = document.getElementById('cloudSyncText');
+      if (syncText) {
+        const origSync = syncText.textContent;
+        syncText.textContent = 'Refreshed Just Now';
+        setTimeout(() => { if (syncText) syncText.textContent = origSync; }, 3000);
+      }
+    } else {
+      window.location.reload();
+    }
+  } catch (err) {
+    console.error('Error refreshing portal:', err);
+    window.location.reload();
+  } finally {
+    setTimeout(() => {
+      if (icon) icon.classList.remove('animate-spin');
+      if (window.lucide) lucide.createIcons();
+    }, 500);
+  }
+}
+
+// ================= VIEW SWITCHING ================
 async function switchView(viewName) {
   currentView = viewName;
 

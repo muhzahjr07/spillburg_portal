@@ -663,17 +663,17 @@
     "no": 42,
     "userId": "usr_admin_zaharan",
     "ownerUsername": "zaharan",
-    "title": "Know-It-All AI Integration",
+    "title": "Know-It-All AI Integration - SpillburgAI",
     "requestedBy": "Muhammad Zaharan",
     "assignedTo": "Muhammad Zaharan",
     "workstream": "Operational Task",
     "type": "Operational Task",
     "taskedDate": "06-Oct-2026",
-    "completedDate": "",
-    "status": "In Progress",
+    "completedDate": "29-Oct-2026",
+    "status": "Completed",
     "priority": "Medium",
     "estimatedCost": "",
-    "notes": "Research and develop a AI Integration into the portal"
+    "notes": "Research and develop a AI Integration into the portal, - rebranded as spillburgAI"
   },
   {
     "id": "ops_a012dd",
@@ -720,8 +720,8 @@
     "workstream": "Digital Marketing",
     "type": "Operational Task",
     "taskedDate": "08-Oct-2026",
-    "completedDate": "",
-    "status": "In Progress",
+    "completedDate": "29-Oct-2026",
+    "status": "Completed",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Create an Ad video based on Overseas Company Ad Video on Instagram\nLocalization - French and German\nAdd QR Code\nmail, two personal numbers"
@@ -4788,5 +4788,22 @@
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Field visit reported at 11:25 AM on 29/10/2026: 'Going to Comm bank Keyzer street'."
+  },
+  {
+    "id": "ops_eab628",
+    "no": 70,
+    "userId": "usr_admin_zaharan",
+    "ownerUsername": "zaharan",
+    "title": "Intergrate Tasks for Company Staff in Trackers",
+    "requestedBy": "Muhammad Zaharan",
+    "assignedTo": "Muhammad Zaharan",
+    "workstream": "Office Operations",
+    "type": "Operational Task",
+    "taskedDate": "29-Oct-2026",
+    "completedDate": "29-Oct-2026",
+    "status": "Completed",
+    "priority": "Medium",
+    "estimatedCost": "",
+    "notes": "Intergrate tasks for company staff in trackers, for bilal, ravi, hemanthi and insaaf"
   }
 ]

@@ -137,12 +137,14 @@
     <!-- TOP HEADER -->
     <header
       class="h-16 border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40 px-4 md:px-6 flex items-center justify-between shadow-sm">
-      <!-- Brand Info with Official Logo -->
-      <div class="flex items-center gap-3">
-        <img src="/public/logo.png" alt="Spillburg Logo" class="h-9 md:h-10 object-contain">
+      <!-- Brand Info with Official Logo (Clickable -> Dashboard) -->
+      <div onclick="switchView('dashboard')"
+        class="flex items-center gap-3 cursor-pointer select-none group hover:opacity-90 transition active:scale-[0.99]"
+        title="Return to Executive Dashboard">
+        <img src="/public/logo.png" alt="Spillburg Logo" class="h-9 md:h-10 object-contain group-hover:scale-105 transition-transform duration-200">
         <div>
           <div class="flex items-center gap-2">
-            <span class="font-display font-bold text-base md:text-lg tracking-tight text-slate-900">SPILLBURG</span>
+            <span class="font-display font-bold text-base md:text-lg tracking-tight text-slate-900 group-hover:text-emerald-700 transition-colors">SPILLBURG</span>
             <span
               class="text-[10px] uppercase font-semibold tracking-wider text-[#059669] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Portal</span>
           </div>
@@ -161,6 +163,14 @@
           <span id="cloudSyncDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
           <span id="cloudSyncText">Auto-Save Active</span>
         </div>
+
+        <!-- Reload / Refresh Portal Data Button -->
+        <button onclick="handleHeaderReload(this, event)" id="headerReloadBtn"
+          title="Reload &amp; Refresh Live Portal Data (Shift+Click for Full Page Reload)"
+          class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 text-xs font-semibold transition active:scale-95 shadow-2xs cursor-pointer">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-slate-500"></i>
+          <span class="hidden sm:inline">Refresh</span>
+        </button>
 
         <!-- Current User Pill -->
         <div class="flex items-center gap-2.5 bg-slate-50 border border-slate-200 pl-2.5 pr-3 py-1.5 rounded-full">
@@ -358,7 +368,7 @@
     </div>
   </div>
 
-  <script src="/public/app.js?v=20261029_3"></script>
+  <script src="/public/app.js?v=20261029_4"></script>
 </body>
 
 </html>

@@ -19,10 +19,15 @@
       "payrollYearPeriod": "2026-2027",
       "parentGroup": "Apadmi Group Ltd",
       "parentAddress": "Manchester,\nUnited Kingdom.",
-      "epfRegNo": "8483/C",
-      "etfRegNo": "ETF-66291",
+      "epfRegNo": "A - 61279",
+      "etfRegNo": "A - 61279",
       "foreignCurrency": "GBP",
-      "swiftCode": "NTBLLKLX"
+      "swiftCode": "NTBLLKLX",
+      "currencyMode": "dual",
+      "baseCurrency": "LKR",
+      "defaultExchangeRate": 400,
+      "phone": "+94 11 233 6116",
+      "email": "info@spillburg.com"
     },
     {
       "id": "comp_791e81",
@@ -42,13 +47,17 @@
       "currencyMode": "single",
       "baseCurrency": "LKR",
       "foreignCurrency": "",
-      "defaultExchangeRate": 1
+      "defaultExchangeRate": 1,
+      "epfRegNo": "A - 51349",
+      "etfRegNo": "A - 51349",
+      "phone": "+94 11 233 6116",
+      "email": "info@spillburg.com"
     },
     {
       "id": "comp_5eea88",
       "name": "SPILLBURG VACATION (PVT) LTD.",
       "code": "SPVAC",
-      "registrationNo": "PV00205419",
+      "registrationNo": "PV205419",
       "address": "Office 14, Basement Level, Cinnamon Lakeside Hotel",
       "bankName": "Nations Trust Bank PLC",
       "bankBranch": "Borella Branch",
@@ -62,7 +71,11 @@
       "currencyMode": "single",
       "baseCurrency": "LKR",
       "foreignCurrency": "",
-      "defaultExchangeRate": 1
+      "defaultExchangeRate": 1,
+      "epfRegNo": "A - 55322",
+      "etfRegNo": "A - 55322",
+      "phone": "+94 11 233 6116",
+      "email": "info@spillburg.com"
     }
   ],
   "activePeriodId": "period_d447b5",
@@ -343,8 +356,8 @@
       "invoiceNo": "SBH007",
       "invoiceDate": "22.09.2026",
       "bankCharges": 50,
-      "epfRegNo": "8483/C",
-      "etfRegNo": "ETF-66291",
+      "epfRegNo": "A - 61279",
+      "etfRegNo": "A - 61279",
       "epfChequeNo": "CHQ-890214",
       "etfChequeNo": "ETF-CHQ-7721",
       "createdAt": "2026-09-30T09:00:00Z"
@@ -596,7 +609,9 @@
           "apit": 15460
         }
       ],
-      "createdAt": "2026-08-31T09:00:00Z"
+      "createdAt": "2026-08-31T09:00:00Z",
+      "epfRegNo": "A - 61279",
+      "etfRegNo": "A - 61279"
     },
     {
       "id": "period_8f9a05",
@@ -899,8 +914,8 @@
       ],
       "invoiceNo": "SBH008",
       "bankCharges": 50,
-      "epfRegNo": "8483/C",
-      "etfRegNo": "ETF-66291",
+      "epfRegNo": "A - 61279",
+      "etfRegNo": "A - 61279",
       "epfChequeNo": "CHQ-890215",
       "etfChequeNo": "ETF-CHQ-7722",
       "createdAt": "2026-10-23T08:32:33Z"
@@ -985,79 +1000,81 @@
         {
           "id": "emp_477008",
           "no": 3,
-          "epfNo": "",
+          "epfNo": "14",
           "name": "ABDUL GAFFOOR BILAL MOHIDEEN",
           "shortName": "Abdul Gaffoor Bilal Mohideen",
           "position": "Intern - Operations Executive",
-          "gbpSalary": 0,
-          "lkrSalary": 0,
-          "earnedLkr": 0,
+          "gbpSalary": 0.0,
+          "lkrSalary": 0.0,
+          "earnedLkr": 0.0,
           "workDays": "",
-          "earnedGbp": 0,
+          "earnedGbp": 0.0,
           "bankAccountNo": "200500057713",
           "bankCode": "",
           "bankBranch": "Nations Trust Bank PLC",
           "tinNo": "",
           "idNo": "200700602130",
           "dateJoined": "01.04.2026",
-          "specialAllowance": 20000,
+          "specialAllowance": 20000.0,
           "noPayLate": 0,
           "advance": 0,
           "loan": 0,
-          "otherDeductions": 0,
-          "apit": null
+          "otherDeductions": 0.0,
+          "apit": 0.0
         },
         {
           "id": "emp_78d244",
           "no": 4,
-          "epfNo": "",
+          "epfNo": "15",
           "name": "MANSOOR A. I",
           "shortName": "Mansoor A. I",
           "position": "Intern - Operations Executive",
-          "gbpSalary": 0,
-          "lkrSalary": 0,
-          "earnedLkr": 0,
+          "gbpSalary": 0.0,
+          "lkrSalary": 0.0,
+          "earnedLkr": 0.0,
           "workDays": "",
-          "earnedGbp": 0,
+          "earnedGbp": 0.0,
           "bankAccountNo": "093020157784",
           "bankCode": "",
           "bankBranch": "HATTON NATIONAL BANK PLC",
           "tinNo": "",
           "idNo": "200422101600",
           "dateJoined": "01.07.2026",
-          "specialAllowance": 15000,
+          "specialAllowance": 15000.0,
           "noPayLate": 0,
           "advance": 0,
           "loan": 0,
-          "otherDeductions": 0,
-          "apit": 0
+          "otherDeductions": 0.0,
+          "apit": 0.0
         },
         {
           "id": "emp_e7b58a",
           "no": 5,
-          "epfNo": "",
-          "name": "S. F. RAHUMAN",
+          "epfNo": "16",
+          "name": "F. R. M. Zaharan",
           "shortName": "S. F. Rahuman",
-          "position": "Business Executive",
-          "gbpSalary": 0,
-          "lkrSalary": 0,
-          "earnedLkr": 0,
+          "position": "Business and Operations Executive",
+          "gbpSalary": 0.0,
+          "lkrSalary": 0.0,
+          "earnedLkr": 0.0,
           "workDays": "",
-          "earnedGbp": 0,
+          "earnedGbp": 0.0,
           "bankAccountNo": "8024219279",
           "bankCode": "",
           "bankBranch": "Commercial Bank - Wattala",
           "tinNo": "",
           "idNo": "983125751V",
           "dateJoined": "01.09.2026",
-          "specialAllowance": 65000,
+          "specialAllowance": 65000.0,
           "noPayLate": 0,
           "advance": 0,
           "loan": 0,
-          "otherDeductions": 0,
-          "apit": 0
+          "otherDeductions": 0.0,
+          "apit": 0.0
         }
-      ]
+      ],
+      "epfRegNo": "A - 51349",
+      "etfRegNo": "A - 51349"
     },
     {
       "id": "period_d447b5",
@@ -1085,7 +1102,9 @@
       "bankAddress": "67 D.S. Senanayake Mawatha, Colombo 08.",
       "debitAccountNo": "1001 5000 7554",
       "debitAccountName": "Spillburg Holdings (Private) Limited",
-      "employees": []
+      "employees": [],
+      "epfRegNo": "A - 55322",
+      "etfRegNo": "A - 55322"
     }
   ]
 }
