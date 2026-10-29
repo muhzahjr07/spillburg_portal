@@ -127,47 +127,57 @@ def get_gemini_api_key():
 def call_gemini_enhancement(user, message, history, deterministic_reply, access_summary):
     """
     If GEMINI_API_KEY is configured, refines or answers conversational queries using
-    Gemini 2.5 Flash while strictly bounding context to the deterministic permission-filtered data.
+    Gemini 3.5 Flash Lite (with fallback to 3.1 Flash Lite) while strictly bounding
+    context to the deterministic permission-filtered data.
     """
     api_key = get_gemini_api_key()
     if not api_key:
         return None
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-        sys_prompt = (
-            "You are SpillburgAI, the official corporate intelligence assistant for Spillburg Holdings (Pvt) Ltd "
-            "and Spillburg Vacation (Pvt) Ltd in Colombo, Sri Lanka.\n"
-            f"Current User: {user.get('fullName')} (Role: {access_summary.get('role', 'staff').upper()}, Title: {user.get('title')}).\n"
-            "STRICT SECURITY RULE: Only use the permission-verified corporate data provided below. Never fabricate TINs, "
-            "EPF/ETF numbers, salaries, or box numbers. Format your response in clean markdown.\n\n"
-            f"PERMISSION-SCOPED DATABASE RETRIEVAL:\n{deterministic_reply}"
-        )
-        contents = []
-        for h in (history or [])[-6:]:
-            role = "user" if h.get("role") == "user" else "model"
-            contents.append({"role": role, "parts": [{"text": str(h.get("content", ""))[:1500]}]})
-        contents.append({"role": "user", "parts": [{"text": message}]})
 
-        payload = {
-            "systemInstruction": {"parts": [{"text": sys_prompt}]},
-            "contents": contents,
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1200}
-        }
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            res_data = json.loads(resp.read().decode("utf-8"))
-            candidates = res_data.get("candidates") or []
-            if candidates:
-                parts = candidates[0].get("content", {}).get("parts") or []
-                if parts and parts[0].get("text"):
-                    return parts[0]["text"].strip()
-    except Exception:
-        pass
+    models_to_try = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-latest"]
+    sys_prompt = (
+        "You are SpillburgAI, the official corporate intelligence assistant for Spillburg Holdings (Pvt) Ltd "
+        "and Spillburg Vacation (Pvt) Ltd in Colombo, Sri Lanka.\n"
+        f"Current User: {user.get('fullName')} (Role: {access_summary.get('role', 'staff').upper()}, Title: {user.get('title')}).\n"
+        "STRICT SECURITY RULE: Only use the permission-verified corporate data provided below. Never fabricate TINs, "
+        "EPF/ETF numbers, salaries, or box numbers. Format your response in clean markdown.\n\n"
+        f"PERMISSION-SCOPED DATABASE RETRIEVAL:\n{deterministic_reply}"
+    )
+    contents = []
+    for h in (history or [])[-6:]:
+        role = "user" if h.get("role") == "user" else "model"
+        contents.append({"role": role, "parts": [{"text": str(h.get("content", ""))[:1500]}]})
+    contents.append({"role": "user", "parts": [{"text": message}]})
+
+    payload = {
+        "systemInstruction": {"parts": [{"text": sys_prompt}]},
+        "contents": contents,
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1200}
+    }
+    encoded_payload = json.dumps(payload).encode("utf-8")
+
+    for model_name in models_to_try:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+            req = urllib.request.Request(
+                url,
+                data=encoded_payload,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                res_data = json.loads(resp.read().decode("utf-8"))
+                candidates = res_data.get("candidates") or []
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts") or []
+                    if parts and parts[0].get("text"):
+                        return parts[0]["text"].strip()
+        except urllib.error.HTTPError as he:
+            if he.code in [404, 400]:
+                continue
+            break
+        except Exception:
+            continue
     return None
 
 

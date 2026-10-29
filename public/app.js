@@ -8110,9 +8110,9 @@ function openGeminiConfigModal() {
             <i data-lucide="key" class="w-4 h-4"></i>
           </div>
           <div>
-            <h3 class="font-display font-bold text-base text-slate-900">Configure Gemini 2.5 Flash API Key</h3>
+            <h3 class="font-display font-bold text-base text-slate-900">Configure Gemini 3.5 Flash API Key</h3>
             <span class="text-[10px] font-semibold ${isConfigured ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-slate-600 bg-slate-100 border-slate-200'} px-2 py-0.5 rounded border">
-              Status: ${isConfigured ? 'Gemini 2.5 Flash Active' : 'Using Built-In Hybrid Engine'}
+              Status: ${isConfigured ? 'Gemini 3.5 Flash Active' : 'Using Built-In Hybrid Engine'}
             </span>
           </div>
         </div>
@@ -8349,7 +8349,7 @@ async function renderSpillburgAI(container) {
             <div class="flex flex-wrap items-center gap-2">
               <h2 class="font-display font-bold text-lg md:text-xl text-white">SpillburgAI Assistant</h2>
               <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                ${geminiActive ? 'Gemini 2.5 Flash + Corporate Engine' : 'Permission-Scoped Knowledge &amp; Task Engine'}
+                ${geminiActive ? 'Gemini 3.5 Flash + Corporate Engine' : 'Permission-Scoped Knowledge &amp; Task Engine'}
               </span>
             </div>
             <p class="text-xs text-purple-200/90 mt-1">
