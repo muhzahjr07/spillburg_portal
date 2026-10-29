@@ -1,5 +1,22 @@
 [
   {
+    "id": "ops_3857de",
+    "no": 1,
+    "userId": "usr_6b04a953",
+    "ownerUsername": "ravi",
+    "title": "Spillburg Portal Onboarding - Operations Executive",
+    "requestedBy": "Muhammad Zaharan",
+    "assignedTo": "Ravindralal Mahinda Wijeweera",
+    "workstream": "Personal Tasks",
+    "type": "Onboarding",
+    "taskedDate": "29-Oct-2026",
+    "completedDate": "",
+    "status": "In Progress",
+    "priority": "Medium",
+    "estimatedCost": "",
+    "notes": "Welcome to Spillburg Holdings. Review your assigned registers and manage your personal deliverables."
+  },
+  {
     "id": "ops_b02114",
     "no": 1,
     "userId": "usr_bcc9abca",
@@ -348,7 +365,7 @@
     "taskedDate": "18-Sep-2026",
     "completedDate": "",
     "status": "In Progress",
-    "priority": "Medium",
+    "priority": "High",
     "estimatedCost": "",
     "notes": "Review the new company profile and find out shortcomings and suggestions"
   },
@@ -460,7 +477,7 @@
     "taskedDate": "22-Sep-2026",
     "completedDate": "",
     "status": "In Progress",
-    "priority": "Medium",
+    "priority": "High",
     "estimatedCost": "",
     "notes": "Create a company profile for Spillburg Corporate Services"
   },
@@ -475,7 +492,7 @@
     "workstream": "R&D",
     "taskedDate": "22-Sep-2026",
     "completedDate": "",
-    "status": "Pending",
+    "status": "On Hold",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Research on Beneficary Ownership Gazette"
@@ -492,7 +509,7 @@
     "taskedDate": "23-Sep-2026",
     "completedDate": "",
     "status": "In Progress",
-    "priority": "High",
+    "priority": "Low",
     "estimatedCost": "",
     "notes": "Fill the indemnity form for all clients"
   },
@@ -722,7 +739,7 @@
     "taskedDate": "07-Oct-2026",
     "completedDate": "",
     "status": "In Progress",
-    "priority": "Medium",
+    "priority": "Low",
     "estimatedCost": "",
     "notes": "Create a slideshow video for Spillburg Holdings, based on Mr. Shameel and Mr. Hameez LinkedIn Profiles"
   },
@@ -737,8 +754,8 @@
     "workstream": "Digital Marketing",
     "type": "Operational Task",
     "taskedDate": "08-Oct-2026",
-    "completedDate": "27-Oct-2026",
-    "status": "Completed",
+    "completedDate": "",
+    "status": "In Progress",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Create an Ad video based on Overseas Company Ad Video on Instagram\nLocalization - French and German\nAdd QR Code\nmail, two personal numbers"
@@ -823,8 +840,8 @@
     "type": "Operational Task",
     "taskedDate": "14-Oct-2026",
     "completedDate": "",
-    "status": "Pending",
-    "priority": "Low",
+    "status": "In Progress",
+    "priority": "Medium",
     "estimatedCost": "",
     "notes": "Create a website Spillburg Logistics 1"
   },
@@ -892,7 +909,7 @@
     "taskedDate": "20-Oct-2026",
     "completedDate": "",
     "status": "In Progress",
-    "priority": "Medium",
+    "priority": "Low",
     "estimatedCost": "",
     "notes": "Create logo for Spillburg Corporate Services & Spillburg Logistics 1"
   },
@@ -943,7 +960,7 @@
     "taskedDate": "25-Sep-2026",
     "completedDate": "",
     "status": "In Progress",
-    "priority": "Medium",
+    "priority": "High",
     "estimatedCost": "",
     "notes": "Cordinate with Anisa and create a website for slfbc\nNotes - SL FR - Localization\nwhen doing the srii lanka france business council website check MEDEF International,  Business France India, Sri Lanka embassy in France,  IFCCI websited"
   },
@@ -977,7 +994,7 @@
     "taskedDate": "22-Oct-2026",
     "completedDate": "",
     "status": "In Progress",
-    "priority": "Medium",
+    "priority": "High",
     "estimatedCost": "",
     "notes": "create a unique Company Profile For Spillburg Logistics 1"
   },
@@ -1094,8 +1111,8 @@
     "workstream": "Office Operations",
     "type": "Operational Task",
     "taskedDate": "27-Oct-2026",
-    "completedDate": "",
-    "status": "In Progress",
+    "completedDate": "28-Oct-2026",
+    "status": "Completed",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Review and audit 3 company laptops and prepare to send off-company"
@@ -1112,9 +1129,26 @@
     "type": "Operational Task",
     "taskedDate": "28-Oct-2026",
     "completedDate": "",
-    "status": "Pending",
+    "status": "In Progress",
     "priority": "Medium",
     "estimatedCost": "",
     "notes": "Add Spillburg Holdings And Vacation to Payroll System"
+  },
+  {
+    "id": "ops_6f2227",
+    "no": 69,
+    "userId": "usr_admin_zaharan",
+    "ownerUsername": "zaharan",
+    "title": "Potential Fashion Industry & Event Sponsors Directory",
+    "requestedBy": "Mr. Shameel",
+    "assignedTo": "Muhammad Zaharan",
+    "workstream": "Operational Task",
+    "type": "Operational Task",
+    "taskedDate": "28-Oct-2026",
+    "completedDate": "28-Oct-2026",
+    "status": "Completed",
+    "priority": "Medium",
+    "estimatedCost": "",
+    "notes": "Integrate all 17 sponsor categories from the provided document into a structured, categorized directory with contact details, partnership roles, pipeline status tracking, and executive summary metrics."
   }
 ]

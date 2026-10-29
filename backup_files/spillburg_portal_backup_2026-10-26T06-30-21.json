@@ -1286,7 +1286,7 @@
         "debitAccountName": "Spillburg Holdings (Private) Limited",
         "authorizedSignatory": "Shaameel Mohideen",
         "authorizedTitle": "Director - Operations & Development",
-        "authorizedCompany": "Spillburg Holdings (Pvt) Ltd.",
+        "authorizedCompany": "Spillburg Holdings (pvt)Ltd",
         "checkedBy": "Hemanthi Basnayake",
         "checkedTitle": "Accountant",
         "payrollYearPeriod": "2026-2027",
@@ -1298,7 +1298,7 @@
         "swiftCode": "NTBLLKLX"
       }
     ],
-    "activePeriodId": "period_8f9a05",
+    "activePeriodId": "period_2026_09",
     "periods": [
       {
         "id": "period_2026_09",
@@ -1314,7 +1314,7 @@
         "checkedBy": "Hemanthi Basnayake",
         "checkedTitle": "Accountant",
         "authorizedSignatory": "Shaameel Mohideen",
-        "authorizedCompany": "Spillburg Holdings (Pvt) Ltd.",
+        "authorizedCompany": "Spillburg Holdings (pvt)Ltd",
         "bankName": "Nations Trust Bank PLC",
         "bankBranch": "Borella Branch",
         "bankAddress": "67 D.S. Senanayake Mawatha,\nColombo 08.",
@@ -1578,8 +1578,7 @@
         "epfRegNo": "8483/C",
         "etfRegNo": "ETF-66291",
         "epfChequeNo": "CHQ-890214",
-        "etfChequeNo": "ETF-CHQ-7721",
-        "createdAt": "2026-09-30T09:00:00Z"
+        "etfChequeNo": "ETF-CHQ-7721"
       },
       {
         "id": "period_2026_08",
@@ -1595,7 +1594,7 @@
         "checkedBy": "Hemanthi Basnayake",
         "checkedTitle": "Accountant",
         "authorizedSignatory": "Shaameel Mohideen",
-        "authorizedCompany": "Spillburg Holdings (Pvt) Ltd.",
+        "authorizedCompany": "Spillburg Holdings (pvt)Ltd",
         "bankName": "Nations Trust Bank PLC",
         "bankBranch": "Borella Branch",
         "bankAddress": "67 D.S. Senanayake Mawatha, Colombo 08.",
@@ -1827,8 +1826,7 @@
             "loan": 0,
             "apit": 15460
           }
-        ],
-        "createdAt": "2026-08-31T09:00:00Z"
+        ]
       },
       {
         "id": "period_8f9a05",
@@ -1845,7 +1843,7 @@
         "checkedBy": "Hemanthi Basnayake",
         "checkedTitle": "Accountant",
         "authorizedSignatory": "Shaameel Mohideen",
-        "authorizedCompany": "Spillburg Holdings (Pvt) Ltd.",
+        "authorizedCompany": "Spillburg Holdings (pvt)Ltd",
         "bankName": "Nations Trust Bank PLC",
         "bankBranch": "Borella Branch",
         "bankAddress": "67 D.S. Senanayake Mawatha, Colombo 08.",
@@ -2129,13 +2127,12 @@
             "apit": 0.0
           }
         ],
-        "invoiceNo": "SBH008",
+        "invoiceNo": "INVOICE NO:SBH008",
         "bankCharges": 50.0,
         "epfRegNo": "8483/C",
         "etfRegNo": "ETF-66291",
         "epfChequeNo": "CHQ-890215",
-        "etfChequeNo": "ETF-CHQ-7722",
-        "createdAt": "2026-10-23T08:32:33Z"
+        "etfChequeNo": "ETF-CHQ-7722"
       }
     ]
   },

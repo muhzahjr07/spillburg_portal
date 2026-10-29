@@ -178,5 +178,23 @@
     },
     "createdAt": "2026-10-15T05:16:00Z",
     "status": "active"
+  },
+  {
+    "id": "usr_6b04a953",
+    "username": "ravi",
+    "password": "ravi@123",
+    "fullName": "Ravindralal Mahinda Wijeweera",
+    "role": "staff",
+    "title": "Operations Executive",
+    "email": "ravi@spillburg.com",
+    "permissions": {
+      "operations": "editor",
+      "customer_files": "viewer",
+      "financial_files": "none",
+      "payroll": "none",
+      "user_management": "none"
+    },
+    "createdAt": "2026-10-29T06:23:31Z",
+    "status": "active"
   }
 ]
