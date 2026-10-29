@@ -9296,7 +9296,7 @@ function renderPayrollSheet(container) {
               ${emps.map(e => `
                 <tr>
                   <td style="text-align: center;">${e.no}</td>
-                  <td style="font-weight: 600; text-align: left;">${escapeHtml(e.name)}</td>
+                  <td style="font-weight: 600; text-align: left;">${escapeHtml((e.name || '').toUpperCase())}</td>
                   <td style="text-align: left; color: #475569;">${escapeHtml(e.position)}</td>
                   <td style="text-align: right;">${formatMoney(e.lkrSalary || e.lkrGross || 0, 2)}</td>
                   <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
@@ -9395,7 +9395,7 @@ function renderPayrollSheet(container) {
               ${emps.map(e => `
                 <tr>
                   <td style="text-align: center;">${e.no}</td>
-                  <td style="font-weight: 600; text-align: left;">${escapeHtml(e.name)}</td>
+                  <td style="font-weight: 600; text-align: left;">${escapeHtml((e.name || '').toUpperCase())}</td>
                   <td style="text-align: left; color: #475569;">${escapeHtml(e.position)}</td>
                   <td style="text-align: right;">${formatMoney(e.gbpSalary, 2)}</td>
                   <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
@@ -9469,7 +9469,7 @@ function renderPayrollSheet(container) {
               ${emps.map(e => `
                 <tr>
                   <td style="text-align: center;">${e.no}</td>
-                  <td style="font-weight: 600; text-align: left;">${escapeHtml(e.name)}</td>
+                  <td style="font-weight: 600; text-align: left;">${escapeHtml((e.name || '').toUpperCase())}</td>
                   <td style="text-align: left; color: #475569;">${escapeHtml(e.position)}</td>
                   <td style="text-align: right;">${formatMoney(e.gbpSalary, 2)}</td>
                   <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
@@ -10123,7 +10123,7 @@ function exportEpfFormCCsv() {
     sumEr += calc.epf12Lkr;
     sumEe += calc.epf8Lkr;
     const memNo = e.epfNo || String(idx + 1).padStart(2, '0');
-    csv += `"${idx + 1}","${memNo}","${e.idNo || ''}","${(e.name || '').replace(/"/g, '""')}","${calc.lkrGross.toFixed(2)}","${calc.epf20Lkr.toFixed(2)}","${calc.epf12Lkr.toFixed(2)}","${calc.epf8Lkr.toFixed(2)}"\n`;
+    csv += `"${idx + 1}","${memNo}","${e.idNo || ''}","${(e.name || '').toUpperCase().replace(/"/g, '""')}","${calc.lkrGross.toFixed(2)}","${calc.epf20Lkr.toFixed(2)}","${calc.epf12Lkr.toFixed(2)}","${calc.epf8Lkr.toFixed(2)}"\n`;
   });
 
   csv += `"Total","","","","${sumGross.toFixed(2)}","${sumTot.toFixed(2)}","${sumEr.toFixed(2)}","${sumEe.toFixed(2)}"\n`;
@@ -10172,7 +10172,7 @@ function renderEpfFormC(container) {
     sumEpf20 += calc.epf20Lkr;
 
     return {
-      name: e.name,
+      name: (e.name || '').toUpperCase(),
       idNo: e.idNo || '',
       memberNo: e.epfNo || String(idx + 1).padStart(2, '0'),
       totalEarnings: calc.lkrGross,
@@ -10201,7 +10201,7 @@ function renderEpfFormC(container) {
     const pEarn = getEpfFieldPos(`epf_c_earn_${i}`);
 
     rowInputsHtml += `
-      <input type="text" class="form-overlay-input" id="epf_c_name_${i}" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 8px; font-weight: 700; padding-left: 3px;" value="${emp ? escapeHtml(emp.name) : ''}" title="Employee Name">
+      <input type="text" class="form-overlay-input" id="epf_c_name_${i}" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 8px; font-weight: 700; padding-left: 3px;" value="${emp ? escapeHtml((emp.name || '').toUpperCase()) : ''}" title="Employee Name">
       <input type="text" class="form-overlay-input" id="epf_c_nic_${i}" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; font-size: 8px; text-align: center;" value="${emp ? escapeHtml(emp.idNo) : ''}" title="National Idt. No. / Passport">
       <input type="text" class="form-overlay-input" id="epf_c_mem_${i}" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; text-align: center; font-size: 8px;" value="${emp ? escapeHtml(emp.memberNo) : ''}" title="Member No">
       <input type="text" class="form-overlay-input" id="epf_c_tot_${i}" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; text-align: right; padding-right: 3px; font-size: 8px; font-weight: 700;" value="${emp ? formatMoney(emp.epf20, 2) : ''}" title="Total Contribution 20% (Rs.)">
@@ -10583,7 +10583,7 @@ function renderEtfFormR4(container) {
 
     return {
       serial: String(idx + 1).padStart(2, '0'),
-      name: e.name,
+      name: (e.name || '').toUpperCase(),
       nic: e.idNo || '',
       memberNo: e.epfNo || String(idx + 1).padStart(2, '0'),
       rs: formatMoney(rs, 0),
@@ -10609,7 +10609,7 @@ function renderEtfFormR4(container) {
     const pCts = getEtfFieldPos(`etf_r4_cts_${r}`);
 
     rowInputsHtml += `
-      <input type="text" class="form-overlay-input" id="etf_r4_name_${r}" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 8.5px; font-weight: 600;" value="${emp ? escapeHtml(emp.name) : ''}" title="Member Name">
+      <input type="text" class="form-overlay-input" id="etf_r4_name_${r}" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 8.5px; font-weight: 600;" value="${emp ? escapeHtml((emp.name || '').toUpperCase()) : ''}" title="Member Name">
       <input type="text" class="form-overlay-input" id="etf_r4_nic_${r}" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.nic) : ''}" title="National Identity Card No">
       <input type="text" class="form-overlay-input" id="etf_r4_mem_${r}" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.memberNo) : ''}" title="Member No">
       <input type="text" class="form-overlay-input" id="etf_r4_rs_${r}" style="left: ${pRs.left}; top: ${pRs.top}; width: ${pRs.width}; height: ${pRs.height}; font-size: 8.5px; font-weight: 700; text-align: right;" value="${emp ? emp.rs : ''}" title="Contribution (Rs.)">
@@ -10828,7 +10828,7 @@ function renderBankRequestLetter(container) {
             <tbody>
               ${emps.map((e, idx) => `
                 <tr>
-                  <td style="font-weight: 600;">${idx + 1}.${escapeHtml(e.name)}</td>
+                  <td style="font-weight: 600;">${idx + 1}.${escapeHtml((e.name || '').toUpperCase())}</td>
                   <td>${escapeHtml(e.idNo)}</td>
                   <td style="font-family: monospace;">${escapeHtml(e.bankAccountNo)}</td>
                   <td>${escapeHtml(e.bankBranch)}</td>
@@ -10892,7 +10892,7 @@ function renderIndividualPayslips(container) {
             class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500">
             ${emps.map(e => `
               <option value="${e.id}" ${e.id === selectedEmp.id ? 'selected' : ''}>
-                ${e.no}. ${escapeHtml(e.name)} (&pound;${formatMoney(e.gbpSalary, 0)})
+                ${e.no}. ${escapeHtml((e.name || '').toUpperCase())} (&pound;${formatMoney(e.gbpSalary, 0)})
               </option>
             `).join('')}
           </select>
@@ -10988,7 +10988,7 @@ function generatePayslipHtml(emp, period) {
         <tr>
           <td style="font-weight: bold; background: #f8fafc; vertical-align: middle;">Name</td>
           <td style="font-weight: 700; text-align: right; text-transform: uppercase;">
-            ${escapeHtml(emp.name)}
+            ${escapeHtml((emp.name || '').toUpperCase())}
           </td>
         </tr>
         <tr>
@@ -13426,7 +13426,7 @@ function printMasterSalarySheet() {
             ${emps.map(e => `
               <tr>
                 <td class="text-center">${e.no}</td>
-                <td class="text-left bold">${escapeHtml(e.name)}</td>
+                <td class="text-left bold">${escapeHtml((e.name || '').toUpperCase())}</td>
                 <td class="text-left">${escapeHtml(e.position)}</td>
                 <td class="text-right">${formatMoney(e.lkrSalary || e.lkrGross || 0, 2)}</td>
                 <td class="text-center bold">${escapeHtml(e.workDays || '')}</td>
@@ -13495,7 +13495,7 @@ function printMasterSalarySheet() {
             ${emps.map(e => `
               <tr>
                 <td class="text-center">${e.no}</td>
-                <td class="text-left bold">${escapeHtml(e.name)}</td>
+                <td class="text-left bold">${escapeHtml((e.name || '').toUpperCase())}</td>
                 <td class="text-left">${escapeHtml(e.position)}</td>
                 <td class="text-right">${formatMoney(e.gbpSalary, 2)}</td>
                 <td class="text-center bold">${escapeHtml(e.workDays || '')}</td>
@@ -13558,7 +13558,7 @@ function printMasterSalarySheet() {
             ${emps.map(e => `
               <tr>
                 <td class="text-center">${e.no}</td>
-                <td class="text-left bold">${escapeHtml(e.name)}</td>
+                <td class="text-left bold">${escapeHtml((e.name || '').toUpperCase())}</td>
                 <td class="text-left">${escapeHtml(e.position)}</td>
                 <td class="text-right">${formatMoney(e.gbpSalary, 2)}</td>
                 <td class="text-center bold">${escapeHtml(e.workDays || '')}</td>
@@ -13830,7 +13830,7 @@ function printBankRequestLetter() {
                   <tbody>
                     ${emps.map((e, idx) => `
                       <tr>
-                        <td style="font-weight: 600;">${idx + 1}.${escapeHtml(e.name)}</td>
+                        <td style="font-weight: 600;">${idx + 1}.${escapeHtml((e.name || '').toUpperCase())}</td>
                         <td>${escapeHtml(e.idNo)}</td>
                         <td style="font-family: monospace;">${escapeHtml(e.bankAccountNo)}</td>
                         <td>${escapeHtml(e.bankBranch)}</td>
@@ -13908,7 +13908,7 @@ function printSinglePayslip(empId, layoutMode) {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Payslip - ${escapeHtml(emp.name)} - ${escapeHtml(p.month)}</title>
+      <title>Payslip - ${escapeHtml((emp.name || '').toUpperCase())} - ${escapeHtml(p.month)}</title>
       <style>
         @page {
           size: ${mode === '2_per_page' ? 'A4 landscape' : 'A4 portrait'};
@@ -14655,7 +14655,7 @@ function printEpfFormC() {
     const pEarn = getEpfFieldPos(`epf_c_earn_${i}`);
 
     rowFieldsHtml += `
-      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 6.5pt; font-weight: bold; padding-left: 2px;">${escapeHtml(name)}</div>
+      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 6.5pt; font-weight: bold; padding-left: 2px;">${escapeHtml((name || '').toUpperCase())}</div>
       <div class="field" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; justify-content: center; font-size: 6.5pt;">${escapeHtml(nic)}</div>
       <div class="field" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; justify-content: center; font-size: 6.5pt;">${escapeHtml(mem)}</div>
       <div class="field" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; justify-content: flex-end; padding-right: 3px; font-size: 6.5pt; font-weight: bold;">${escapeHtml(tot)}</div>
@@ -14805,7 +14805,7 @@ function printEtfFormR4() {
     const pCts = getEtfFieldPos(`etf_r4_cts_${r}`);
 
     rowFieldsHtml += `
-      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 7.5pt; font-weight: bold;">${escapeHtml(name)}</div>
+      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 7.5pt; font-weight: bold;">${escapeHtml((name || '').toUpperCase())}</div>
       <div class="field" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; justify-content: center; font-size: 7.5pt;">${escapeHtml(nic)}</div>
       <div class="field" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; justify-content: center; font-size: 7.5pt;">${escapeHtml(mem)}</div>
       <div class="field" style="left: ${pRs.left}; top: ${pRs.top}; width: ${pRs.width}; height: ${pRs.height}; justify-content: flex-end; font-size: 8pt; font-weight: bold;">${escapeHtml(rs)}</div>
@@ -14936,7 +14936,7 @@ function exportEtfFormR4Csv() {
     const cts = Math.round((calc.etf3Lkr - rs) * 100);
     const memberNo = e.epfNo || String(idx + 1).padStart(2, '0');
 
-    rows.push([String(idx + 1).padStart(2, '0'), e.name, e.idNo || '', memberNo, rs, String(cts).padStart(2, '0')]);
+    rows.push([String(idx + 1).padStart(2, '0'), (e.name || '').toUpperCase(), e.idNo || '', memberNo, rs, String(cts).padStart(2, '0')]);
   });
 
   const totalRs = Math.floor(sumEtf3);

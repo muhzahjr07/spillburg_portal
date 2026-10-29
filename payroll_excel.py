@@ -66,7 +66,7 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
             bank_str = f"{e.get('bankAccountNo','')}({e.get('bankCode','')})" if e.get('bankCode') else str(e.get('bankAccountNo',''))
             row_cells = [
                 ("A", 11, "num", e.get("no", "")),
-                ("B", 10, "inlineStr", e.get("name", "")),
+                ("B", 10, "inlineStr", str(e.get("name", "")).upper()),
                 ("C", 10, "inlineStr", e.get("position", "")),
                 ("D", 13, "num", e.get("gbpSalary", 0)),
                 ("E", 11, "inlineStr", e.get("workDays", "")),
@@ -142,7 +142,7 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
         for e in employees:
             row_cells = [
                 ("A", 11, "num", e.get("no", "")),
-                ("B", 10, "inlineStr", e.get("name", "")),
+                ("B", 10, "inlineStr", str(e.get("name", "")).upper()),
                 ("C", 10, "inlineStr", e.get("position", "")),
                 ("D", 13, "num", e.get("gbpSalary", 0)),
                 ("E", 11, "inlineStr", e.get("workDays", "")),
@@ -213,7 +213,7 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
             base_sal = e.get("lkrSalary") or e.get("baseSalaryLkr") or e.get("lkrGross", 0)
             row_cells = [
                 ("A", 11, "num", e.get("no", "")),
-                ("B", 10, "inlineStr", e.get("name", "")),
+                ("B", 10, "inlineStr", str(e.get("name", "")).upper()),
                 ("C", 10, "inlineStr", e.get("position", "")),
                 ("D", 12, "num", base_sal),
                 ("E", 11, "inlineStr", e.get("workDays", "")),

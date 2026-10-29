@@ -1243,7 +1243,7 @@ def generate_payroll_csv(enriched_period, company_info=None):
         lines.append(f'No,Employee Name,POSITION,{base_curr} Salary,Working Days,Earned Base ({base_curr}),EPF (12%),ETF (3%),Total Employer Cost ({base_curr}),BANK ACCOUNT NO,TIN NO,IDNO,Date Joined')
         for e in employees:
             bank_str = f"{e.get('bankAccountNo','')}({e.get('bankCode','')})" if e.get('bankCode') else str(e.get('bankAccountNo',''))
-            lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("epf12Gbp",0)},{e.get("etf3Gbp",0)},{e.get("totalGbp",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
+            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("epf12Gbp",0)},{e.get("etf3Gbp",0)},{e.get("totalGbp",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
         lines.append(f',,,{totals.get("sumGbpSalary",0)},,{totals.get("sumEarnedGbp",0)},{totals.get("sumEpf12Gbp",0)},{totals.get("sumEtf3Gbp",0)},{totals.get("sumTotalGbp",0)},,,,')
         lines.append('')
         lines.append(f'Checked by: {enriched_period.get("checkedBy","")},{enriched_period.get("checkedTitle","Accountant")},,,Authorized by: {enriched_period.get("authorizedSignatory","")},{enriched_period.get("authorizedCompany","")}')
@@ -1252,7 +1252,7 @@ def generate_payroll_csv(enriched_period, company_info=None):
         lines.append(f'SALARY SHEET (IN LKR) - {month.upper()} @ {rate_disp}')
         lines.append(f'No,Employee Name,POSITION,{base_curr} Salary,Working Days,Earned Base ({base_curr}),LKR,EPF 8%,EPF12%,ETF 3%,APIT,Other Deductions,Net Remittance (LKR)')
         for e in employees:
-            lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("lkrGross",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},{e.get("otherDeductions",0)},{e.get("netSalaryLkr",0)}')
+            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("lkrGross",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},{e.get("otherDeductions",0)},{e.get("netSalaryLkr",0)}')
         lines.append(f',,,{totals.get("sumGbpSalary",0)},,{totals.get("sumEarnedGbp",0)},{totals.get("sumLkrGross",0)},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},{totals.get("sumOtherDeductionsLkr",0)},{totals.get("sumNetSalaryLkr",0)}')
     else:
         lines.append(f'SALARY SHEET (IN LKR) - {month.upper()}')
@@ -1260,7 +1260,7 @@ def generate_payroll_csv(enriched_period, company_info=None):
         for e in employees:
             bank_str = f"{e.get('bankAccountNo','')}({e.get('bankCode','')})" if e.get('bankCode') else str(e.get('bankAccountNo',''))
             base_sal = e.get("lkrSalary") or e.get("baseSalaryLkr") or e.get("lkrGross", 0)
-            lines.append(f'"{e.get("no","")}","{e.get("name","")}","{e.get("position","")}",{base_sal},"{e.get("workDays","")}",{e.get("lkrGross",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},{e.get("otherDeductions",0)},{e.get("netSalaryLkr",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
+            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{base_sal},"{e.get("workDays","")}",{e.get("lkrGross",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},{e.get("otherDeductions",0)},{e.get("netSalaryLkr",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
         lines.append(f',,,{totals.get("sumLkrGross",0)},,{totals.get("sumLkrGross",0)},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},{totals.get("sumOtherDeductionsLkr",0)},{totals.get("sumNetSalaryLkr",0)},,,,')
         lines.append('')
         lines.append(f'Checked by: {enriched_period.get("checkedBy","")},{enriched_period.get("checkedTitle","Accountant")},,,Authorized by: {enriched_period.get("authorizedSignatory","")},{enriched_period.get("authorizedCompany","")}')
