@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-29T05:33:55Z",
+  "exportTimestamp": "2026-10-29T05:34:24Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -2297,14 +2297,14 @@
             "bankCode": "",
             "bankBranch": "Nations Trust Bank PLC",
             "tinNo": "",
-            "idNo": "197186001657",
+            "idNo": "718601657V",
             "dateJoined": "02.09.2024",
             "specialAllowance": 37500.0,
             "noPayLate": 0.0,
             "advance": 0.0,
             "loan": 0.0,
             "otherDeductions": 0.0,
-            "apit": null
+            "apit": 0.0
           }
         ]
       },
