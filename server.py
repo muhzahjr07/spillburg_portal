@@ -792,7 +792,7 @@ def auto_sync_latest_backup_to_data(force=False, target_dir=None):
             latest_path, latest_fname, local_backup = get_latest_backup_file_path()
             gh_ts = gh_backup.get("exportTimestamp", "")
             loc_ts = local_backup.get("exportTimestamp", "") if local_backup else ""
-            if not local_backup or gh_ts >= loc_ts:
+            if not local_backup or (gh_ts >= loc_ts and len(gh_backup.get("operations", [])) >= len(local_backup.get("operations", []))):
                 repo_backup_dir = os.path.join(BASE_DIR, "backup_files")
                 os.makedirs(repo_backup_dir, exist_ok=True)
                 with open(os.path.join(repo_backup_dir, "spillburg_portal_backup_latest.json"), "wb") as f:
@@ -866,7 +866,7 @@ def auto_sync_latest_backup_to_data(force=False, target_dir=None):
                         json.dump(backup_users, f, indent=2, ensure_ascii=False)
 
                 # 2. operations.json
-                if backup_ops is not None and isinstance(backup_ops, list):
+                if backup_ops is not None and isinstance(backup_ops, list) and (force or len(backup_ops) >= ops_disk_count):
                     with open(os.path.join(t_dir, "operations.json"), "w", encoding="utf-8") as f:
                         json.dump(backup_ops, f, indent=2, ensure_ascii=False)
 
