@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-29T12:10:20Z",
+  "exportTimestamp": "2026-10-29T12:10:36Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6146,12 +6146,12 @@
             "tinNo": "",
             "idNo": "780530375V",
             "dateJoined": "",
-            "specialAllowance": 25000.0,
+            "specialAllowance": 45000.0,
             "noPayLate": 0.0,
             "advance": 0.0,
             "loan": 0.0,
-            "otherDeductions": -20000.0,
-            "apit": null
+            "otherDeductions": 0.0,
+            "apit": 0.0
           }
         ],
         "epfRegNo": "A - 55322",
