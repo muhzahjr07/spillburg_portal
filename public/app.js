@@ -7628,6 +7628,7 @@ async function toggleUserSpillburgAiAccess(userId) {
 let spillburgAiHistory = [];
 let spillburgAiProposals = {};
 let spillburgAiCrossProposals = {};
+let spillburgAiIsThinking = false;
 let spillburgAiContext = null;
 let spillburgAiLoadedUserId = null;
 
@@ -8310,6 +8311,27 @@ function renderSpillburgAiMessagesList() {
       `;
     }
   }).join('');
+
+  if (spillburgAiIsThinking) {
+    box.innerHTML += `
+      <div class="flex items-start gap-3 fade-in mt-1" id="spillburgAiThinkingCard">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5 animate-pulse">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <button type="button" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-purple-100/90 text-purple-900 border border-purple-200 font-semibold text-xs shadow-2xs cursor-wait">
+            <i data-lucide="loader-2" class="w-3.5 h-3.5 text-purple-600 animate-spin"></i>
+            <span>SpillburgAI is thinking...</span>
+          </button>
+          <div class="text-[10px] text-slate-400 mt-1 pl-1 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping"></span>
+            <span>Querying corporate database &amp; generating verified response</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   box.scrollTop = box.scrollHeight;
   if (window.lucide) lucide.createIcons();
 }
@@ -8323,11 +8345,20 @@ async function sendSpillburgAiMessage(e) {
 
   input.value = '';
   spillburgAiHistory.push({ role: 'user', content: text });
+  spillburgAiIsThinking = true;
   saveSpillburgAiStateToStorage();
   renderSpillburgAiMessagesList();
 
   const sendBtn = document.getElementById('spillburgAiSendBtn');
-  if (sendBtn) sendBtn.disabled = true;
+  const originalSendBtnHtml = sendBtn ? sendBtn.innerHTML : '';
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = `
+      <i data-lucide="loader-2" class="w-4 h-4 text-purple-200 animate-spin"></i>
+      <span>SpillburgAI is thinking...</span>
+    `;
+    if (window.lucide) lucide.createIcons();
+  }
 
   try {
     const res = await fetch('/api/ai/chat', {
@@ -8382,8 +8413,16 @@ async function sendSpillburgAiMessage(e) {
       content: 'Error connecting to SpillburgAI service: ' + err.message
     });
   } finally {
+    spillburgAiIsThinking = false;
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = `
+        <i data-lucide="send" class="w-4 h-4"></i>
+        <span>Send / Analyze</span>
+      `;
+      if (window.lucide) lucide.createIcons();
+    }
     saveSpillburgAiStateToStorage();
-    if (sendBtn) sendBtn.disabled = false;
     renderSpillburgAiMessagesList();
   }
 }
