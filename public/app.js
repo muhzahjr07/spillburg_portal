@@ -4995,7 +4995,7 @@ function renderOperationsReportStudio() {
                 <button type="button" onclick="setOpsReportMonthly('${prevMonthKey}', '${prevMonthYearStr}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium text-[11px] transition">${prevMonthName} ${prevMonthYearStr}</button>
               </div>
             </div>
-          `))}
+          `)))}
         </div>
 
         <!-- Scope & Secondary Filters Row -->
