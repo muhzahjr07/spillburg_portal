@@ -22,7 +22,9 @@
       "epfRegNo": "8483/C",
       "etfRegNo": "ETF-66291",
       "foreignCurrency": "GBP",
-      "swiftCode": "NTBLLKLX"
+      "swiftCode": "NTBLLKLX",
+      "phone": "+94 11 233 6116",
+      "email": "info@spillburg.com"
     },
     {
       "id": "comp_791e81",
@@ -42,7 +44,11 @@
       "currencyMode": "single",
       "baseCurrency": "LKR",
       "foreignCurrency": "",
-      "defaultExchangeRate": 1
+      "defaultExchangeRate": 1,
+      "epfRegNo": "",
+      "etfRegNo": "",
+      "phone": "+94 11 233 6116",
+      "email": "info@spillburg.com"
     },
     {
       "id": "comp_5eea88",
@@ -62,7 +68,11 @@
       "currencyMode": "single",
       "baseCurrency": "LKR",
       "foreignCurrency": "",
-      "defaultExchangeRate": 1
+      "defaultExchangeRate": 1,
+      "epfRegNo": "",
+      "etfRegNo": "",
+      "phone": "+94 11 233 6116",
+      "email": "info@spillburg.com"
     }
   ],
   "activePeriodId": "period_d447b5",

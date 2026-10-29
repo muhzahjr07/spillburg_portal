@@ -8859,17 +8859,33 @@ function setupEpfDraggables() {
   sheet.addEventListener('pointercancel', endDrag);
 }
 
+function getCompanyStatutoryDefault(comp, p, field) {
+  const isApadmi = (comp?.id === 'comp_apadmi' || p?.companyId === 'comp_apadmi');
+  if (field === 'epfRegNo') {
+    if (p?.epfRegNo !== undefined && p?.epfRegNo !== null && String(p.epfRegNo).trim() !== '') return String(p.epfRegNo).trim();
+    if (comp?.epfRegNo !== undefined && comp?.epfRegNo !== null && String(comp.epfRegNo).trim() !== '') return String(comp.epfRegNo).trim();
+    return isApadmi ? '8483/C' : '';
+  }
+  if (field === 'etfRegNo') {
+    if (p?.etfRegNo !== undefined && p?.etfRegNo !== null && String(p.etfRegNo).trim() !== '') return String(p.etfRegNo).trim();
+    if (comp?.etfRegNo !== undefined && comp?.etfRegNo !== null && String(comp.etfRegNo).trim() !== '') return String(comp.etfRegNo).trim();
+    return isApadmi ? 'ETF-66291' : '';
+  }
+  return '';
+}
+
 function exportEpfFormCCsv() {
   const p = activePayrollPeriod;
   if (!p) return;
   const emps = p.employees || [];
   const rate = Number(p.exchangeRate) || 440;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const epfRegNo = document.getElementById('epf_c_reg_no')?.value?.trim() || getCompanyStatutoryDefault(currentComp, p, 'epfRegNo');
 
   let csv = 'CENTRAL BANK OF SRI LANKA - EPF FORM C\n';
-  csv += `Employer Registration No,${p.epfRegNo || currentComp.epfRegNo || '8483/C'}\n`;
+  csv += `Employer Registration No,${epfRegNo}\n`;
   csv += `Contribution Period,${p.month || 'October 2026'}\n`;
-  csv += `Company,${currentComp.name || 'APADMI SL (PRIVATE) LIMITED'}\n\n`;
+  csv += `Company,${currentComp.name || ''}\n\n`;
 
   csv += 'No,Member No,NIC / Passport No,Employee Name,Total Earnings (LKR),Total Contribution (20%),Employer (12%),Employee (8%)\n';
 
@@ -8908,8 +8924,9 @@ function renderEpfFormC(container) {
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
   const rate = Number(p.exchangeRate) || 440;
 
-  const epfRegNo = p.epfRegNo || currentComp.epfRegNo || '8483/C';
-  const epfChequeNo = p.epfChequeNo || 'CHQ-890214';
+  const epfRegNo = getCompanyStatutoryDefault(currentComp, p, 'epfRegNo');
+  const epfChequeNo = p.epfChequeNo || 'DIRECT DEBIT / SLIPS';
+  const epfSurcharges = parseFloat(String(p.epfSurcharges || '0').replace(/,/g, '')) || 0;
   const remittanceDate = p.letterDate || p.date || '31.10.2026';
   const monthStr = (p.month || 'October 2026').toUpperCase();
   const bankName = p.bankName || currentComp.bankName || 'Nations Trust Bank PLC';
@@ -8987,14 +9004,14 @@ function renderEpfFormC(container) {
       
       <!-- Toolbar -->
       <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-        <div>
-          <div class="flex items-center gap-2">
-            <h3 class="text-xs font-bold text-slate-800">Central Bank of Sri Lanka &bull; EPF Form "C" (Portrait)</h3>
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">Reg: ${escapeHtml(epfRegNo)}</span>
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Official Form PDF Overlay</span>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-xs font-bold text-slate-800">Central Bank of Sri Lanka &bull; EPF Form "C" (Portrait)</h3>
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">Reg: ${escapeHtml(epfRegNo || 'Not Set')}</span>
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">${escapeHtml(currentComp.code || currentComp.name || 'Company')}</span>
+            </div>
+            <p class="text-[11px] text-slate-500">Official Tri-lingual Legal Form C &bull; Click any box or <b>Edit EPF Details</b> to customize &bull; Use Reposition Boxes to drag &amp; align</p>
           </div>
-          <p class="text-[11px] text-slate-500">Official Tri-lingual Legal Form C &bull; Click to edit &bull; Use Reposition Boxes to drag &amp; align</p>
-        </div>
 
         <div class="flex flex-wrap items-center gap-2">
           <!-- Draggable positioning control buttons -->
@@ -9054,19 +9071,19 @@ function renderEpfFormC(container) {
         <div class="form-c-portrait-sheet ${epfDragModeActive ? 'epf-drag-active' : ''}" id="epfFormCSheet">
           
           <!-- EPF Reg No (Right cell of Row 1) -->
-          <input type="text" id="epf_c_reg_no" class="form-overlay-input" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(epfRegNo)}" title="Employer Registration Number">
+          <input type="text" id="epf_c_reg_no" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(epfRegNo)}" placeholder="EPF Reg No" title="Employer Registration Number">
 
           <!-- Contribution Month/Year (Right cell of Row 2) -->
           <input type="text" id="epf_c_month_year" class="form-overlay-input" style="left: ${pMonth.left}; top: ${pMonth.top}; width: ${pMonth.width}; height: ${pMonth.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(monthStr)}" title="Contribution Month and Year">
 
           <!-- Remittance Box (Contributions, Surcharges, Total) in amount cell from 74.0% to 89.2% -->
           <input type="text" id="epf_c_total_contrib" class="form-overlay-input" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; text-align: right; padding-right: 6px; font-size: 9.5px; font-weight: 700;" value="${formatMoney(sumEpf20, 2)}" title="Total Contributions (20%)">
-          <input type="text" id="epf_c_surcharges" class="form-overlay-input" style="left: ${pSurch.left}; top: ${pSurch.top}; width: ${pSurch.width}; height: ${pSurch.height}; text-align: right; padding-right: 6px; font-size: 9.5px;" value="0.00" title="Surcharges">
-          <input type="text" id="epf_c_total_remittance" class="form-overlay-input" style="left: ${pRemit.left}; top: ${pRemit.top}; width: ${pRemit.width}; height: ${pRemit.height}; text-align: right; padding-right: 6px; font-size: 10px; font-weight: 800;" value="${formatMoney(sumEpf20, 2)}" title="Total Remittance">
+          <input type="text" id="epf_c_surcharges" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pSurch.left}; top: ${pSurch.top}; width: ${pSurch.width}; height: ${pSurch.height}; text-align: right; padding-right: 6px; font-size: 9.5px;" value="${formatMoney(epfSurcharges, 2)}" title="Surcharges">
+          <input type="text" id="epf_c_total_remittance" class="form-overlay-input" style="left: ${pRemit.left}; top: ${pRemit.top}; width: ${pRemit.width}; height: ${pRemit.height}; text-align: right; padding-right: 6px; font-size: 10px; font-weight: 800;" value="${formatMoney(sumEpf20 + epfSurcharges, 2)}" title="Total Remittance">
 
           <!-- Cheque & Bank (Placed squarely on the dotted lines, bank and branch as two lines) -->
-          <input type="text" id="epf_c_cheque_no" class="form-overlay-input" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 9px; font-weight: 700;" value="${escapeHtml(epfChequeNo)}" title="Cheque / Money Order No">
-          <textarea id="epf_c_bank_branch" class="form-overlay-textarea" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; font-size: 9px; font-weight: 600; line-height: 1.25; overflow: hidden; resize: none;" title="Bank Name and Branch Name (Two lines)">${escapeHtml(defaultBankBranchText)}</textarea>
+          <input type="text" id="epf_c_cheque_no" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 9px; font-weight: 700;" value="${escapeHtml(epfChequeNo)}" title="Cheque / Money Order No">
+          <textarea id="epf_c_bank_branch" onchange="saveEpfOverlayEdits()" class="form-overlay-textarea" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; font-size: 9px; font-weight: 600; line-height: 1.25; overflow: hidden; resize: none;" title="Bank Name and Branch Name (Two lines)">${escapeHtml(defaultBankBranchText)}</textarea>
 
           <!-- 35 Employee Table Rows -->
           ${rowInputsHtml}
@@ -9077,8 +9094,8 @@ function renderEpfFormC(container) {
           <input type="text" id="epf_c_total_ee" class="form-overlay-input" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; text-align: right; padding-right: 3px; font-weight: 800; font-size: 9px;" value="${formatMoney(sumEpf8, 2)}" title="Total Member 8%">
 
           <!-- Bottom Contact & Date (Expanded width so phone number is never cut off) -->
-          <input type="text" id="epf_c_phone" class="form-overlay-input" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(p.phone || currentComp.phone || '+94 11 233 6116')}" title="Employer Telephone No">
-          <input type="text" id="epf_c_date" class="form-overlay-input" style="left: ${pDate.left}; top: ${pDate.top}; width: ${pDate.width}; height: ${pDate.height}; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(remittanceDate)}" title="Declaration Date">
+          <input type="text" id="epf_c_phone" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(p.phone || currentComp.phone || '+94 11 233 6116')}" title="Employer Telephone No">
+          <input type="text" id="epf_c_date" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pDate.left}; top: ${pDate.top}; width: ${pDate.width}; height: ${pDate.height}; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(remittanceDate)}" title="Declaration Date">
 
         </div>
       </div>
@@ -9317,13 +9334,16 @@ function renderEtfFormR4(container) {
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
   const rate = Number(p.exchangeRate) || 440;
 
-  const etfRegNo = p.etfRegNo || currentComp.etfRegNo || 'ETF-66291';
-  const etfChequeNo = p.etfChequeNo || 'CHQ-890214';
+  const etfRegNo = getCompanyStatutoryDefault(currentComp, p, 'etfRegNo');
+  const etfChequeNo = p.etfChequeNo || 'DIRECT DEBIT / SLIPS';
+  const etfSurcharge = parseFloat(String(p.etfSurcharge || '0').replace(/,/g, '')) || 0;
+  const etfBankCharges = parseFloat(String(p.etfBankCharges || '0').replace(/,/g, '')) || 0;
   const remittanceDate = p.letterDate || p.date || '31.10.2026';
   const monthStr = (p.month || 'October 2026').toUpperCase();
   const bankName = p.bankName || currentComp.bankName || 'Nations Trust Bank PLC';
   const bankBranch = p.bankBranch || currentComp.bankBranch || 'Borella Branch';
   const defaultBankBranchText = p.etfBankBranchCustom || `${bankName}\n${bankBranch}`;
+  const defaultEmployerText = p.etfEmployerCustom || `${currentComp.name || 'APADMI SL (PRIVATE) LIMITED'}\n${(currentComp.address || 'Office 14, Basement Level, Cinnamon Lakeside Hotel, #115, Sir Chittampalam A Gardiner Mw, Colombo 02, Sri Lanka.').replace(/\n/g, ' ')}`;
 
   let sumGross = 0;
   let sumEtf3 = 0;
@@ -9397,10 +9417,10 @@ function renderEtfFormR4(container) {
         <div>
           <div class="flex items-center gap-2">
             <h3 class="text-xs font-bold text-slate-800">Employees' Trust Fund Board &bull; ETF Form R-4 (Portrait)</h3>
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">Reg: ${escapeHtml(etfRegNo)}</span>
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Official Form PDF Overlay</span>
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">Reg: ${escapeHtml(etfRegNo || 'Not Set')}</span>
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">${escapeHtml(currentComp.code || currentComp.name || 'Company')}</span>
           </div>
-          <p class="text-[11px] text-slate-500">Official Advice of Remittance Form R-4 &bull; Click to edit &bull; Use Reposition Boxes to drag &amp; align</p>
+          <p class="text-[11px] text-slate-500">Official Advice of Remittance Form R-4 &bull; Click any box or <b>Edit ETF Details</b> to customize &bull; Use Reposition Boxes to drag &amp; align</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -9461,21 +9481,21 @@ function renderEtfFormR4(container) {
         <div class="form-r4-portrait-sheet ${etfDragModeActive ? 'etf-drag-active' : ''}" id="etfFormR4Sheet">
           
           <!-- Top Left Employer Name & Address Box -->
-          <textarea id="etf_r4_employer" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; line-height: 1.3;" title="Employer Name & Address">${escapeHtml(currentComp.name || 'APADMI SL (PRIVATE) LIMITED')}&#10;${escapeHtml((currentComp.address || 'Office 14, Basement Level, Cinnamon Lakeside Hotel, #115, Sir Chittampalam A Gardiner Mw, Colombo 02, Sri Lanka.').replace(/\n/g, ' '))}</textarea>
+          <textarea id="etf_r4_employer" onchange="saveEtfOverlayEdits()" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; line-height: 1.3;" title="Employer Name & Address">${escapeHtml(defaultEmployerText)}</textarea>
 
           <!-- Top Right 3-Column Header Boxes: Employer No, Month & Year, No. of Employees -->
-          <input type="text" id="etf_r4_emp_no" class="form-overlay-input" style="left: ${pEmpNo.left}; top: ${pEmpNo.top}; width: ${pEmpNo.width}; height: ${pEmpNo.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(etfRegNo)}" title="Employer Registration No">
+          <input type="text" id="etf_r4_emp_no" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pEmpNo.left}; top: ${pEmpNo.top}; width: ${pEmpNo.width}; height: ${pEmpNo.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(etfRegNo)}" placeholder="ETF Reg No" title="Employer Registration No">
           <input type="text" id="etf_r4_month_year" class="form-overlay-input" style="left: ${pMonthYear.left}; top: ${pMonthYear.top}; width: ${pMonthYear.width}; height: ${pMonthYear.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(monthStr)}" title="Contribution Month and Year">
           <input type="text" id="etf_r4_emp_count" class="form-overlay-input" style="left: ${pEmpCount.left}; top: ${pEmpCount.top}; width: ${pEmpCount.width}; height: ${pEmpCount.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${emps.length}" title="Total Number of Employees">
 
           <!-- Remittance Summary Section (Rupees and Cents) with generous width so amounts never overflow -->
           <input type="text" id="etf_r4_contrib" class="form-overlay-input" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; text-align: right; padding-right: 5px; font-size: 9.5px; font-weight: 700;" value="${formatMoney(sumEtf3, 2)}" title="Total Contribution (3%)">
-          <input type="text" id="etf_r4_surcharge" class="form-overlay-input" style="left: ${pSurcharge.left}; top: ${pSurcharge.top}; width: ${pSurcharge.width}; height: ${pSurcharge.height}; text-align: right; padding-right: 5px; font-size: 9.5px;" value="0.00" title="Surcharge">
-          <input type="text" id="etf_r4_charges" class="form-overlay-input" style="left: ${pCharges.left}; top: ${pCharges.top}; width: ${pCharges.width}; height: ${pCharges.height}; text-align: right; padding-right: 5px; font-size: 9.5px;" value="0.00" title="Bank Charges">
-          <input type="text" id="etf_r4_total" class="form-overlay-input" style="left: ${pTotal.left}; top: ${pTotal.top}; width: ${pTotal.width}; height: ${pTotal.height}; text-align: right; padding-right: 5px; font-size: 10px; font-weight: 800;" value="${formatMoney(sumEtf3, 2)}" title="Total Remittance">
-          <input type="text" id="etf_r4_cheque" class="form-overlay-input" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 9px; font-weight: 700;" value="${escapeHtml(etfChequeNo)}" title="Cheque No">
+          <input type="text" id="etf_r4_surcharge" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pSurcharge.left}; top: ${pSurcharge.top}; width: ${pSurcharge.width}; height: ${pSurcharge.height}; text-align: right; padding-right: 5px; font-size: 9.5px;" value="${formatMoney(etfSurcharge, 2)}" title="Surcharge">
+          <input type="text" id="etf_r4_charges" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pCharges.left}; top: ${pCharges.top}; width: ${pCharges.width}; height: ${pCharges.height}; text-align: right; padding-right: 5px; font-size: 9.5px;" value="${formatMoney(etfBankCharges, 2)}" title="Bank Charges">
+          <input type="text" id="etf_r4_total" class="form-overlay-input" style="left: ${pTotal.left}; top: ${pTotal.top}; width: ${pTotal.width}; height: ${pTotal.height}; text-align: right; padding-right: 5px; font-size: 10px; font-weight: 800;" value="${formatMoney(sumEtf3 + etfSurcharge + etfBankCharges, 2)}" title="Total Remittance">
+          <input type="text" id="etf_r4_cheque" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 9px; font-weight: 700;" value="${escapeHtml(etfChequeNo)}" title="Cheque No">
           <!-- 2-line textarea for Bank and Branch -->
-          <textarea id="etf_r4_bank_branch" class="form-overlay-textarea" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; font-size: 8.5px; font-weight: 600; line-height: 1.25; overflow: hidden; resize: none;" title="Bank Name and Branch Name (Two lines)">${escapeHtml(defaultBankBranchText)}</textarea>
+          <textarea id="etf_r4_bank_branch" onchange="saveEtfOverlayEdits()" class="form-overlay-textarea" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; font-size: 8.5px; font-weight: 600; line-height: 1.25; overflow: hidden; resize: none;" title="Bank Name and Branch Name (Two lines)">${escapeHtml(defaultBankBranchText)}</textarea>
 
           <!-- 15 Rows Member Table -->
           ${rowInputsHtml}
@@ -9485,12 +9505,12 @@ function renderEtfFormR4(container) {
           <input type="text" id="etf_r4_tot_cts" class="form-overlay-input" style="left: ${pTotCts.left}; top: ${pTotCts.top}; width: ${pTotCts.width}; height: ${pTotCts.height}; text-align: center; font-weight: 800; font-size: 10px;" value="${String(totalCts).padStart(2, '0')}" title="Total Cts">
 
           <!-- Clarification Box -->
-          <textarea id="etf_r4_clarification" class="form-overlay-textarea" style="left: ${pClarification.left}; top: ${pClarification.top}; width: ${pClarification.width}; height: ${pClarification.height}; font-size: 9px;" title="Clarification if any">${escapeHtml(p.etfClarification || '')}</textarea>
+          <textarea id="etf_r4_clarification" onchange="saveEtfOverlayEdits()" class="form-overlay-textarea" style="left: ${pClarification.left}; top: ${pClarification.top}; width: ${pClarification.width}; height: ${pClarification.height}; font-size: 9px;" title="Clarification if any">${escapeHtml(p.etfClarification || '')}</textarea>
 
           <!-- Bottom Declaration (Telephone, Email, Date) -->
-          <input type="text" id="etf_r4_phone" class="form-overlay-input" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 9px;" value="${escapeHtml(p.phone || currentComp.phone || '+94 11 233 6116')}" title="Telephone">
-          <input type="text" id="etf_r4_email" class="form-overlay-input" style="left: ${pEmail.left}; top: ${pEmail.top}; width: ${pEmail.width}; height: ${pEmail.height}; font-size: 9px;" value="${escapeHtml(currentComp.email || 'info@spillburg.com')}" title="Email">
-          <input type="text" id="etf_r4_date" class="form-overlay-input" style="left: ${pDate.left}; top: ${pDate.top}; width: ${pDate.width}; height: ${pDate.height}; font-size: 9px;" value="${escapeHtml(remittanceDate)}" title="Date">
+          <input type="text" id="etf_r4_phone" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 9px;" value="${escapeHtml(p.phone || currentComp.phone || '+94 11 233 6116')}" title="Telephone">
+          <input type="text" id="etf_r4_email" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pEmail.left}; top: ${pEmail.top}; width: ${pEmail.width}; height: ${pEmail.height}; font-size: 9px;" value="${escapeHtml(p.email || currentComp.email || 'info@spillburg.com')}" title="Email">
+          <input type="text" id="etf_r4_date" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pDate.left}; top: ${pDate.top}; width: ${pDate.width}; height: ${pDate.height}; font-size: 9px;" value="${escapeHtml(remittanceDate)}" title="Date">
 
         </div>
       </div>
@@ -9969,6 +9989,22 @@ function openAddCompanyModal() {
             <label class="block font-semibold text-slate-700 mb-1">Registered Office Address</label>
             <input type="text" id="newCompAddress" placeholder="e.g. Level 12, West Tower, World Trade Center, Colombo 01" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
           </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Employer EPF Reg. No</label>
+            <input type="text" id="newCompEpfRegNo" placeholder="e.g. 8483/C" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Employer ETF Reg. No</label>
+            <input type="text" id="newCompEtfRegNo" placeholder="e.g. ETF-66291" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Company Telephone</label>
+            <input type="text" id="newCompPhone" value="+94 11 233 6116" placeholder="e.g. +94 11 233 6116" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Company Email</label>
+            <input type="email" id="newCompEmail" value="info@spillburg.com" placeholder="e.g. info@spillburg.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
         </div>
 
         <!-- Currency Mode Setting -->
@@ -10089,6 +10125,10 @@ async function submitAddCompany(e) {
     code: document.getElementById('newCompCode').value.trim().toUpperCase(),
     registrationNo: document.getElementById('newCompRegNo').value.trim(),
     address: document.getElementById('newCompAddress').value.trim(),
+    epfRegNo: document.getElementById('newCompEpfRegNo')?.value.trim() || '',
+    etfRegNo: document.getElementById('newCompEtfRegNo')?.value.trim() || '',
+    phone: document.getElementById('newCompPhone')?.value.trim() || '',
+    email: document.getElementById('newCompEmail')?.value.trim() || '',
     currencyMode: currMode,
     baseCurrency: 'LKR',
     foreignCurrency: currMode === 'single' ? '' : (document.getElementById('newCompForeignCurrency')?.value || 'GBP'),
@@ -10169,6 +10209,22 @@ function openEditCompanyModal(compId) {
           <div class="sm:col-span-2">
             <label class="block font-semibold text-slate-700 mb-1">Registered Address</label>
             <input type="text" id="editCompAddress" value="${escapeHtml(targetComp.address || '')}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Employer EPF Reg. No</label>
+            <input type="text" id="editCompEpfRegNo" value="${escapeHtml(targetComp.epfRegNo || '')}" placeholder="e.g. 8483/C" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Employer ETF Reg. No</label>
+            <input type="text" id="editCompEtfRegNo" value="${escapeHtml(targetComp.etfRegNo || '')}" placeholder="e.g. ETF-66291" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Company Telephone</label>
+            <input type="text" id="editCompPhone" value="${escapeHtml(targetComp.phone || '+94 11 233 6116')}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Company Email</label>
+            <input type="email" id="editCompEmail" value="${escapeHtml(targetComp.email || 'info@spillburg.com')}" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
           </div>
         </div>
 
@@ -10282,6 +10338,10 @@ async function submitEditCompany(e, compId) {
     code: document.getElementById('editCompCode').value.trim().toUpperCase(),
     registrationNo: document.getElementById('editCompRegNo').value.trim(),
     address: document.getElementById('editCompAddress').value.trim(),
+    epfRegNo: document.getElementById('editCompEpfRegNo')?.value.trim() || '',
+    etfRegNo: document.getElementById('editCompEtfRegNo')?.value.trim() || '',
+    phone: document.getElementById('editCompPhone')?.value.trim() || '',
+    email: document.getElementById('editCompEmail')?.value.trim() || '',
     currencyMode: currMode,
     baseCurrency: 'LKR',
     foreignCurrency: currMode === 'single' ? '' : (document.getElementById('editCompForeignCurrency')?.value || 'GBP'),
@@ -10348,6 +10408,10 @@ function openCompanyDirectoryModal() {
                 </div>
                 <div class="text-[11px] text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-0.5">
                   <span>Reg: <b class="text-slate-700">${escapeHtml(comp.registrationNo || 'N/A')}</b></span>
+                  <span>&bull;</span>
+                  <span>EPF: <b class="font-mono text-slate-700">${escapeHtml(comp.epfRegNo || 'Not Set')}</b></span>
+                  <span>&bull;</span>
+                  <span>ETF: <b class="font-mono text-slate-700">${escapeHtml(comp.etfRegNo || 'Not Set')}</b></span>
                   <span>&bull;</span>
                   <span>Bank: <b class="text-slate-700">${escapeHtml(comp.bankName || 'N/A')} (${escapeHtml(comp.bankBranch || '')})</b></span>
                   <span>&bull;</span>
@@ -10750,18 +10814,140 @@ async function submitStaffCostDetails(e) {
   }
 }
 
-// 4. EPF Form C Edit Modal
+// 4. EPF Form C Edit Modal & Direct Overlay Sync
+async function saveEpfOverlayEdits() {
+  if (!activePayrollPeriod || !canEdit('payroll')) return;
+  const p = activePayrollPeriod;
+  const regNoEl = document.getElementById('epf_c_reg_no');
+  const chequeEl = document.getElementById('epf_c_cheque_no');
+  const surchEl = document.getElementById('epf_c_surcharges');
+  const bankEl = document.getElementById('epf_c_bank_branch');
+  const phoneEl = document.getElementById('epf_c_phone');
+  const dateEl = document.getElementById('epf_c_date');
+
+  const payload = { id: p.id };
+  if (regNoEl) payload.epfRegNo = regNoEl.value.trim();
+  if (chequeEl) payload.epfChequeNo = chequeEl.value.trim();
+  if (surchEl) payload.epfSurcharges = surchEl.value.trim();
+  if (bankEl) payload.epfBankBranchCustom = bankEl.value;
+  if (phoneEl) payload.phone = phoneEl.value.trim();
+  if (dateEl) payload.letterDate = dateEl.value.trim();
+
+  // Recompute total remittance live if surcharges changed
+  const contribEl = document.getElementById('epf_c_total_contrib');
+  const remitEl = document.getElementById('epf_c_total_remittance');
+  if (contribEl && surchEl && remitEl) {
+    const cVal = parseFloat(contribEl.value.replace(/,/g, '')) || 0;
+    const sVal = parseFloat(surchEl.value.replace(/,/g, '')) || 0;
+    remitEl.value = formatMoney(cVal + sVal, 2);
+  }
+
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.period) activePayrollPeriod = data.period;
+      const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId);
+      if (currentComp) {
+        if (payload.epfRegNo !== undefined) currentComp.epfRegNo = payload.epfRegNo;
+        if (payload.phone !== undefined) currentComp.phone = payload.phone;
+      }
+    }
+  } catch (err) {
+    console.error('Error auto-saving EPF overlay edits:', err);
+  }
+}
+
+async function saveEtfOverlayEdits() {
+  if (!activePayrollPeriod || !canEdit('payroll')) return;
+  const p = activePayrollPeriod;
+  const empEl = document.getElementById('etf_r4_employer');
+  const regNoEl = document.getElementById('etf_r4_emp_no');
+  const chequeEl = document.getElementById('etf_r4_cheque');
+  const surchEl = document.getElementById('etf_r4_surcharge');
+  const chargesEl = document.getElementById('etf_r4_charges');
+  const bankEl = document.getElementById('etf_r4_bank_branch');
+  const clarifEl = document.getElementById('etf_r4_clarification');
+  const phoneEl = document.getElementById('etf_r4_phone');
+  const emailEl = document.getElementById('etf_r4_email');
+  const dateEl = document.getElementById('etf_r4_date');
+
+  const payload = { id: p.id };
+  if (empEl) payload.etfEmployerCustom = empEl.value;
+  if (regNoEl) payload.etfRegNo = regNoEl.value.trim();
+  if (chequeEl) payload.etfChequeNo = chequeEl.value.trim();
+  if (surchEl) payload.etfSurcharge = surchEl.value.trim();
+  if (chargesEl) payload.etfBankCharges = chargesEl.value.trim();
+  if (bankEl) payload.etfBankBranchCustom = bankEl.value;
+  if (clarifEl) payload.etfClarification = clarifEl.value;
+  if (phoneEl) payload.phone = phoneEl.value.trim();
+  if (emailEl) payload.email = emailEl.value.trim();
+  if (dateEl) payload.letterDate = dateEl.value.trim();
+
+  // Recompute total remittance live if surcharge or bank charges changed
+  const contribEl = document.getElementById('etf_r4_contrib');
+  const totalEl = document.getElementById('etf_r4_total');
+  if (contribEl && totalEl) {
+    const cVal = parseFloat(contribEl.value.replace(/,/g, '')) || 0;
+    const sVal = parseFloat((surchEl?.value || '0').replace(/,/g, '')) || 0;
+    const bVal = parseFloat((chargesEl?.value || '0').replace(/,/g, '')) || 0;
+    totalEl.value = formatMoney(cVal + sVal + bVal, 2);
+  }
+
+  try {
+    const res = await fetch('/api/payroll/period', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(payload)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.period) activePayrollPeriod = data.period;
+      const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId);
+      if (currentComp) {
+        if (payload.etfRegNo !== undefined) currentComp.etfRegNo = payload.etfRegNo;
+        if (payload.phone !== undefined) currentComp.phone = payload.phone;
+        if (payload.email !== undefined) currentComp.email = payload.email;
+      }
+    }
+  } catch (err) {
+    console.error('Error auto-saving ETF overlay edits:', err);
+  }
+}
+
 function openEditEpfModal() {
   if (!activePayrollPeriod) return;
   const p = activePayrollPeriod;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || {};
+  const epfRegNo = document.getElementById('epf_c_reg_no')?.value ?? getCompanyStatutoryDefault(currentComp, p, 'epfRegNo');
+  const epfChequeNo = document.getElementById('epf_c_cheque_no')?.value ?? (p.epfChequeNo || 'DIRECT DEBIT / SLIPS');
+  const epfSurcharges = document.getElementById('epf_c_surcharges')?.value ?? (p.epfSurcharges || '0.00');
+  const bankName = p.bankName || currentComp.bankName || 'Nations Trust Bank PLC';
+  const bankBranch = p.bankBranch || currentComp.bankBranch || 'Borella Branch';
+  const epfBankBranch = document.getElementById('epf_c_bank_branch')?.value ?? (p.epfBankBranchCustom || `${bankName}\n${bankBranch}`);
+  const phone = document.getElementById('epf_c_phone')?.value ?? (p.phone || currentComp.phone || '+94 11 233 6116');
+  const letterDate = document.getElementById('epf_c_date')?.value ?? (p.letterDate || p.date || '31.10.2026');
+
   const c = document.getElementById('modalContent');
   c.innerHTML = `
     <div class="space-y-4 text-xs">
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
         <div>
-          <h3 class="font-display font-bold text-base text-slate-900">Edit EPF Form C Return Details</h3>
-          <p class="text-[11px] text-slate-500">Central Bank registration number and cheque remittance reference.</p>
+          <div class="flex items-center gap-2">
+            <h3 class="font-display font-bold text-base text-slate-900">Edit EPF Form C Return Details</h3>
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-teal-50 text-teal-700 border border-teal-200">${escapeHtml(currentComp.code || currentComp.name || 'Company')}</span>
+          </div>
+          <p class="text-[11px] text-slate-500">Configure Central Bank EPF registration number (saved uniquely for <b>${escapeHtml(currentComp.name || 'this company')}</b>) and period remittance parameters.</p>
         </div>
         <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
           <i data-lucide="x" class="w-4 h-4"></i>
@@ -10771,14 +10957,34 @@ function openEditEpfModal() {
       <form onsubmit="submitEpfDetails(event)" class="space-y-3">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Employer EPF Reg. No.</label>
-            <input type="text" id="epfRegNoInput" value="${escapeHtml(p.epfRegNo || currentComp.epfRegNo || '8483/C')}" required
+            <label class="block font-semibold text-slate-700 mb-1">Employer EPF Reg. No. (${escapeHtml(currentComp.code || 'Company')}) *</label>
+            <input type="text" id="epfRegNoInput" value="${escapeHtml(epfRegNo)}" required placeholder="e.g. 8483/C"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono font-bold">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Cheque / Payment Ref. *</label>
+            <input type="text" id="epfChequeNoInput" value="${escapeHtml(epfChequeNo)}" required placeholder="e.g. DIRECT DEBIT / SLIPS"
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Cheque / Payment Ref.</label>
-            <input type="text" id="epfChequeNoInput" value="${escapeHtml(p.epfChequeNo || 'CHQ-890214')}" required
+            <label class="block font-semibold text-slate-700 mb-1">Surcharges (Rs.)</label>
+            <input type="text" id="epfSurchargesInput" value="${escapeHtml(epfSurcharges)}"
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Declaration Date</label>
+            <input type="text" id="epfDateInput" value="${escapeHtml(letterDate)}"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Employer Telephone No.</label>
+            <input type="text" id="epfPhoneInput" value="${escapeHtml(phone)}"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Bank &amp; Branch (2 Lines)</label>
+            <textarea id="epfBankBranchInput" rows="2"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">${escapeHtml(epfBankBranch)}</textarea>
           </div>
         </div>
 
@@ -10802,7 +11008,11 @@ async function submitEpfDetails(e) {
   const payload = {
     id: activePayrollPeriod.id,
     epfRegNo: document.getElementById('epfRegNoInput').value.trim(),
-    epfChequeNo: document.getElementById('epfChequeNoInput').value.trim()
+    epfChequeNo: document.getElementById('epfChequeNoInput').value.trim(),
+    epfSurcharges: document.getElementById('epfSurchargesInput').value.trim() || '0.00',
+    letterDate: document.getElementById('epfDateInput').value.trim(),
+    phone: document.getElementById('epfPhoneInput').value.trim(),
+    epfBankBranchCustom: document.getElementById('epfBankBranchInput').value.trim()
   };
 
   try {
@@ -10831,13 +11041,28 @@ function openEditEtfModal() {
   if (!activePayrollPeriod) return;
   const p = activePayrollPeriod;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || {};
+  const etfRegNo = document.getElementById('etf_r4_emp_no')?.value ?? getCompanyStatutoryDefault(currentComp, p, 'etfRegNo');
+  const etfChequeNo = document.getElementById('etf_r4_cheque')?.value ?? (p.etfChequeNo || 'DIRECT DEBIT / SLIPS');
+  const etfSurcharge = document.getElementById('etf_r4_surcharge')?.value ?? (p.etfSurcharge || '0.00');
+  const etfBankCharges = document.getElementById('etf_r4_charges')?.value ?? (p.etfBankCharges || '0.00');
+  const bankName = p.bankName || currentComp.bankName || 'Nations Trust Bank PLC';
+  const bankBranch = p.bankBranch || currentComp.bankBranch || 'Borella Branch';
+  const etfBankBranch = document.getElementById('etf_r4_bank_branch')?.value ?? (p.etfBankBranchCustom || `${bankName}\n${bankBranch}`);
+  const etfClarification = document.getElementById('etf_r4_clarification')?.value ?? (p.etfClarification || '');
+  const phone = document.getElementById('etf_r4_phone')?.value ?? (p.phone || currentComp.phone || '+94 11 233 6116');
+  const email = document.getElementById('etf_r4_email')?.value ?? (p.email || currentComp.email || 'info@spillburg.com');
+  const letterDate = document.getElementById('etf_r4_date')?.value ?? (p.letterDate || p.date || '31.10.2026');
+
   const c = document.getElementById('modalContent');
   c.innerHTML = `
     <div class="space-y-4 text-xs">
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
         <div>
-          <h3 class="font-display font-bold text-base text-slate-900">Edit ETF Form R-4 Return Details</h3>
-          <p class="text-[11px] text-slate-500">Trust Fund Board registration number and remittance cheque reference.</p>
+          <div class="flex items-center gap-2">
+            <h3 class="font-display font-bold text-base text-slate-900">Edit ETF Form R-4 Return Details</h3>
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">${escapeHtml(currentComp.code || currentComp.name || 'Company')}</span>
+          </div>
+          <p class="text-[11px] text-slate-500">Configure Trust Fund Board registration number (saved uniquely for <b>${escapeHtml(currentComp.name || 'this company')}</b>) and remittance parameters.</p>
         </div>
         <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
           <i data-lucide="x" class="w-4 h-4"></i>
@@ -10847,14 +11072,49 @@ function openEditEtfModal() {
       <form onsubmit="submitEtfDetails(event)" class="space-y-3">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Employer ETF Reg. No.</label>
-            <input type="text" id="etfRegNoInput" value="${escapeHtml(p.etfRegNo || currentComp.etfRegNo || 'ETF-66291')}" required
+            <label class="block font-semibold text-slate-700 mb-1">Employer ETF Reg. No. (${escapeHtml(currentComp.code || 'Company')}) *</label>
+            <input type="text" id="etfRegNoInput" value="${escapeHtml(etfRegNo)}" required placeholder="e.g. ETF-66291"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono font-bold">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Cheque / Payment Ref. *</label>
+            <input type="text" id="etfChequeNoInput" value="${escapeHtml(etfChequeNo)}" required placeholder="e.g. DIRECT DEBIT / SLIPS"
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Cheque / Payment Ref.</label>
-            <input type="text" id="etfChequeNoInput" value="${escapeHtml(p.etfChequeNo || 'ETF-CHQ-7721')}" required
+            <label class="block font-semibold text-slate-700 mb-1">Surcharge (Rs.)</label>
+            <input type="text" id="etfSurchargeInput" value="${escapeHtml(etfSurcharge)}"
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Bank Charges (Rs.)</label>
+            <input type="text" id="etfBankChargesInput" value="${escapeHtml(etfBankCharges)}"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Employer Telephone</label>
+            <input type="text" id="etfPhoneInput" value="${escapeHtml(phone)}"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Employer Email</label>
+            <input type="email" id="etfEmailInput" value="${escapeHtml(email)}"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Declaration Date</label>
+            <input type="text" id="etfDateInput" value="${escapeHtml(letterDate)}"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Bank &amp; Branch (2 Lines)</label>
+            <textarea id="etfBankBranchInput" rows="2"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">${escapeHtml(etfBankBranch)}</textarea>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block font-semibold text-slate-700 mb-1">Clarification (If Any)</label>
+            <textarea id="etfClarificationInput" rows="2" placeholder="Optional clarification notes for Form R-4"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">${escapeHtml(etfClarification)}</textarea>
           </div>
         </div>
 
@@ -10878,7 +11138,14 @@ async function submitEtfDetails(e) {
   const payload = {
     id: activePayrollPeriod.id,
     etfRegNo: document.getElementById('etfRegNoInput').value.trim(),
-    etfChequeNo: document.getElementById('etfChequeNoInput').value.trim()
+    etfChequeNo: document.getElementById('etfChequeNoInput').value.trim(),
+    etfSurcharge: document.getElementById('etfSurchargeInput').value.trim() || '0.00',
+    etfBankCharges: document.getElementById('etfBankChargesInput').value.trim() || '0.00',
+    phone: document.getElementById('etfPhoneInput').value.trim(),
+    email: document.getElementById('etfEmailInput').value.trim(),
+    letterDate: document.getElementById('etfDateInput').value.trim(),
+    etfBankBranchCustom: document.getElementById('etfBankBranchInput').value.trim(),
+    etfClarification: document.getElementById('etfClarificationInput').value.trim()
   };
 
   try {
@@ -13127,7 +13394,7 @@ function printEpfFormC() {
   if (!p) return;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
 
-  const regNo = document.getElementById('epf_c_reg_no')?.value || p.epfRegNo || currentComp.epfRegNo || '8483/C';
+  const regNo = document.getElementById('epf_c_reg_no')?.value || getCompanyStatutoryDefault(currentComp, p, 'epfRegNo');
   const monthYear = document.getElementById('epf_c_month_year')?.value || (p.month || 'October 2026').toUpperCase();
   const totalContrib = document.getElementById('epf_c_total_contrib')?.value || '';
   const surcharges = document.getElementById('epf_c_surcharges')?.value || '0.00';
@@ -13138,7 +13405,7 @@ function printEpfFormC() {
   const totalTot = document.getElementById('epf_c_total_tot')?.value || '';
   const totalEr = document.getElementById('epf_c_total_er')?.value || '';
   const totalEe = document.getElementById('epf_c_total_ee')?.value || '';
-  const phone = document.getElementById('epf_c_phone')?.value || currentComp.phone || '+94 11 233 6116';
+  const phone = document.getElementById('epf_c_phone')?.value || p.phone || currentComp.phone || '+94 11 233 6116';
   const dateVal = document.getElementById('epf_c_date')?.value || p.letterDate || p.date || '31.10.2026';
 
   let rowFieldsHtml = '';
@@ -13278,8 +13545,8 @@ function printEtfFormR4() {
   if (!p) return;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
 
-  const employer = document.getElementById('etf_r4_employer')?.value || `${currentComp.name || 'APADMI SL (PRIVATE) LIMITED'}\n${(currentComp.address || 'Colombo').replace(/\n/g, ' ')}`;
-  const empNo = document.getElementById('etf_r4_emp_no')?.value || p.etfRegNo || currentComp.etfRegNo || 'ETF-66291';
+  const employer = document.getElementById('etf_r4_employer')?.value || p.etfEmployerCustom || `${currentComp.name || 'APADMI SL (PRIVATE) LIMITED'}\n${(currentComp.address || 'Colombo').replace(/\n/g, ' ')}`;
+  const empNo = document.getElementById('etf_r4_emp_no')?.value || getCompanyStatutoryDefault(currentComp, p, 'etfRegNo');
   const monthYear = document.getElementById('etf_r4_month_year')?.value || (p.month || 'October 2026').toUpperCase();
   const empCount = document.getElementById('etf_r4_emp_count')?.value || (p.employees?.length || 0);
   const contrib = document.getElementById('etf_r4_contrib')?.value || '';
@@ -13287,12 +13554,12 @@ function printEtfFormR4() {
   const charges = document.getElementById('etf_r4_charges')?.value || '0.00';
   const total = document.getElementById('etf_r4_total')?.value || '';
   const chequeNo = document.getElementById('etf_r4_cheque')?.value || p.etfChequeNo || 'CHQ-890214';
-  const bankBranch = document.getElementById('etf_r4_bank_branch')?.value || document.getElementById('etf_r4_bank')?.value || `${p.bankName || currentComp.bankName || 'NTB'}\n${p.bankBranch || currentComp.bankBranch || 'Borella'}`;
+  const bankBranch = document.getElementById('etf_r4_bank_branch')?.value || document.getElementById('etf_r4_bank')?.value || p.etfBankBranchCustom || `${p.bankName || currentComp.bankName || 'NTB'}\n${p.bankBranch || currentComp.bankBranch || 'Borella'}`;
   const totRs = document.getElementById('etf_r4_tot_rs')?.value || '';
   const totCts = document.getElementById('etf_r4_tot_cts')?.value || '';
-  const clarification = document.getElementById('etf_r4_clarification')?.value || '';
-  const phone = document.getElementById('etf_r4_phone')?.value || currentComp.phone || '+94 11 233 6116';
-  const email = document.getElementById('etf_r4_email')?.value || currentComp.email || 'info@spillburg.com';
+  const clarification = document.getElementById('etf_r4_clarification')?.value || p.etfClarification || '';
+  const phone = document.getElementById('etf_r4_phone')?.value || p.phone || currentComp.phone || '+94 11 233 6116';
+  const email = document.getElementById('etf_r4_email')?.value || p.email || currentComp.email || 'info@spillburg.com';
   const dateVal = document.getElementById('etf_r4_date')?.value || p.letterDate || p.date || '31.10.2026';
 
   let rowFieldsHtml = '';
@@ -13430,7 +13697,7 @@ function exportEtfFormR4Csv() {
 
   const rows = [];
   rows.push(["EMPLOYEES' TRUST FUND BOARD - ETF FORM R-4 (ADVICE OF REMITTANCE)"]);
-  rows.push([`Employer ETF Reg No: ${p.etfRegNo || currentComp.etfRegNo || 'ETF-66291'}`, `Period: ${p.month || ''}`]);
+  rows.push([`Employer ETF Reg No: ${getCompanyStatutoryDefault(currentComp, p, 'etfRegNo')}`, `Period: ${p.month || ''}`]);
   rows.push([`Employer Name: ${currentComp.name || ''}`, `Cheque No: ${p.etfChequeNo || 'ETF-CHQ-7721'}`]);
   rows.push([]);
   rows.push(["Serial No.", "Member Name", "National Identity Card No.", "Member No.", "Contribution (Rs.)", "Contribution (Cts.)"]);

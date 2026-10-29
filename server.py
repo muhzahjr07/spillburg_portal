@@ -1158,6 +1158,14 @@ def enrich_payroll_period(period):
     enriched = copy.deepcopy(period)
     enriched['currencyMode'] = currency_mode
     enriched['isSingleCurrency'] = (currency_mode == 'single')
+    if not enriched.get('epfRegNo') and comp.get('epfRegNo'):
+        enriched['epfRegNo'] = comp.get('epfRegNo')
+    if not enriched.get('etfRegNo') and comp.get('etfRegNo'):
+        enriched['etfRegNo'] = comp.get('etfRegNo')
+    if not enriched.get('phone') and comp.get('phone'):
+        enriched['phone'] = comp.get('phone')
+    if not enriched.get('email') and comp.get('email'):
+        enriched['email'] = comp.get('email')
     enriched['employees'] = computed_emps
     enriched['totals'] = {
         'totalEmployees': len(computed_emps),
@@ -2342,6 +2350,10 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     "totalEarnedGbp": p_totals.get("sumEarnedGbp", 0),
                     "totalDeductionsLkr": p_totals.get("sumDeductionsLkr", 0),
                     "totals": p_totals,
+                    "epfRegNo": p.get("epfRegNo") or next((c.get("epfRegNo") for c in PAYROLL_RECORDS.get("companies", []) if c.get("id") == p.get("companyId")), None),
+                    "etfRegNo": p.get("etfRegNo") or next((c.get("etfRegNo") for c in PAYROLL_RECORDS.get("companies", []) if c.get("id") == p.get("companyId")), None),
+                    "epfChequeNo": p.get("epfChequeNo"),
+                    "etfChequeNo": p.get("etfChequeNo"),
                     "bankName": p.get("bankName"),
                     "bankBranch": p.get("bankBranch"),
                     "debitAccountNo": p.get("debitAccountNo"),
@@ -2963,8 +2975,15 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "status": status,
                 "invoiceNo": body.get("invoiceNo", "SBH001"),
                 "bankCharges": float(body.get("bankCharges", 50.0)),
+                "epfRegNo": body.get("epfRegNo", (comp.get("epfRegNo") if comp else "")),
+                "etfRegNo": body.get("etfRegNo", (comp.get("etfRegNo") if comp else "")),
                 "epfChequeNo": body.get("epfChequeNo", "DIRECT DEBIT / SLIPS"),
                 "etfChequeNo": body.get("etfChequeNo", "DIRECT DEBIT / SLIPS"),
+                "epfSurcharges": body.get("epfSurcharges", "0.00"),
+                "etfSurcharge": body.get("etfSurcharge", "0.00"),
+                "etfBankCharges": body.get("etfBankCharges", "0.00"),
+                "phone": body.get("phone", (comp.get("phone") if comp else "")),
+                "email": body.get("email", (comp.get("email") if comp else "")),
                 "checkedBy": body.get("checkedBy", (comp.get("checkedBy") if comp else "Hemanthi Basnayake")),
                 "checkedTitle": body.get("checkedTitle", (comp.get("checkedTitle") if comp else "Accountant")),
                 "authorizedSignatory": body.get("authorizedSignatory", (comp.get("authorizedSignatory") if comp else "Shaameel Mohideen")),
@@ -3049,7 +3068,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 target_comp = {"id": comp_id}
                 comps.append(target_comp)
             
-            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate", "parentGroup", "epfRegNo", "etfRegNo"]:
+            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate", "parentGroup", "parentAddress", "epfRegNo", "etfRegNo", "phone", "email", "swiftCode"]:
                 if k in body:
                     target_comp[k] = body[k]
             
@@ -3206,12 +3225,22 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Period not found"}, 404)
                 return
 
-            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "authorizedTitle", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "invoiceNo", "bankCharges", "epfChequeNo", "etfChequeNo", "completedDate", "currencyMode", "baseCurrency", "etfClarification", "phone", "notes"]:
+            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "authorizedTitle", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "invoiceNo", "bankCharges", "epfRegNo", "etfRegNo", "epfChequeNo", "etfChequeNo", "epfSurcharges", "etfSurcharge", "etfBankCharges", "epfBankBranchCustom", "etfBankBranchCustom", "etfEmployerCustom", "completedDate", "currencyMode", "baseCurrency", "etfClarification", "phone", "email", "notes"]:
                 if k in body:
                     if k in ["exchangeRate", "bankCharges"]:
                         target_period[k] = float(body[k])
                     else:
                         target_period[k] = body[k]
+
+            # Also sync company-level statutory registration numbers & contact details if updated for this period's company
+            comp_id = target_period.get("companyId")
+            if comp_id:
+                for c in PAYROLL_RECORDS.get("companies", []):
+                    if c.get("id") == comp_id:
+                        for ck in ["epfRegNo", "etfRegNo", "phone", "email"]:
+                            if ck in body and body[ck] is not None:
+                                c[ck] = body[ck]
+                        break
 
             if body.get("setActive"):
                 PAYROLL_RECORDS["activePeriodId"] = pid
@@ -3277,9 +3306,18 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Company not found"}, 404)
                 return
 
-            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate"]:
+            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate", "parentGroup", "parentAddress", "epfRegNo", "etfRegNo", "phone", "email", "swiftCode"]:
                 if k in body:
                     target_comp[k] = body[k]
+
+            # Propagate updated company EPF/ETF registration numbers to its periods when explicitly edited on the company profile
+            if "epfRegNo" in body or "etfRegNo" in body:
+                for p in PAYROLL_RECORDS.get("periods", []):
+                    if p.get("companyId") == comp_id:
+                        if "epfRegNo" in body:
+                            p["epfRegNo"] = body["epfRegNo"]
+                        if "etfRegNo" in body:
+                            p["etfRegNo"] = body["etfRegNo"]
 
             save_payroll_records()
             self.send_json({"success": True, "company": target_comp})
