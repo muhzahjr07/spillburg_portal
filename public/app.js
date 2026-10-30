@@ -5651,7 +5651,7 @@ function printOperationsReport() {
         }
         .company-title {
           font-size: 16px;
-          font-weight: 800;
+          font-weight: 400;
           color: #0f172a;
           letter-spacing: 0.5px;
         }
@@ -5701,7 +5701,7 @@ function printOperationsReport() {
         }
         .kpi-value {
           font-size: 16px;
-          font-weight: 800;
+          font-weight: 400;
           color: #0f172a;
           margin-top: 2px;
         }
@@ -9627,7 +9627,7 @@ function renderPayrollSheet(container) {
                 <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 2)}</td>
                 <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, 2)}</td>
                 <td style="text-align: right; color: #b45309; font-weight: 700;">${formatMoney(totals.sumOtherDeductionsLkr || 0, 2)}</td>
-                <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 800;">${formatMoney(totals.sumNetSalaryLkr, 2)}</td>
+                <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 400;">${formatMoney(totals.sumNetSalaryLkr, 2)}</td>
                 <td colspan="5"></td>
               </tr>
             </tbody>
@@ -9794,7 +9794,7 @@ function renderPayrollSheet(container) {
                 <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 2)}</td>
                 <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, 2)}</td>
                 <td style="text-align: right; color: #b45309; font-weight: 700;">${formatMoney(totals.sumOtherDeductionsLkr || 0, 2)}</td>
-                <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 800;">${formatMoney(totals.sumNetSalaryLkr, 2)}</td>
+                <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 400;">${formatMoney(totals.sumNetSalaryLkr, 2)}</td>
               </tr>
             </tbody>
           </table>
@@ -10126,19 +10126,19 @@ function renderStaffCostSummary(container) {
           <div class="flex justify-between items-end mb-4">
             <div>
               ${currentComp.parentGroup ? `
-                <div style="font-size: 13.5px; font-weight: 800; color: #000; letter-spacing: 0.2px;">${escapeHtml(currentComp.parentGroup).toUpperCase()}</div>
+                <div style="font-size: 13.5px; font-weight: 400; color: #000; letter-spacing: 0.2px;">${escapeHtml(currentComp.parentGroup).toUpperCase()}</div>
                 <div style="font-size: 10.5px; font-weight: 700; color: #000; margin-top: 4px;">${escapeHtml(currentComp.name).toUpperCase()}</div>
               ` : `
-                <div style="font-size: 13.5px; font-weight: 800; color: #000; letter-spacing: 0.2px;">${escapeHtml(currentComp.name).toUpperCase()}</div>
+                <div style="font-size: 13.5px; font-weight: 400; color: #000; letter-spacing: 0.2px;">${escapeHtml(currentComp.name).toUpperCase()}</div>
               `}
               <div style="font-size: 10.5px; font-weight: 700; color: #000; margin-top: 2px;">STAFF COST SUMMARY</div>
             </div>
 
             <div style="text-align: right;">
               <div style="display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
-                <span style="font-weight: 800; font-size: 11px; color: #000; letter-spacing: 0.2px;">INVOICE NO</span>
+                <span style="font-weight: 400; font-size: 11px; color: #000; letter-spacing: 0.2px;">INVOICE NO</span>
                 <input type="text" id="staffCostInvoiceNoInput" value="${escapeHtml(invoiceNo)}" 
-                  style="font-weight: 800; font-size: 11px; color: #000; width: 85px; border: 1px dashed #2563eb; background: #f8fafc; padding: 2px 4px; border-radius: 4px; text-align: center; font-family: inherit;"
+                  style="font-weight: 400; font-size: 11px; color: #000; width: 85px; border: 1px dashed #2563eb; background: #f8fafc; padding: 2px 4px; border-radius: 4px; text-align: center; font-family: inherit;"
                   title="Click to edit invoice number" oninput="updateActiveInvoiceNo(this.value)">
               </div>
             </div>
@@ -10168,7 +10168,7 @@ function renderStaffCostSummary(container) {
                     <td style="padding: 2.2px 8px; text-align: right; color: #000; font-variant-numeric: tabular-nums;">${formatMoney(r.totalEmployerCost, 2)}</td>
                   </tr>
                 `).join('')}
-                <tr style="border-top: 1.5px solid #000; border-bottom: 3px double #000; font-weight: 800;">
+                <tr style="border-top: 1.5px solid #000; border-bottom: 3px double #000; font-weight: 400;">
                   <td colspan="2" style="padding: 4px 6px; font-size: 11.5px;">Total</td>
                   <td style="padding: 4px 8px; text-align: right; font-size: 11.5px; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
                 </tr>
@@ -10178,7 +10178,7 @@ function renderStaffCostSummary(container) {
 
           <!-- Table 2: Summary Statement matching Reference PDF (aligned width 475px) -->
           <div style="max-width: 475px; width: 100%; margin-bottom: 14px;">
-            <div style="font-weight: 800; font-size: 11px; margin-bottom: 2px;">Summary Statement</div>
+            <div style="font-weight: 400; font-size: 11px; margin-bottom: 2px;">Summary Statement</div>
             <div style="font-weight: 700; font-size: 10px; margin-bottom: 4px;">${escapeHtml(periodMonth)} Salary & Employer Contributions (${escapeHtml(foreignCurr)})</div>
             <table style="width: 100%; border-collapse: collapse; font-size: 10.5px;">
               <thead>
@@ -10200,18 +10200,18 @@ function renderStaffCostSummary(container) {
                   <td style="padding: 2px 6px;">Employer ETF (3%)</td>
                   <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEtf3, 2)}</td>
                 </tr>
-                <tr style="border-bottom: 2px solid #000; font-weight: 800;">
+                <tr style="border-bottom: 2px solid #000; font-weight: 400;">
                   <td style="padding: 3px 6px;">Total Employer Cost</td>
                   <td style="padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
                 </tr>
                 <tr>
-                  <td colspan="2" style="padding-top: 5px; font-weight: 800; font-size: 10px;">ADD</td>
+                  <td colspan="2" style="padding-top: 5px; font-weight: 400; font-size: 10px;">ADD</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #000;">
                   <td style="padding: 2px 6px;">Bank charges</td>
                   <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(bankCharges, 2)}</td>
                 </tr>
-                <tr style="border-bottom: 3px double #000; font-weight: 800;">
+                <tr style="border-bottom: 3px double #000; font-weight: 400;">
                   <td style="padding: 3px 6px;">With Bank charges</td>
                   <td style="padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(withBankCharges, 2)}</td>
                 </tr>
@@ -10719,7 +10719,7 @@ function renderEpfFormC(container) {
         <div class="form-c-portrait-sheet ${epfDragModeActive ? 'epf-drag-active' : ''}" id="epfFormCSheet">
           
           <!-- Top Left Employer Name & Address Box (Postal M-13 Window Box) -->
-          <textarea id="epf_c_employer" onchange="saveEpfOverlayEdits()" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; font-weight: 800; line-height: 1.35; overflow: hidden; resize: none; background: rgba(255, 255, 255, 0.9);" title="Employer Name & Address (M-13 Box)">${escapeHtml(defaultEmployerText)}</textarea>
+          <textarea id="epf_c_employer" onchange="saveEpfOverlayEdits()" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; font-weight: 400; line-height: 1.35; overflow: hidden; resize: none; background: rgba(255, 255, 255, 0.9);" title="Employer Name & Address (M-13 Box)">${escapeHtml(defaultEmployerText)}</textarea>
 
           <!-- EPF Reg No (Right cell of Row 1) -->
           <input type="text" id="epf_c_reg_no" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(epfRegNo)}" placeholder="EPF Reg No" title="Employer Registration Number">
@@ -10730,7 +10730,7 @@ function renderEpfFormC(container) {
           <!-- Remittance Box (Contributions, Surcharges, Total) in amount cell from 74.0% to 89.2% -->
           <input type="text" id="epf_c_total_contrib" class="form-overlay-input" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; text-align: right; padding-right: 6px; font-size: 9.5px; font-weight: 700;" value="${formatMoney(sumEpf20, 2)}" title="Total Contributions (20%)">
           <input type="text" id="epf_c_surcharges" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pSurch.left}; top: ${pSurch.top}; width: ${pSurch.width}; height: ${pSurch.height}; text-align: right; padding-right: 6px; font-size: 9.5px;" value="${formatMoney(epfSurcharges, 2)}" title="Surcharges">
-          <input type="text" id="epf_c_total_remittance" class="form-overlay-input" style="left: ${pRemit.left}; top: ${pRemit.top}; width: ${pRemit.width}; height: ${pRemit.height}; text-align: right; padding-right: 6px; font-size: 10px; font-weight: 800;" value="${formatMoney(sumEpf20 + epfSurcharges, 2)}" title="Total Remittance">
+          <input type="text" id="epf_c_total_remittance" class="form-overlay-input" style="left: ${pRemit.left}; top: ${pRemit.top}; width: ${pRemit.width}; height: ${pRemit.height}; text-align: right; padding-right: 6px; font-size: 10px; font-weight: 400;" value="${formatMoney(sumEpf20 + epfSurcharges, 2)}" title="Total Remittance">
 
           <!-- Cheque & Bank (Placed squarely on the dotted lines, bank and branch as two lines) -->
           <input type="text" id="epf_c_cheque_no" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 9px; font-weight: 700;" value="${escapeHtml(epfChequeNo)}" title="Cheque / Money Order No">
@@ -10740,9 +10740,9 @@ function renderEpfFormC(container) {
           ${rowInputsHtml}
 
           <!-- Total Row at top: 85.3% (Total Earnings cumulative total removed as there is no statutory box for it) -->
-          <input type="text" id="epf_c_total_tot" class="form-overlay-input" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; text-align: right; padding-right: 3px; font-weight: 800; font-size: 9px;" value="${formatMoney(sumEpf20, 2)}" title="Total 20%">
-          <input type="text" id="epf_c_total_er" class="form-overlay-input" style="left: ${pEr.left}; top: ${pEr.top}; width: ${pEr.width}; height: ${pEr.height}; text-align: right; padding-right: 3px; font-weight: 800; font-size: 9px;" value="${formatMoney(sumEpf12, 2)}" title="Total Employer 12%">
-          <input type="text" id="epf_c_total_ee" class="form-overlay-input" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; text-align: right; padding-right: 3px; font-weight: 800; font-size: 9px;" value="${formatMoney(sumEpf8, 2)}" title="Total Member 8%">
+          <input type="text" id="epf_c_total_tot" class="form-overlay-input" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; text-align: right; padding-right: 3px; font-weight: 400; font-size: 9px;" value="${formatMoney(sumEpf20, 2)}" title="Total 20%">
+          <input type="text" id="epf_c_total_er" class="form-overlay-input" style="left: ${pEr.left}; top: ${pEr.top}; width: ${pEr.width}; height: ${pEr.height}; text-align: right; padding-right: 3px; font-weight: 400; font-size: 9px;" value="${formatMoney(sumEpf12, 2)}" title="Total Employer 12%">
+          <input type="text" id="epf_c_total_ee" class="form-overlay-input" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; text-align: right; padding-right: 3px; font-weight: 400; font-size: 9px;" value="${formatMoney(sumEpf8, 2)}" title="Total Member 8%">
 
           <!-- Bottom Contact & Date (Expanded width so phone number is never cut off) -->
           <input type="text" id="epf_c_phone" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(p.phone || currentComp.phone || '+94 11 233 6116')}" title="Employer Telephone No">
@@ -11132,7 +11132,7 @@ function renderEtfFormR4(container) {
         <div class="form-r4-portrait-sheet ${etfDragModeActive ? 'etf-drag-active' : ''}" id="etfFormR4Sheet">
           
           <!-- Top Left Employer Name & Address Box -->
-          <textarea id="etf_r4_employer" onchange="saveEtfOverlayEdits()" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; font-weight: 800; line-height: 1.35;" title="Employer Name & Address">${escapeHtml(defaultEmployerText)}</textarea>
+          <textarea id="etf_r4_employer" onchange="saveEtfOverlayEdits()" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; font-weight: 400; line-height: 1.35;" title="Employer Name & Address">${escapeHtml(defaultEmployerText)}</textarea>
 
           <!-- Top Right 3-Column Header Boxes: Employer No, Month & Year, No. of Employees -->
           <input type="text" id="etf_r4_emp_no" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pEmpNo.left}; top: ${pEmpNo.top}; width: ${pEmpNo.width}; height: ${pEmpNo.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(etfRegNo)}" placeholder="ETF Reg No" title="Employer Registration No">
@@ -11143,7 +11143,7 @@ function renderEtfFormR4(container) {
           <input type="text" id="etf_r4_contrib" class="form-overlay-input" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; text-align: right; padding-right: 5px; font-size: 9.5px; font-weight: 700;" value="${formatMoney(sumEtf3, 2)}" title="Total Contribution (3%)">
           <input type="text" id="etf_r4_surcharge" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pSurcharge.left}; top: ${pSurcharge.top}; width: ${pSurcharge.width}; height: ${pSurcharge.height}; text-align: right; padding-right: 5px; font-size: 9.5px;" value="${formatMoney(etfSurcharge, 2)}" title="Surcharge">
           <input type="text" id="etf_r4_charges" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pCharges.left}; top: ${pCharges.top}; width: ${pCharges.width}; height: ${pCharges.height}; text-align: right; padding-right: 5px; font-size: 9.5px;" value="${formatMoney(etfBankCharges, 2)}" title="Bank Charges">
-          <input type="text" id="etf_r4_total" class="form-overlay-input" style="left: ${pTotal.left}; top: ${pTotal.top}; width: ${pTotal.width}; height: ${pTotal.height}; text-align: right; padding-right: 5px; font-size: 10px; font-weight: 800;" value="${formatMoney(sumEtf3 + etfSurcharge + etfBankCharges, 2)}" title="Total Remittance">
+          <input type="text" id="etf_r4_total" class="form-overlay-input" style="left: ${pTotal.left}; top: ${pTotal.top}; width: ${pTotal.width}; height: ${pTotal.height}; text-align: right; padding-right: 5px; font-size: 10px; font-weight: 400;" value="${formatMoney(sumEtf3 + etfSurcharge + etfBankCharges, 2)}" title="Total Remittance">
           <input type="text" id="etf_r4_cheque" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 9px; font-weight: 700;" value="${escapeHtml(etfChequeNo)}" title="Cheque No">
           <!-- 2-line textarea for Bank and Branch -->
           <textarea id="etf_r4_bank_branch" onchange="saveEtfOverlayEdits()" class="form-overlay-textarea" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; font-size: 8.5px; font-weight: 600; line-height: 1.25; overflow: hidden; resize: none;" title="Bank Name and Branch Name (Two lines)">${escapeHtml(defaultBankBranchText)}</textarea>
@@ -11152,8 +11152,8 @@ function renderEtfFormR4(container) {
           ${rowInputsHtml}
 
           <!-- Total Row at top: 81.8% -->
-          <input type="text" id="etf_r4_tot_rs" class="form-overlay-input" style="left: ${pTotRs.left}; top: ${pTotRs.top}; width: ${pTotRs.width}; height: ${pTotRs.height}; text-align: right; font-weight: 800; font-size: 10px;" value="${formatMoney(totalRs, 0)}" title="Total Rs">
-          <input type="text" id="etf_r4_tot_cts" class="form-overlay-input" style="left: ${pTotCts.left}; top: ${pTotCts.top}; width: ${pTotCts.width}; height: ${pTotCts.height}; text-align: center; font-weight: 800; font-size: 10px;" value="${String(totalCts).padStart(2, '0')}" title="Total Cts">
+          <input type="text" id="etf_r4_tot_rs" class="form-overlay-input" style="left: ${pTotRs.left}; top: ${pTotRs.top}; width: ${pTotRs.width}; height: ${pTotRs.height}; text-align: right; font-weight: 400; font-size: 10px;" value="${formatMoney(totalRs, 0)}" title="Total Rs">
+          <input type="text" id="etf_r4_tot_cts" class="form-overlay-input" style="left: ${pTotCts.left}; top: ${pTotCts.top}; width: ${pTotCts.width}; height: ${pTotCts.height}; text-align: center; font-weight: 400; font-size: 10px;" value="${String(totalCts).padStart(2, '0')}" title="Total Cts">
 
           <!-- Clarification Box -->
           <textarea id="etf_r4_clarification" onchange="saveEtfOverlayEdits()" class="form-overlay-textarea" style="left: ${pClarification.left}; top: ${pClarification.top}; width: ${pClarification.width}; height: ${pClarification.height}; font-size: 9px;" title="Clarification if any">${escapeHtml(p.etfClarification || '')}</textarea>
@@ -11433,7 +11433,7 @@ function generatePayslipHtml(emp, period) {
       <table>
         <tr>
           <td colspan="2" style="border-bottom: 2px solid #000; padding-bottom: 6px;">
-            <div style="font-weight: 800; font-size: 12px; text-transform: uppercase;">${escapeHtml(comp.name)}</div>
+            <div style="font-weight: 400; font-size: 12px; text-transform: uppercase;">${escapeHtml(comp.name)}</div>
             <div style="font-size: 10px; color: #475569;">Monthly Payroll ${escapeHtml(period.yearPeriod || comp.payrollYearPeriod || '2026-2027')}</div>
             <div style="font-size: 10px; font-weight: 600; margin-top: 1px;">EPF NO :${escapeHtml(emp.epfNo || String(emp.no).padStart(2, '0'))}</div>
           </td>
@@ -11506,7 +11506,7 @@ function generatePayslipHtml(emp, period) {
           <td>Total Deduction</td>
           <td style="text-align: right; color: #dc2626;">${formatMoney(emp.totalDeductions, 2)}</td>
         </tr>
-        <tr style="font-weight: 800; font-size: 12.5px; background: #ecfdf5;">
+        <tr style="font-weight: 400; font-size: 12.5px; background: #ecfdf5;">
           <td style="color: #065f46;">Balance Pay</td>
           <td style="text-align: right; color: #065f46;">${formatMoney(emp.netSalaryLkr, 2)}</td>
         </tr>
@@ -13896,7 +13896,7 @@ function printMasterSalarySheet() {
           font-size: 8pt;
         }
         .header-title {
-          font-weight: 800;
+          font-weight: 400;
           font-size: 10pt;
           margin: 6px 0 3px 0;
           text-align: left;
@@ -13919,7 +13919,7 @@ function printMasterSalarySheet() {
           print-color-adjust: exact;
         }
         .totals-row td {
-          font-weight: 800;
+          font-weight: 400;
           background-color: #f8fafc !important;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
@@ -15226,7 +15226,7 @@ function printEpfFormC() {
     const pEarn = getEpfFieldPos(`epf_c_earn_${i}`);
 
     rowFieldsHtml += `
-      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 6.8pt; font-weight: 800; font-family: Arial, Helvetica, sans-serif; padding-left: 2px;">${escapeHtml((name || '').toUpperCase())}</div>
+      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 6.8pt; font-weight: 400; font-family: Arial, Helvetica, sans-serif; padding-left: 2px;">${escapeHtml((name || '').toUpperCase())}</div>
       <div class="field" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; justify-content: center; font-size: 6.5pt;">${escapeHtml(nic)}</div>
       <div class="field" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; justify-content: center; font-size: 6.5pt;">${escapeHtml(mem)}</div>
       <div class="field" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; justify-content: flex-end; padding-right: 3px; font-size: 6.5pt; font-weight: bold;">${escapeHtml(tot)}</div>
@@ -15308,7 +15308,7 @@ function printEpfFormC() {
     <body>
       <div class="print-sheet">
         <!-- Top Left Employer Name & Address (M-13 Box) -->
-        <div class="field" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 8pt; font-weight: 800; font-family: Arial, Helvetica, sans-serif; white-space: pre-line; line-height: 1.35; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; padding: 2px 4px;">${escapeHtml(document.getElementById('epf_c_employer')?.value || defaultEmployerText)}</div>
+        <div class="field" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 8pt; font-weight: 400; font-family: Arial, Helvetica, sans-serif; white-space: pre-line; line-height: 1.35; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; padding: 2px 4px;">${escapeHtml(document.getElementById('epf_c_employer')?.value || defaultEmployerText)}</div>
 
         <!-- Row 1: Reg No -->
         <div class="field" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(regNo)}</div>
@@ -15318,7 +15318,7 @@ function printEpfFormC() {
         <!-- Remittance Box in the full amount cell from 74.0% to 89.2% -->
         <div class="field" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; justify-content: flex-end; padding-right: 6px; font-size: 8pt; font-weight: bold;">${escapeHtml(totalContrib)}</div>
         <div class="field" style="left: ${pSurch.left}; top: ${pSurch.top}; width: ${pSurch.width}; height: ${pSurch.height}; justify-content: flex-end; padding-right: 6px; font-size: 8pt;">${escapeHtml(surcharges)}</div>
-        <div class="field" style="left: ${pRemit.left}; top: ${pRemit.top}; width: ${pRemit.width}; height: ${pRemit.height}; justify-content: flex-end; padding-right: 6px; font-size: 8.5pt; font-weight: 800;">${escapeHtml(totalRemittance)}</div>
+        <div class="field" style="left: ${pRemit.left}; top: ${pRemit.top}; width: ${pRemit.width}; height: ${pRemit.height}; justify-content: flex-end; padding-right: 6px; font-size: 8.5pt; font-weight: 400;">${escapeHtml(totalRemittance)}</div>
 
         <!-- Cheque No and Bank Branch on dotted lines (bank/branch displayed as two lines) -->
         <div class="field" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 7.5pt; font-weight: bold;">${escapeHtml(chequeNo)}</div>
@@ -15327,9 +15327,9 @@ function printEpfFormC() {
         ${rowFieldsHtml}
 
         <!-- Total Row at top: 85.3% (Total Earnings cumulative total removed as there is no statutory box for it) -->
-        <div class="field" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; justify-content: flex-end; padding-right: 3px; font-weight: 800; font-size: 7pt;">${escapeHtml(totalTot)}</div>
-        <div class="field" style="left: ${pEr.left}; top: ${pEr.top}; width: ${pEr.width}; height: ${pEr.height}; justify-content: flex-end; padding-right: 3px; font-weight: 800; font-size: 7pt;">${escapeHtml(totalEr)}</div>
-        <div class="field" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; justify-content: flex-end; padding-right: 3px; font-weight: 800; font-size: 7pt;">${escapeHtml(totalEe)}</div>
+        <div class="field" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; justify-content: flex-end; padding-right: 3px; font-weight: 400; font-size: 7pt;">${escapeHtml(totalTot)}</div>
+        <div class="field" style="left: ${pEr.left}; top: ${pEr.top}; width: ${pEr.width}; height: ${pEr.height}; justify-content: flex-end; padding-right: 3px; font-weight: 400; font-size: 7pt;">${escapeHtml(totalEr)}</div>
+        <div class="field" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; justify-content: flex-end; padding-right: 3px; font-weight: 400; font-size: 7pt;">${escapeHtml(totalEe)}</div>
 
         <!-- Clean bottom contact details without overlapping pre-printed text -->
         <div class="field" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 7.5pt; font-weight: 600;">${escapeHtml(phone)}</div>
@@ -15403,7 +15403,7 @@ function printEtfFormR4() {
     const pCts = getEtfFieldPos(`etf_r4_cts_${r}`);
 
     rowFieldsHtml += `
-      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 7.5pt; font-weight: 800; font-family: Arial, Helvetica, sans-serif;">${escapeHtml((name || '').toUpperCase())}</div>
+      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 7.5pt; font-weight: 400; font-family: Arial, Helvetica, sans-serif;">${escapeHtml((name || '').toUpperCase())}</div>
       <div class="field" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; justify-content: center; font-size: 7.5pt;">${escapeHtml(nic)}</div>
       <div class="field" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; justify-content: center; font-size: 7.5pt;">${escapeHtml(mem)}</div>
       <div class="field" style="left: ${pRs.left}; top: ${pRs.top}; width: ${pRs.width}; height: ${pRs.height}; justify-content: flex-end; font-size: 8pt; font-weight: bold;">${escapeHtml(rs)}</div>
@@ -15485,7 +15485,7 @@ function printEtfFormR4() {
     </head>
     <body>
       <div class="print-sheet">
-        <div class="field" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; white-space: pre-wrap; font-size: 8pt; font-weight: 800; font-family: Arial, Helvetica, sans-serif; align-items: flex-start; line-height: 1.35; padding: 2px 4px;">${escapeHtml(employer)}</div>
+        <div class="field" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; white-space: pre-wrap; font-size: 8pt; font-weight: 400; font-family: Arial, Helvetica, sans-serif; align-items: flex-start; line-height: 1.35; padding: 2px 4px;">${escapeHtml(employer)}</div>
         <div class="field" style="left: ${pEmpNo.left}; top: ${pEmpNo.top}; width: ${pEmpNo.width}; height: ${pEmpNo.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(empNo)}</div>
         <div class="field" style="left: ${pMonthYear.left}; top: ${pMonthYear.top}; width: ${pMonthYear.width}; height: ${pMonthYear.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(monthYear)}</div>
         <div class="field" style="left: ${pEmpCount.left}; top: ${pEmpCount.top}; width: ${pEmpCount.width}; height: ${pEmpCount.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(empCount)}</div>
@@ -15493,14 +15493,14 @@ function printEtfFormR4() {
         <div class="field" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; justify-content: flex-end; font-size: 8pt; font-weight: bold;">${escapeHtml(contrib)}</div>
         <div class="field" style="left: ${pSurcharge.left}; top: ${pSurcharge.top}; width: ${pSurcharge.width}; height: ${pSurcharge.height}; justify-content: flex-end; font-size: 8pt;">${escapeHtml(surcharge)}</div>
         <div class="field" style="left: ${pCharges.left}; top: ${pCharges.top}; width: ${pCharges.width}; height: ${pCharges.height}; justify-content: flex-end; font-size: 8pt;">${escapeHtml(charges)}</div>
-        <div class="field" style="left: ${pTotal.left}; top: ${pTotal.top}; width: ${pTotal.width}; height: ${pTotal.height}; justify-content: flex-end; font-size: 8pt; font-weight: 800;">${escapeHtml(total)}</div>
+        <div class="field" style="left: ${pTotal.left}; top: ${pTotal.top}; width: ${pTotal.width}; height: ${pTotal.height}; justify-content: flex-end; font-size: 8pt; font-weight: 400;">${escapeHtml(total)}</div>
         <div class="field" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 7.5pt;">${escapeHtml(chequeNo)}</div>
         <div class="field" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; white-space: pre-wrap; font-size: 7.5pt; align-items: flex-start; line-height: 1.2;">${escapeHtml(bankBranch)}</div>
 
         ${rowFieldsHtml}
 
-        <div class="field" style="left: ${pTotRs.left}; top: ${pTotRs.top}; width: ${pTotRs.width}; height: ${pTotRs.height}; justify-content: flex-end; font-size: 8pt; font-weight: 800;">${escapeHtml(totRs)}</div>
-        <div class="field" style="left: ${pTotCts.left}; top: ${pTotCts.top}; width: ${pTotCts.width}; height: ${pTotCts.height}; justify-content: center; font-size: 8pt; font-weight: 800;">${escapeHtml(totCts)}</div>
+        <div class="field" style="left: ${pTotRs.left}; top: ${pTotRs.top}; width: ${pTotRs.width}; height: ${pTotRs.height}; justify-content: flex-end; font-size: 8pt; font-weight: 400;">${escapeHtml(totRs)}</div>
+        <div class="field" style="left: ${pTotCts.left}; top: ${pTotCts.top}; width: ${pTotCts.width}; height: ${pTotCts.height}; justify-content: center; font-size: 8pt; font-weight: 400;">${escapeHtml(totCts)}</div>
 
         <div class="field" style="left: ${pClarification.left}; top: ${pClarification.top}; width: ${pClarification.width}; height: ${pClarification.height}; white-space: pre-wrap; font-size: 7pt; align-items: flex-start;">${escapeHtml(clarification)}</div>
 
