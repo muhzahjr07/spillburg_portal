@@ -465,3 +465,489 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
         z.writestr('xl/worksheets/sheet1.xml', sheet_xml)
 
     return bio.getvalue()
+
+
+def generate_payslips_xlsx(enriched_period, company_info=None, single_emp_id=None):
+    comp = company_info or {}
+    comp_name = comp.get('name') or 'APADMI SL (PRIVATE) LIMITED'
+    year_period = enriched_period.get('yearPeriod') or comp.get('payrollYearPeriod') or '2026-2027'
+    month_name = enriched_period.get('monthCode') or enriched_period.get('month', 'Month')
+    currency_mode = comp.get('currencyMode') or enriched_period.get('currencyMode') or 'dual'
+    foreign_curr = comp.get('foreignCurrency') or enriched_period.get('baseCurrency') or 'GBP'
+    rate = float(enriched_period.get('exchangeRate', 440.0) or 440.0)
+
+    addr1 = comp.get('addressLine1') or comp.get('address') or 'Office 14, Basement Level'
+    addr2 = comp.get('addressLine2') or 'Cinnamon Lakeside Hotel - Colombo 02'
+
+    all_emps = enriched_period.get('employees', [])
+    if single_emp_id:
+        target_emps = [e for e in all_emps if str(e.get('id')) == str(single_emp_id)]
+        if not target_emps:
+            target_emps = all_emps[:1]
+    else:
+        target_emps = all_emps
+
+    # Organize employees into pairs for 2-up vertical vouchers side-by-side
+    pairs = []
+    if single_emp_id:
+        pairs = [(target_emps[0], None)]
+    else:
+        for i in range(0, len(target_emps), 2):
+            e1 = target_emps[i]
+            e2 = target_emps[i+1] if i+1 < len(target_emps) else None
+            pairs.append((e1, e2))
+
+    sheet_rows = []
+    merge_cells = []
+    current_row = 2  # Start on row 2 for top breathing margin
+
+    for pair_idx, (e1, e2) in enumerate(pairs):
+        start_row = current_row
+
+        def build_voucher_rows(emp, col_lbl, col_val):
+            v_rows = []
+            if not emp:
+                return v_rows
+
+            epf_no = str(emp.get('epfNo') or f"{emp.get('no', 1):02d}")
+            emp_name = str(emp.get('name', '')).upper()
+
+            # Dynamic basic pay label
+            if currency_mode == 'single':
+                basic_label = 'Basic Pay'
+            else:
+                earned_f = float(emp.get('earnedGbp') or emp.get('gbpSalary') or 0.0)
+                basic_label = f"Basic Pay ({foreign_curr} {earned_f:,.2f} @{rate:,.2f})"
+
+            # 1. Company Name (merged across lbl & val)
+            v_rows.append(('title', 24, [
+                (col_lbl, 15, 'inlineStr', comp_name.upper()),
+                (col_val, 15, 'empty', '')
+            ], True))
+
+            # 2. Subtitle: Monthly Payroll
+            v_rows.append(('sub', 18, [
+                (col_lbl, 16, 'inlineStr', f"Monthly Payroll {year_period}"),
+                (col_val, 16, 'empty', '')
+            ], True))
+
+            # 3. EPF NO
+            v_rows.append(('epf', 20, [
+                (col_lbl, 17, 'inlineStr', f"EPF NO :{epf_no}"),
+                (col_val, 17, 'empty', '')
+            ], True))
+
+            # 4. Month
+            v_rows.append(('row', 21, [
+                (col_lbl, 4, 'inlineStr', 'Month'),
+                (col_val, 9, 'inlineStr', month_name)
+            ], False))
+
+            # 5. Name
+            v_rows.append(('row', 21, [
+                (col_lbl, 4, 'inlineStr', 'Name'),
+                (col_val, 9, 'inlineStr', emp_name)
+            ], False))
+
+            # 6. Currency Header
+            v_rows.append(('row', 20, [
+                (col_lbl, 3, 'inlineStr', ''),
+                (col_val, 10, 'inlineStr', 'LKR')
+            ], False))
+
+            # 7. Basic Pay
+            v_rows.append(('row', 21, [
+                (col_lbl, 1, 'inlineStr', basic_label),
+                (col_val, 5, 'num', float(emp.get('lkrGross', 0.0) or 0.0))
+            ], False))
+
+            # 8. Special Allowance
+            sa = float(emp.get('specialAllowance', 0.0) or 0.0)
+            v_rows.append(('row', 20, [
+                (col_lbl, 1, 'inlineStr', 'Special Allowance'),
+                (col_val, 5 if sa > 0 else 8, 'num' if sa > 0 else 'inlineStr', sa if sa > 0 else '-')
+            ], False))
+
+            # 9. Total (Gross)
+            v_rows.append(('row', 22, [
+                (col_lbl, 4, 'inlineStr', 'Total (Gross)'),
+                (col_val, 7, 'num', float(emp.get('totalGrossLkr', 0.0) or 0.0))
+            ], False))
+
+            # 10. (-) No Pay/Late
+            np = float(emp.get('noPayLate', 0.0) or 0.0)
+            v_rows.append(('row', 20, [
+                (col_lbl, 1, 'inlineStr', '(-) No Pay/Late'),
+                (col_val, 5 if np > 0 else 8, 'num' if np > 0 else 'inlineStr', np if np > 0 else '-')
+            ], False))
+
+            # 11. Net total
+            v_rows.append(('row', 21, [
+                (col_lbl, 2, 'inlineStr', 'Net total'),
+                (col_val, 6, 'num', float(emp.get('netTotalGross', 0.0) or 0.0))
+            ], False))
+
+            # 12. Gross Pay
+            v_rows.append(('row', 21, [
+                (col_lbl, 2, 'inlineStr', 'Gross Pay'),
+                (col_val, 6, 'num', float(emp.get('netTotalGross', 0.0) or 0.0))
+            ], False))
+
+            # 13. (-) EPF 8%
+            v_rows.append(('row', 20, [
+                (col_lbl, 1, 'inlineStr', '(-) EPF 8%'),
+                (col_val, 5, 'num', float(emp.get('epf8Lkr', 0.0) or 0.0))
+            ], False))
+
+            # 14. Deductions: Other / Advance / Loan
+            other_ded = float(emp.get('otherDeductions', 0.0) or 0.0)
+            adv = float(emp.get('advance', 0.0) or 0.0)
+            loan = float(emp.get('loan', 0.0) or 0.0)
+            if other_ded > 0:
+                v_rows.append(('row', 20, [
+                    (col_lbl, 1, 'inlineStr', '(-) Other Deductions'),
+                    (col_val, 5, 'num', other_ded)
+                ], False))
+            elif adv > 0:
+                v_rows.append(('row', 20, [
+                    (col_lbl, 1, 'inlineStr', '(-) Advance'),
+                    (col_val, 5, 'num', adv)
+                ], False))
+            elif loan > 0:
+                v_rows.append(('row', 20, [
+                    (col_lbl, 1, 'inlineStr', '(-) Loan'),
+                    (col_val, 5, 'num', loan)
+                ], False))
+            else:
+                v_rows.append(('row', 20, [
+                    (col_lbl, 1, 'inlineStr', '(-) Other Deductions'),
+                    (col_val, 8, 'inlineStr', '-')
+                ], False))
+
+            # 15. (-) APIT
+            apit_val = float(emp.get('apit', 0.0) or 0.0)
+            v_rows.append(('row', 20, [
+                (col_lbl, 1, 'inlineStr', '(-) APIT'),
+                (col_val, 5 if apit_val > 0 else 8, 'num' if apit_val > 0 else 'inlineStr', apit_val if apit_val > 0 else '-')
+            ], False))
+
+            # 16. Total Deduction
+            v_rows.append(('row', 22, [
+                (col_lbl, 11, 'inlineStr', 'Total Deduction'),
+                (col_val, 12, 'num', float(emp.get('totalDeductions', 0.0) or 0.0))
+            ], False))
+
+            # 17. Balance Pay
+            v_rows.append(('row', 25, [
+                (col_lbl, 13, 'inlineStr', 'Balance Pay'),
+                (col_val, 14, 'num', float(emp.get('netSalaryLkr', 0.0) or 0.0))
+            ], False))
+
+            # 18. EPF 12%
+            v_rows.append(('row', 20, [
+                (col_lbl, 1, 'inlineStr', 'EPF 12%'),
+                (col_val, 5, 'num', float(emp.get('epf12Lkr', 0.0) or 0.0))
+            ], False))
+
+            # 19. ETF 3%
+            v_rows.append(('row', 20, [
+                (col_lbl, 1, 'inlineStr', 'ETF 3%'),
+                (col_val, 5, 'num', float(emp.get('etf3Lkr', 0.0) or 0.0))
+            ], False))
+
+            # 20. Signature Line
+            v_rows.append(('sig', 24, [
+                (col_lbl, 18, 'inlineStr', 'Signature: ....................................................'),
+                (col_val, 18, 'empty', '')
+            ], True))
+
+            # 21. Company Footer Name
+            v_rows.append(('sig_comp', 18, [
+                (col_lbl, 19, 'inlineStr', comp_name),
+                (col_val, 19, 'empty', '')
+            ], True))
+
+            # 22. Company Address Line 1
+            v_rows.append(('sig_addr1', 16, [
+                (col_lbl, 20, 'inlineStr', addr1),
+                (col_val, 20, 'empty', '')
+            ], True))
+
+            # 23. Company Address Line 2
+            v_rows.append(('sig_addr2', 16, [
+                (col_lbl, 20, 'inlineStr', addr2),
+                (col_val, 20, 'empty', '')
+            ], True))
+
+            return v_rows
+
+        v1 = build_voucher_rows(e1, 'B', 'C')
+        v2 = build_voucher_rows(e2, 'E', 'F') if e2 else []
+
+        num_card_rows = max(len(v1), len(v2))
+        for r_offset in range(num_card_rows):
+            r_idx = start_row + r_offset
+            combined_cells = []
+            row_ht = 20
+
+            if r_offset < len(v1):
+                _, ht1, cells1, is_merge1 = v1[r_offset]
+                row_ht = max(row_ht, ht1)
+                combined_cells.extend(cells1)
+                if is_merge1:
+                    merge_cells.append(f"B{r_idx}:C{r_idx}")
+
+            if r_offset < len(v2):
+                _, ht2, cells2, is_merge2 = v2[r_offset]
+                row_ht = max(row_ht, ht2)
+                combined_cells.extend(cells2)
+                if is_merge2:
+                    merge_cells.append(f"E{r_idx}:F{r_idx}")
+
+            sheet_rows.append((r_idx, row_ht, combined_cells))
+
+        current_row = start_row + num_card_rows + 2  # 2 spacer rows between vertical vouchers
+
+    rows_xml = []
+    for r_idx, ht, cells in sheet_rows:
+        c_xmls = []
+        for col_let, s_idx, c_type, val in cells:
+            cell_ref = f"{col_let}{r_idx}"
+            if c_type == 'empty':
+                c_xmls.append(f'<c r="{cell_ref}" s="{s_idx}"/>')
+            elif c_type == 'num':
+                c_xmls.append(f'<c r="{cell_ref}" s="{s_idx}"><v>{val}</v></c>')
+            elif c_type == 'inlineStr':
+                esc_val = escape_xml(val)
+                c_xmls.append(f'<c r="{cell_ref}" s="{s_idx}" t="inlineStr"><is><t>{esc_val}</t></is></c>')
+        rows_xml.append(f'<row r="{r_idx}" ht="{ht}" customHeight="1">' + "".join(c_xmls) + '</row>')
+
+    merge_xml = ""
+    if merge_cells:
+        merge_xml = f'<mergeCells count="{len(merge_cells)}">' + "".join(f'<mergeCell ref="{m}"/>' for m in merge_cells) + '</mergeCells>'
+
+    cols_xml = """<cols>
+  <col min="1" max="1" width="3" customWidth="1"/>
+  <col min="2" max="2" width="32" customWidth="1"/>
+  <col min="3" max="3" width="18" customWidth="1"/>
+  <col min="4" max="4" width="5" customWidth="1"/>
+  <col min="5" max="5" width="32" customWidth="1"/>
+  <col min="6" max="6" width="18" customWidth="1"/>
+  <col min="7" max="7" width="3" customWidth="1"/>
+</cols>"""
+
+    sheet_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheetViews>
+    <sheetView tabSelected="1" workbookViewId="0" showGridLines="1"/>
+  </sheetViews>
+  <sheetFormatPr defaultRowHeight="15"/>
+  {cols_xml}
+  <sheetData>
+    {''.join(rows_xml)}
+  </sheetData>
+  {merge_xml}
+  <pageMargins left="0.5" right="0.5" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>
+  <pageSetup orientation="landscape" paperSize="9"/>
+</worksheet>"""
+
+    styles_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <numFmts count="2">
+    <numFmt numFmtId="164" formatCode="#,##0.00"/>
+    <numFmt numFmtId="165" formatCode="#,##0"/>
+  </numFmts>
+  <fonts count="7">
+    <!-- Font 0: Regular Calibri 8.5 -->
+    <font><sz val="8.5"/><color theme="1"/><name val="Calibri"/><family val="2"/></font>
+    <!-- Font 1: Bold Calibri 8.5 -->
+    <font><b/><sz val="8.5"/><color theme="1"/><name val="Calibri"/><family val="2"/></font>
+    <!-- Font 2: Bold Calibri 10 (Company Title) -->
+    <font><b/><sz val="10"/><color theme="1"/><name val="Calibri"/><family val="2"/></font>
+    <!-- Font 3: Small Muted Calibri 8 -->
+    <font><sz val="8"/><color rgb="FF475569"/><name val="Calibri"/><family val="2"/></font>
+    <!-- Font 4: Bold Calibri 10 Emerald Green (#065F46) -->
+    <font><b/><sz val="10"/><color rgb="FF065F46"/><name val="Calibri"/><family val="2"/></font>
+    <!-- Font 5: Bold Calibri 8.5 Red (#DC2626) -->
+    <font><b/><sz val="8.5"/><color rgb="FFDC2626"/><name val="Calibri"/><family val="2"/></font>
+    <!-- Font 6: Italic Calibri 8 -->
+    <font><i/><sz val="8"/><color rgb="FF64748B"/><name val="Calibri"/><family val="2"/></font>
+  </fonts>
+  <fills count="7">
+    <!-- 0 & 1 required -->
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <!-- 2: Light Gray #F8FAFC -->
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF8FAFC"/></patternFill></fill>
+    <!-- 3: Soft Slate #F1F5F9 -->
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/></patternFill></fill>
+    <!-- 4: Emerald Light Green #ECFDF5 -->
+    <fill><patternFill patternType="solid"><fgColor rgb="FFECFDF5"/></patternFill></fill>
+    <!-- 5: Soft Red #FEF2F2 -->
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFEF2F2"/></patternFill></fill>
+    <!-- 6: Pure White #FFFFFF -->
+    <fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/></patternFill></fill>
+  </fills>
+  <borders count="4">
+    <!-- Border 0: None -->
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <!-- Border 1: Thin Gray border all around #CBD5E1 -->
+    <border>
+      <left style="thin"><color rgb="FFCBD5E1"/></left>
+      <right style="thin"><color rgb="FFCBD5E1"/></right>
+      <top style="thin"><color rgb="FFCBD5E1"/></top>
+      <bottom style="thin"><color rgb="FFCBD5E1"/></bottom>
+      <diagonal/>
+    </border>
+    <!-- Border 2: Header bottom divider (Medium #1E293B) -->
+    <border>
+      <left/><right/><top/>
+      <bottom style="medium"><color rgb="FF1E293B"/></bottom>
+      <diagonal/>
+    </border>
+    <!-- Border 3: Signature top divider (Medium #1E293B) -->
+    <border>
+      <left/><right/>
+      <top style="medium"><color rgb="FF1E293B"/></top>
+      <bottom/>
+      <diagonal/>
+    </border>
+  </borders>
+  <cellStyleXfs count="1">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+  </cellStyleXfs>
+  <cellXfs count="21">
+    <!-- 0: Default -->
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <!-- 1: Regular text left, thin border -->
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center"/>
+    </xf>
+    <!-- 2: Bold text left, thin border -->
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center"/>
+    </xf>
+    <!-- 3: Regular text left, fill #F8FAFC, thin border -->
+    <xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center"/>
+    </xf>
+    <!-- 4: Bold text left, fill #F8FAFC, thin border -->
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center"/>
+    </xf>
+    <!-- 5: Amount regular right, #,##0.00, thin border -->
+    <xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="right" vertical="center"/>
+    </xf>
+    <!-- 6: Amount bold right, #,##0.00, thin border -->
+    <xf numFmtId="164" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="right" vertical="center"/>
+    </xf>
+    <!-- 7: Amount bold right, fill #F8FAFC, #,##0.00, thin border -->
+    <xf numFmtId="164" fontId="1" fillId="2" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="right" vertical="center"/>
+    </xf>
+    <!-- 8: Regular text right, thin border -->
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="right" vertical="center"/>
+    </xf>
+    <!-- 9: Bold text right, thin border -->
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="right" vertical="center"/>
+    </xf>
+    <!-- 10: Currency tag "LKR" bold right, fill #F1F5F9, thin border -->
+    <xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="right" vertical="center"/>
+    </xf>
+    <!-- 11: Deduction label bold red, fill #FEF2F2, thin border -->
+    <xf numFmtId="0" fontId="5" fillId="5" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center"/>
+    </xf>
+    <!-- 12: Deduction amount bold red, fill #FEF2F2, #,##0.00, thin border -->
+    <xf numFmtId="164" fontId="5" fillId="5" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="right" vertical="center"/>
+    </xf>
+    <!-- 13: Balance Pay label bold 10pt green, fill #ECFDF5, thin border -->
+    <xf numFmtId="0" fontId="4" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center"/>
+    </xf>
+    <!-- 14: Balance Pay amount bold 10pt green, fill #ECFDF5, #,##0.00, thin border -->
+    <xf numFmtId="164" fontId="4" fillId="4" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="right" vertical="center"/>
+    </xf>
+    <!-- 15: Header company name bold 10pt, no border -->
+    <xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center"/>
+    </xf>
+    <!-- 16: Header subtitle 8pt gray, no border -->
+    <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center"/>
+    </xf>
+    <!-- 17: Header EPF No bold 8.5pt, bottom border -->
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="2" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center"/>
+    </xf>
+    <!-- 18: Signature top line, border top medium -->
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center"/>
+    </xf>
+    <!-- 19: Signature company name bold 8.5pt -->
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center"/>
+    </xf>
+    <!-- 20: Signature address 8pt gray -->
+    <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1">
+      <alignment horizontal="left" vertical="center"/>
+    </xf>
+  </cellXfs>
+</styleSheet>"""
+
+    # Assemble into full OpenXML package (.xlsx)
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr('[Content_Types].xml', """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+</Types>""")
+
+        z.writestr('_rels/.rels', """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>""")
+
+        z.writestr('docProps/app.xml', """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+  <Application>Spillburg Enterprise Portal</Application>
+</Properties>""")
+
+        z.writestr('docProps/core.xml', """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
+  <dc:creator>Spillburg Holdings</dc:creator>
+  <cp:lastModifiedBy>Spillburg Holdings</cp:lastModifiedBy>
+</cp:coreProperties>""")
+
+        z.writestr('xl/_rels/workbook.xml.rels', """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>""")
+
+        z.writestr('xl/workbook.xml', """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Payslips" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>""")
+
+        z.writestr('xl/styles.xml', styles_xml)
+        z.writestr('xl/worksheets/sheet1.xml', sheet_xml)
+
+    return bio.getvalue()
