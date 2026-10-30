@@ -2,6 +2,249 @@
 let currentUser = null;
 let authToken = localStorage.getItem('spillburg_token') || '';
 
+// ================= AUTOMATIC AUTH RECOVERY & FETCH INTERCEPTOR =================
+const _rawFetch = window.fetch.bind(window);
+let isReauthenticating = false;
+let reauthQueue = [];
+
+function showPortalToast(message, type = 'success', duration = 3500) {
+  let toast = document.getElementById('portalToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'portalToast';
+    toast.className = 'fixed top-5 left-1/2 -translate-x-1/2 z-[70] hidden px-4 py-2.5 rounded-full text-xs font-semibold shadow-xl flex items-center gap-2 transition-all transform duration-300';
+    document.body.appendChild(toast);
+  }
+  const isErr = type === 'error';
+  toast.className = `fixed top-5 left-1/2 -translate-x-1/2 z-[70] px-4 py-2.5 rounded-full text-xs font-semibold shadow-xl flex items-center gap-2 transition-all transform duration-300 ${isErr ? 'bg-rose-600 text-white shadow-rose-600/30' : 'bg-emerald-600 text-white shadow-emerald-600/30'}`;
+  toast.innerHTML = `<i data-lucide="${isErr ? 'alert-circle' : 'check-circle'}" class="w-4 h-4"></i><span>${escapeHtml(message)}</span>`;
+  toast.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+
+  if (window._portalToastTimer) clearTimeout(window._portalToastTimer);
+  window._portalToastTimer = setTimeout(() => {
+    if (toast) toast.classList.add('hidden');
+  }, duration);
+}
+
+function promptReauthentication() {
+  return new Promise((resolve, reject) => {
+    reauthQueue.push({ resolve, reject });
+    if (!isReauthenticating) {
+      isReauthenticating = true;
+      showReauthModal();
+    }
+  });
+}
+
+function resolveReauthQueue(newToken) {
+  isReauthenticating = false;
+  const queue = [...reauthQueue];
+  reauthQueue = [];
+  queue.forEach(item => {
+    try { item.resolve(newToken); } catch (e) { }
+  });
+}
+
+function rejectReauthQueue(err) {
+  isReauthenticating = false;
+  const queue = [...reauthQueue];
+  reauthQueue = [];
+  queue.forEach(item => {
+    try { item.reject(err); } catch (e) { }
+  });
+}
+
+function showReauthModal() {
+  const modal = document.getElementById('reauthModal');
+  if (!modal) return;
+
+  const user = currentUser || {
+    username: localStorage.getItem('spillburg_last_user') || 'director',
+    fullName: 'Executive User',
+    role: 'director'
+  };
+
+  const nameEl = document.getElementById('reauthFullName');
+  const userEl = document.getElementById('reauthUsername');
+  const badgeEl = document.getElementById('reauthRoleBadge');
+  const avatarEl = document.getElementById('reauthAvatar');
+  const pwdInput = document.getElementById('reauthPassword');
+  const errBox = document.getElementById('reauthErrorBox');
+
+  if (nameEl) nameEl.textContent = user.fullName || user.username || 'User';
+  if (userEl) userEl.textContent = `@${user.username || 'user'}`;
+  if (badgeEl) badgeEl.textContent = (user.role || 'staff').toUpperCase();
+  if (avatarEl) avatarEl.textContent = (user.fullName || user.username || 'U')[0].toUpperCase();
+  if (errBox) errBox.classList.add('hidden');
+  if (pwdInput) pwdInput.value = '';
+
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+  setTimeout(() => { if (pwdInput) pwdInput.focus(); }, 120);
+}
+
+function hideReauthModal() {
+  const modal = document.getElementById('reauthModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function toggleReauthPassword() {
+  const pwdInput = document.getElementById('reauthPassword');
+  const icon = document.getElementById('toggleReauthPasswordIcon');
+  if (!pwdInput) return;
+  if (pwdInput.type === 'password') {
+    pwdInput.type = 'text';
+    if (icon) icon.setAttribute('data-lucide', 'eye-off');
+  } else {
+    pwdInput.type = 'password';
+    if (icon) icon.setAttribute('data-lucide', 'eye');
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+async function handleReauthSubmit(e) {
+  if (e) e.preventDefault();
+  const pwdInput = document.getElementById('reauthPassword');
+  const password = pwdInput ? pwdInput.value : '';
+  const errBox = document.getElementById('reauthErrorBox');
+  const errMsg = document.getElementById('reauthErrorMsg');
+  const submitBtn = document.getElementById('reauthSubmitBtn');
+
+  if (!password) return;
+  if (errBox) errBox.classList.add('hidden');
+
+  const username = (currentUser && currentUser.username) || localStorage.getItem('spillburg_last_user') || 'director';
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.classList.add('opacity-80', 'cursor-not-allowed');
+    submitBtn.innerHTML = `<span>Unlocking...</span><i data-lucide="loader" class="w-4 h-4 animate-spin"></i>`;
+    if (window.lucide) lucide.createIcons();
+  }
+
+  try {
+    const res = await _rawFetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (data.success && data.token) {
+      authToken = data.token;
+      localStorage.setItem('spillburg_token', authToken);
+      localStorage.setItem('spillburg_last_user', username);
+      document.cookie = `token=${encodeURIComponent(authToken)}; path=/; max-age=86400; SameSite=Lax`;
+      if (data.user) currentUser = data.user;
+
+      hideReauthModal();
+      showPortalToast('Session unlocked! Resuming your action...', 'success');
+      resolveReauthQueue(authToken);
+    } else {
+      if (errBox && errMsg) {
+        errMsg.textContent = data.error || 'Incorrect password. Please try again.';
+        errBox.classList.remove('hidden');
+      }
+      if (pwdInput) {
+        pwdInput.focus();
+        pwdInput.select();
+      }
+    }
+  } catch (err) {
+    if (errBox && errMsg) {
+      errMsg.textContent = 'Connection error. Please try again.';
+      errBox.classList.remove('hidden');
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('opacity-80', 'cursor-not-allowed');
+      submitBtn.innerHTML = `<span>Unlock &amp; Resume Action</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+}
+
+function cancelReauthAndLogout() {
+  hideReauthModal();
+  rejectReauthQueue(new Error('User cancelled re-authentication'));
+  handleLogout();
+}
+
+// Global fetch wrapper with auto-reauth and retry
+window.fetch = async function(resource, config) {
+  config = config || {};
+  const url = typeof resource === 'string' ? resource : (resource && resource.url ? resource.url : '');
+  const isAuthRequest = url.includes('/api/auth/login') || url.includes('/api/auth/logout');
+  const isBackgroundStatus = url.includes('/api/system/status');
+
+  // If re-authentication is in progress, wait for it unless it is an auth call
+  if (isReauthenticating && !isAuthRequest) {
+    try {
+      await new Promise((resolve, reject) => reauthQueue.push({ resolve, reject }));
+    } catch (e) {
+      return _rawFetch(resource, config);
+    }
+  }
+
+  // Ensure authorization header is synchronized
+  if (authToken) {
+    if (config.headers) {
+      if (config.headers instanceof Headers) {
+        if (!config.headers.has('Authorization')) {
+          config.headers.set('Authorization', `Bearer ${authToken}`);
+        }
+      } else if (Array.isArray(config.headers)) {
+        if (!config.headers.some(([k]) => k.toLowerCase() === 'authorization')) {
+          config.headers.push(['Authorization', `Bearer ${authToken}`]);
+        }
+      } else if (typeof config.headers === 'object') {
+        if (!config.headers['Authorization'] && !config.headers['authorization']) {
+          config.headers['Authorization'] = `Bearer ${authToken}`;
+        }
+      }
+    } else {
+      config.headers = { 'Authorization': `Bearer ${authToken}` };
+    }
+  }
+
+  let response = await _rawFetch(resource, config);
+
+  // Check for 401 Unauthorized
+  if (response.status === 401 && !isAuthRequest && !isBackgroundStatus) {
+    const isWorkspaceVisible = !document.getElementById('portalWorkspace')?.classList.contains('hidden');
+    if (isWorkspaceVisible) {
+      try {
+        const newToken = await promptReauthentication();
+        if (newToken) {
+          // Clone config and set updated Authorization header
+          let retryHeaders = {};
+          if (config.headers) {
+            if (config.headers instanceof Headers) {
+              retryHeaders = new Headers(config.headers);
+              retryHeaders.set('Authorization', `Bearer ${newToken}`);
+            } else if (Array.isArray(config.headers)) {
+              retryHeaders = config.headers.filter(([k]) => k.toLowerCase() !== 'authorization');
+              retryHeaders.push(['Authorization', `Bearer ${newToken}`]);
+            } else if (typeof config.headers === 'object') {
+              retryHeaders = { ...config.headers, 'Authorization': `Bearer ${newToken}` };
+            }
+          } else {
+            retryHeaders = { 'Authorization': `Bearer ${newToken}` };
+          }
+          const retryConfig = { ...config, headers: retryHeaders };
+          return await _rawFetch(resource, retryConfig);
+        }
+      } catch (err) {
+        console.warn('Auto-reauth retry cancelled:', err);
+      }
+    }
+  }
+
+  return response;
+};
+
+
 // App State
 let operationsTasks = [];
 let customerRecords = [];
@@ -719,6 +962,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 function showAuthScreen() {
   document.getElementById('authScreen').classList.remove('hidden');
   document.getElementById('portalWorkspace').classList.add('hidden');
+  const lastUser = localStorage.getItem('spillburg_last_user');
+  const userInp = document.getElementById('loginUsername');
+  if (userInp && !userInp.value && lastUser) {
+    userInp.value = lastUser;
+  }
   if (window.lucide) lucide.createIcons();
 }
 
@@ -795,6 +1043,9 @@ async function checkAuth() {
     if (res.ok) {
       const data = await res.json();
       currentUser = data.user;
+      if (currentUser && currentUser.username) {
+        localStorage.setItem('spillburg_last_user', currentUser.username);
+      }
       return true;
     }
   } catch (e) {
@@ -814,6 +1065,9 @@ async function loginAs(username, password) {
     if (data.success) {
       authToken = data.token;
       localStorage.setItem('spillburg_token', authToken);
+      if (data.user && data.user.username) {
+        localStorage.setItem('spillburg_last_user', data.user.username);
+      }
       document.cookie = `token=${encodeURIComponent(authToken)}; path=/; max-age=86400; SameSite=Lax`;
       currentUser = data.user;
       showPortalWorkspace();

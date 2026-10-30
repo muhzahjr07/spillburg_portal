@@ -353,6 +353,76 @@
     </div>
   </div>
 
+  <!-- ================= AUTOMATIC RE-AUTHENTICATION QUICK UNLOCK MODAL ================= -->
+  <div id="reauthModal"
+    class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[60] hidden flex items-center justify-center p-4">
+    <div
+      class="w-full max-w-md bg-white rounded-2xl border border-slate-200/90 shadow-2xl p-6 md:p-7 space-y-5 fade-in">
+      
+      <!-- Brand & Lock Icon Header -->
+      <div class="text-center space-y-2">
+        <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto shadow-xs">
+          <i data-lucide="lock" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="font-display font-bold text-lg text-slate-900">Session Quick Unlock</h3>
+          <p class="text-xs text-slate-500 mt-0.5">Your session timed out. Enter password to resume seamlessly without losing open edits.</p>
+        </div>
+      </div>
+
+      <!-- Current User Profile Card -->
+      <div class="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+        <div id="reauthAvatar" class="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 flex items-center justify-center font-bold text-sm flex-shrink-0">
+          U
+        </div>
+        <div class="min-w-0 flex-1">
+          <div id="reauthFullName" class="font-semibold text-xs text-slate-900 truncate">Executive User</div>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span id="reauthUsername" class="text-[11px] text-slate-500 font-mono">@director</span>
+            <span id="reauthRoleBadge" class="text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">DIRECTOR</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reauth Error Notification -->
+      <div id="reauthErrorBox" class="hidden p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600 font-medium flex items-center gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+        <span id="reauthErrorMsg">Invalid password</span>
+      </div>
+
+      <!-- Quick Unlock Form -->
+      <form id="reauthForm" onsubmit="handleReauthSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Enter Password</label>
+          <div class="relative">
+            <i data-lucide="key-round" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+            <input type="password" id="reauthPassword" required placeholder="Enter password to unlock"
+              class="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition">
+            <button type="button" onclick="toggleReauthPassword()"
+              class="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition p-0.5"
+              title="Toggle password visibility">
+              <i data-lucide="eye" id="toggleReauthPasswordIcon" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <button type="submit" id="reauthSubmitBtn"
+            class="w-full py-2.5 bg-[#059669] hover:bg-[#047857] text-white font-semibold text-sm rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2">
+            <span>Unlock &amp; Resume Action</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+
+          <button type="button" onclick="cancelReauthAndLogout()"
+            class="w-full py-2 text-xs text-slate-500 hover:text-slate-700 font-medium transition text-center">
+            Sign in as different user / Log out
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
   <!-- Lightbox for Register Photos -->
   <div id="photoLightbox" class="lightbox-modal hidden" onclick="closePhotoLightbox()">
     <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
@@ -368,7 +438,7 @@
     </div>
   </div>
 
-  <script src="/public/app.js?v=20261029_6"></script>
+  <script src="/public/app.js?v=20261030_1"></script>
 </body>
 
 </html>
