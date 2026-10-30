@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-30T07:14:10Z",
+  "exportTimestamp": "2026-10-30T08:41:50Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5119,7 +5119,7 @@
       "type": "Operational Task",
       "taskedDate": "30-Oct-2026",
       "completedDate": "",
-      "status": "Pending",
+      "status": "In Progress",
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Contact CSM Business Solutions via email to request complete course materials, the official session recording, and the final certificate for Mr. Shaameel. Additionally, request their upcoming programmes."
