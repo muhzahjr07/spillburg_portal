@@ -172,7 +172,7 @@ function cancelReauthAndLogout() {
 }
 
 // Global fetch wrapper with auto-reauth and retry
-window.fetch = async function(resource, config) {
+window.fetch = async function (resource, config) {
   config = config || {};
   const url = typeof resource === 'string' ? resource : (resource && resource.url ? resource.url : '');
   const isAuthRequest = url.includes('/api/auth/login') || url.includes('/api/auth/logout');
@@ -9902,9 +9902,9 @@ function getAvailableLetterheads() {
   return (payrollData && payrollData.letterheads && payrollData.letterheads.length > 0)
     ? payrollData.letterheads
     : [
-        { id: 'lh_spillburg', name: 'Spillburg Holdings (Default)', url: '/public/spillburg_letterhead.jpg' },
-        { id: 'lh_vacation', name: 'Spillburg Vacation', url: '/public/spillburg_vacation_letterhead.jpg' }
-      ];
+      { id: 'lh_spillburg', name: 'Spillburg Holdings (Default)', url: '/public/spillburg_letterhead.jpg' },
+      { id: 'lh_vacation', name: 'Spillburg Vacation', url: '/public/spillburg_vacation_letterhead.jpg' }
+    ];
 }
 
 function getActiveLetterheadUrl() {
@@ -9956,7 +9956,7 @@ async function uploadNewLetterhead(event) {
   }
 
   const reader = new FileReader();
-  reader.onload = async function() {
+  reader.onload = async function () {
     try {
       const payload = {
         title: title.trim() || defaultName,
@@ -10223,9 +10223,9 @@ function renderStaffCostSummary(container) {
           <div style="font-size: 10px; color: #000; line-height: 1.35; margin-bottom: 14px;">
             <div style="font-weight: 700; margin-bottom: 2px;">Certification</div>
             <div>${currentComp.parentGroup
-              ? `We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.parentGroup)} and are being recharged accordingly.`
-              : `We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.name)}.`
-            }</div>
+      ? `We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.parentGroup)} and are being recharged accordingly.`
+      : `We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.name)}.`
+    }</div>
           </div>
 
           <!-- Signatures (Official Lines with generous space for signing & company stamp) -->
@@ -15074,9 +15074,9 @@ function printStaffCostSummary() {
         <div style="font-size: 7.5pt; line-height: 1.3; margin-bottom: 4mm;">
           <div style="font-weight: bold; margin-bottom: 1px;">Certification</div>
           <div>${currentComp.parentGroup
-            ? `We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.parentGroup)} and are being recharged accordingly.`
-            : `We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.name)}.`
-          }</div>
+      ? `We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.parentGroup)} and are being recharged accordingly.`
+      : `We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.name)}.`
+    }</div>
         </div>
 
         <!-- Signatures (Official Lines with generous space for signing & stamp) -->
