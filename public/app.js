@@ -338,7 +338,7 @@ function toggleStaffCostLetterhead(enabled) {
     sheet.classList.toggle('no-letterhead', !staffCostLetterheadEnabled);
     const activeLhUrl = getActiveLetterheadUrl();
     sheet.style.backgroundImage = staffCostLetterheadEnabled ? `url('${activeLhUrl}')` : 'none';
-    sheet.style.padding = staffCostLetterheadEnabled ? '125px 52px 95px 52px' : '38px 52px 50px 52px';
+    sheet.style.padding = staffCostLetterheadEnabled ? '190px 52px 145px 52px' : '38px 52px 50px 52px';
   }
 }
 
@@ -10120,7 +10120,7 @@ function renderStaffCostSummary(container) {
 
       <!-- Visual Preview of Staff Cost Summary matching Staff cost summary.pdf -->
       <div class="staff-cost-container">
-        <div class="staff-cost-sheet ${staffCostLetterheadEnabled ? '' : 'no-letterhead'}" style="${staffCostLetterheadEnabled ? `background-image: url('${escapeHtml(activeLhUrl)}'); background-size: 100% 100%; background-repeat: no-repeat; padding: 125px 52px 95px 52px;` : 'padding: 38px 52px 50px 52px;'}">
+        <div class="staff-cost-sheet ${staffCostLetterheadEnabled ? '' : 'no-letterhead'}" style="${staffCostLetterheadEnabled ? `background-image: url('${escapeHtml(activeLhUrl)}'); background-size: 100% 100%; background-repeat: no-repeat; padding: 190px 52px 145px 52px;` : 'padding: 38px 52px 50px 52px;'}">
 
           <!-- Company Title & Invoice No (Positioned Safely Below Top Letterhead Header) -->
           <div class="flex justify-between items-end mb-4">
@@ -14975,7 +14975,7 @@ function printStaffCostSummary() {
           <img src="${escapeHtml(activeLhUrl)}" alt="Company Letterhead" style="width: 210mm; height: 297mm; display: block;">
         </div>
       ` : ''}
-      <div class="a4-print-sheet" style="${isLetterhead ? 'padding: 38mm 16mm 26mm 16mm;' : 'padding: 12mm 16mm 15mm 16mm;'}">
+      <div class="a4-print-sheet" style="${isLetterhead ? 'padding: 48mm 16mm 38mm 16mm;' : 'padding: 12mm 16mm 15mm 16mm;'}">
 
         <!-- Company Title & Invoice No (Positioned Below Header Space) -->
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4mm;">

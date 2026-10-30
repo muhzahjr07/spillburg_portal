@@ -680,7 +680,7 @@ span.flatpickr-weekday {
   width: 794px; /* Standard A4 width @ 96 DPI: 210mm */
   min-height: 1123px; /* Standard A4 height @ 96 DPI: 297mm */
   margin: 0 auto;
-  padding: 125px 52px 95px 52px; /* Clears top letterhead logo & bottom footer */
+  padding: 190px 52px 145px 52px; /* Clears top letterhead logo & bottom footer */
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   line-height: 1.4;
