@@ -620,13 +620,14 @@ span.flatpickr-weekday {
 /* Individual Payslip Voucher (Matching payroll.pdf - Elongated Vertical Rectangle View) */
 .payslip-voucher {
   width: 100%;
-  max-width: 345px;
+  max-width: 260px;
+  min-height: 580px;
   margin: 0 auto;
   background: #ffffff;
   border: 2px solid #1e293b;
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   font-family: Calibri, Arial, sans-serif;
-  font-size: 11px;
+  font-size: 10.5px;
   color: #0f172a;
   box-sizing: border-box;
 }
@@ -637,7 +638,7 @@ span.flatpickr-weekday {
 }
 
 .payslip-voucher td, .payslip-voucher th {
-  padding: 5px 9px;
+  padding: 6.5px 7px;
   border: 1px solid #475569;
   font-variant-numeric: tabular-nums;
   line-height: 1.35;
@@ -679,7 +680,7 @@ span.flatpickr-weekday {
   width: 794px; /* Standard A4 width @ 96 DPI: 210mm */
   min-height: 1123px; /* Standard A4 height @ 96 DPI: 297mm */
   margin: 0 auto;
-  padding: 34px 44px 125px 44px; /* Generous bottom padding ensures content never enters footer */
+  padding: 125px 52px 95px 52px; /* Clears top letterhead logo & bottom footer */
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
   line-height: 1.4;
@@ -691,7 +692,8 @@ span.flatpickr-weekday {
 }
 
 .staff-cost-sheet.no-letterhead {
-  padding: 34px 44px 125px 44px;
+  padding: 38px 52px 50px 52px;
+  background-image: none !important;
 }
 
 #staffCostFooter {

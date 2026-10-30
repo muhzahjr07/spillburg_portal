@@ -333,21 +333,12 @@ function toggleBankLetterhead(enabled) {
 
 function toggleStaffCostLetterhead(enabled) {
   staffCostLetterheadEnabled = !!enabled;
-  const logoEl = document.getElementById('staffCostHeaderLogo');
-  const placeholderEl = document.getElementById('staffCostHeaderPlaceholder');
-  const footerEl = document.getElementById('staffCostFooter');
   const sheet = document.querySelector('.staff-cost-sheet');
   if (sheet) {
     sheet.classList.toggle('no-letterhead', !staffCostLetterheadEnabled);
-  }
-  if (logoEl) {
-    logoEl.style.display = staffCostLetterheadEnabled ? 'block' : 'none';
-  }
-  if (placeholderEl) {
-    placeholderEl.style.display = staffCostLetterheadEnabled ? 'none' : 'block';
-  }
-  if (footerEl) {
-    footerEl.style.display = staffCostLetterheadEnabled ? 'block' : 'none';
+    const activeLhUrl = getActiveLetterheadUrl();
+    sheet.style.backgroundImage = staffCostLetterheadEnabled ? `url('${activeLhUrl}')` : 'none';
+    sheet.style.padding = staffCostLetterheadEnabled ? '125px 52px 95px 52px' : '38px 52px 50px 52px';
   }
 }
 
@@ -10129,17 +10120,9 @@ function renderStaffCostSummary(container) {
 
       <!-- Visual Preview of Staff Cost Summary matching Staff cost summary.pdf -->
       <div class="staff-cost-container">
-        <div class="staff-cost-sheet ${staffCostLetterheadEnabled ? '' : 'no-letterhead'}" style="${staffCostLetterheadEnabled ? `background-image: url('${escapeHtml(activeLhUrl)}'); background-size: 100% 100%; background-repeat: no-repeat;` : ''}">
+        <div class="staff-cost-sheet ${staffCostLetterheadEnabled ? '' : 'no-letterhead'}" style="${staffCostLetterheadEnabled ? `background-image: url('${escapeHtml(activeLhUrl)}'); background-size: 100% 100%; background-repeat: no-repeat; padding: 125px 52px 95px 52px;` : 'padding: 38px 52px 50px 52px;'}">
 
-          <!-- Letterhead Header Space (Top of A4) -->
-          <div style="display: flex; justify-content: flex-end; align-items: flex-start; min-height: 52px; margin-bottom: 8px;">
-            <div id="staffCostHeaderLogo" style="display: ${staffCostLetterheadEnabled ? 'block' : 'none'};">
-              <img src="/public/spillburg_header_logo.png" style="width: 190px; height: auto; object-fit: contain;" alt="Spillburg Holdings">
-            </div>
-            <div id="staffCostHeaderPlaceholder" style="display: ${staffCostLetterheadEnabled ? 'none' : 'block'}; height: 48px;"></div>
-          </div>
-
-          <!-- Company Title & Invoice No (Positioned Below Header Space) -->
+          <!-- Company Title & Invoice No (Positioned Safely Below Top Letterhead Header) -->
           <div class="flex justify-between items-end mb-4">
             <div>
               ${currentComp.parentGroup ? `
@@ -10292,11 +10275,6 @@ function renderStaffCostSummary(container) {
               <span><strong>Ac No</strong></span><span>: <strong style="font-family: monospace;">${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')}</strong></span>
               ${currentComp.swiftCode ? `<span><strong>Swift Code</strong></span><span>: <strong style="font-family: monospace;">${escapeHtml(currentComp.swiftCode)}</strong></span>` : ''}
             </div>
-          </div>
-
-          <!-- Fixed Letterhead Footer at bottom of A4 -->
-          <div id="staffCostFooter" style="display: ${staffCostLetterheadEnabled ? 'block' : 'none'};">
-            <img src="/public/spillburg_footer.png" style="width: 100%; height: auto; display: block;" alt="Letterhead Footer">
           </div>
 
         </div>
@@ -14546,11 +14524,12 @@ function printSinglePayslip(empId, layoutMode) {
         }
 
         .payslip-voucher {
-          width: 95mm;
-          max-width: 95mm;
+          width: 76mm;
+          max-width: 76mm;
+          min-height: 180mm;
           border: 1.5px solid #111;
-          padding: 4.5mm 6mm;
-          font-size: 8pt;
+          padding: 3mm 4mm;
+          font-size: 7.5pt;
           box-sizing: border-box;
           margin: 0 auto;
           background: #fff;
@@ -14560,10 +14539,10 @@ function printSinglePayslip(empId, layoutMode) {
           border-collapse: collapse;
         }
         td {
-          padding: 3.5px 6px;
+          padding: 3.2px 5px;
           border: 1px solid #475569;
-          font-size: 8pt;
-          line-height: 1.35;
+          font-size: 7.5pt;
+          line-height: 1.25;
         }
 
         /* Interactive On-screen Toolbar */
@@ -14779,11 +14758,12 @@ function printAllPayslips(layoutMode) {
         }
 
         .payslip-voucher {
-          width: 95mm;
-          max-width: 95mm;
+          width: 76mm;
+          max-width: 76mm;
+          min-height: 180mm;
           border: 1.5px solid #111;
-          padding: 4.5mm 6mm;
-          font-size: 8pt;
+          padding: 3mm 4mm;
+          font-size: 7.5pt;
           box-sizing: border-box;
           margin: 0 auto;
           background: #fff;
@@ -14793,10 +14773,10 @@ function printAllPayslips(layoutMode) {
           border-collapse: collapse;
         }
         td {
-          padding: 3.5px 6px;
+          padding: 3.2px 5px;
           border: 1px solid #475569;
-          font-size: 8pt;
-          line-height: 1.35;
+          font-size: 7.5pt;
+          line-height: 1.25;
         }
 
         /* Interactive On-screen Toolbar */
@@ -14995,12 +14975,7 @@ function printStaffCostSummary() {
           <img src="${escapeHtml(activeLhUrl)}" alt="Company Letterhead" style="width: 210mm; height: 297mm; display: block;">
         </div>
       ` : ''}
-      <div class="a4-print-sheet">
-        
-        <!-- Letterhead Header Space (Top of A4) -->
-        <div style="display: flex; justify-content: flex-end; align-items: flex-start; min-height: 15mm; margin-bottom: 2mm;">
-          <div style="height: 15mm;"></div>
-        </div>
+      <div class="a4-print-sheet" style="${isLetterhead ? 'padding: 38mm 16mm 26mm 16mm;' : 'padding: 12mm 16mm 15mm 16mm;'}">
 
         <!-- Company Title & Invoice No (Positioned Below Header Space) -->
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4mm;">
@@ -15152,13 +15127,6 @@ function printStaffCostSummary() {
             ${currentComp.swiftCode ? `<span><strong>Swift Code</strong></span><span>: <strong>${escapeHtml(currentComp.swiftCode)}</strong></span>` : ''}
           </div>
         </div>
-
-        <!-- Fixed Letterhead Footer at bottom of A4 -->
-        ${isLetterhead ? `
-          <div class="page-footer">
-            <img src="/public/spillburg_footer.png" style="width: 100%; height: auto; display: block;" alt="Letterhead Footer">
-          </div>
-        ` : ''}
 
       </div>
 

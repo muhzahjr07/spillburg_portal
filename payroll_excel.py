@@ -520,81 +520,81 @@ def generate_payslips_xlsx(enriched_period, company_info=None, single_emp_id=Non
                 basic_label = f"Basic Pay ({foreign_curr} {earned_f:,.2f} @{rate:,.2f})"
 
             # 1. Company Name (merged across lbl & val)
-            v_rows.append(('title', 24, [
+            v_rows.append(('title', 28, [
                 (col_lbl, 15, 'inlineStr', comp_name.upper()),
                 (col_val, 15, 'empty', '')
             ], True))
 
             # 2. Subtitle: Monthly Payroll
-            v_rows.append(('sub', 18, [
+            v_rows.append(('sub', 22, [
                 (col_lbl, 16, 'inlineStr', f"Monthly Payroll {year_period}"),
                 (col_val, 16, 'empty', '')
             ], True))
 
             # 3. EPF NO
-            v_rows.append(('epf', 20, [
+            v_rows.append(('epf', 24, [
                 (col_lbl, 17, 'inlineStr', f"EPF NO :{epf_no}"),
                 (col_val, 17, 'empty', '')
             ], True))
 
             # 4. Month
-            v_rows.append(('row', 21, [
+            v_rows.append(('row', 24, [
                 (col_lbl, 4, 'inlineStr', 'Month'),
                 (col_val, 9, 'inlineStr', month_name)
             ], False))
 
             # 5. Name
-            v_rows.append(('row', 21, [
+            v_rows.append(('row', 24, [
                 (col_lbl, 4, 'inlineStr', 'Name'),
                 (col_val, 9, 'inlineStr', emp_name)
             ], False))
 
             # 6. Currency Header
-            v_rows.append(('row', 20, [
+            v_rows.append(('row', 24, [
                 (col_lbl, 3, 'inlineStr', ''),
                 (col_val, 10, 'inlineStr', 'LKR')
             ], False))
 
             # 7. Basic Pay
-            v_rows.append(('row', 21, [
+            v_rows.append(('row', 24, [
                 (col_lbl, 1, 'inlineStr', basic_label),
                 (col_val, 5, 'num', float(emp.get('lkrGross', 0.0) or 0.0))
             ], False))
 
             # 8. Special Allowance
             sa = float(emp.get('specialAllowance', 0.0) or 0.0)
-            v_rows.append(('row', 20, [
+            v_rows.append(('row', 24, [
                 (col_lbl, 1, 'inlineStr', 'Special Allowance'),
                 (col_val, 5 if sa > 0 else 8, 'num' if sa > 0 else 'inlineStr', sa if sa > 0 else '-')
             ], False))
 
             # 9. Total (Gross)
-            v_rows.append(('row', 22, [
+            v_rows.append(('row', 26, [
                 (col_lbl, 4, 'inlineStr', 'Total (Gross)'),
                 (col_val, 7, 'num', float(emp.get('totalGrossLkr', 0.0) or 0.0))
             ], False))
 
             # 10. (-) No Pay/Late
             np = float(emp.get('noPayLate', 0.0) or 0.0)
-            v_rows.append(('row', 20, [
+            v_rows.append(('row', 24, [
                 (col_lbl, 1, 'inlineStr', '(-) No Pay/Late'),
                 (col_val, 5 if np > 0 else 8, 'num' if np > 0 else 'inlineStr', np if np > 0 else '-')
             ], False))
 
             # 11. Net total
-            v_rows.append(('row', 21, [
+            v_rows.append(('row', 24, [
                 (col_lbl, 2, 'inlineStr', 'Net total'),
                 (col_val, 6, 'num', float(emp.get('netTotalGross', 0.0) or 0.0))
             ], False))
 
             # 12. Gross Pay
-            v_rows.append(('row', 21, [
+            v_rows.append(('row', 24, [
                 (col_lbl, 2, 'inlineStr', 'Gross Pay'),
                 (col_val, 6, 'num', float(emp.get('netTotalGross', 0.0) or 0.0))
             ], False))
 
             # 13. (-) EPF 8%
-            v_rows.append(('row', 20, [
+            v_rows.append(('row', 24, [
                 (col_lbl, 1, 'inlineStr', '(-) EPF 8%'),
                 (col_val, 5, 'num', float(emp.get('epf8Lkr', 0.0) or 0.0))
             ], False))
@@ -604,77 +604,77 @@ def generate_payslips_xlsx(enriched_period, company_info=None, single_emp_id=Non
             adv = float(emp.get('advance', 0.0) or 0.0)
             loan = float(emp.get('loan', 0.0) or 0.0)
             if other_ded > 0:
-                v_rows.append(('row', 20, [
+                v_rows.append(('row', 24, [
                     (col_lbl, 1, 'inlineStr', '(-) Other Deductions'),
                     (col_val, 5, 'num', other_ded)
                 ], False))
             elif adv > 0:
-                v_rows.append(('row', 20, [
+                v_rows.append(('row', 24, [
                     (col_lbl, 1, 'inlineStr', '(-) Advance'),
                     (col_val, 5, 'num', adv)
                 ], False))
             elif loan > 0:
-                v_rows.append(('row', 20, [
+                v_rows.append(('row', 24, [
                     (col_lbl, 1, 'inlineStr', '(-) Loan'),
                     (col_val, 5, 'num', loan)
                 ], False))
             else:
-                v_rows.append(('row', 20, [
+                v_rows.append(('row', 24, [
                     (col_lbl, 1, 'inlineStr', '(-) Other Deductions'),
                     (col_val, 8, 'inlineStr', '-')
                 ], False))
 
             # 15. (-) APIT
             apit_val = float(emp.get('apit', 0.0) or 0.0)
-            v_rows.append(('row', 20, [
+            v_rows.append(('row', 24, [
                 (col_lbl, 1, 'inlineStr', '(-) APIT'),
                 (col_val, 5 if apit_val > 0 else 8, 'num' if apit_val > 0 else 'inlineStr', apit_val if apit_val > 0 else '-')
             ], False))
 
             # 16. Total Deduction
-            v_rows.append(('row', 22, [
+            v_rows.append(('row', 26, [
                 (col_lbl, 11, 'inlineStr', 'Total Deduction'),
                 (col_val, 12, 'num', float(emp.get('totalDeductions', 0.0) or 0.0))
             ], False))
 
             # 17. Balance Pay
-            v_rows.append(('row', 25, [
+            v_rows.append(('row', 28, [
                 (col_lbl, 13, 'inlineStr', 'Balance Pay'),
                 (col_val, 14, 'num', float(emp.get('netSalaryLkr', 0.0) or 0.0))
             ], False))
 
             # 18. EPF 12%
-            v_rows.append(('row', 20, [
+            v_rows.append(('row', 24, [
                 (col_lbl, 1, 'inlineStr', 'EPF 12%'),
                 (col_val, 5, 'num', float(emp.get('epf12Lkr', 0.0) or 0.0))
             ], False))
 
             # 19. ETF 3%
-            v_rows.append(('row', 20, [
+            v_rows.append(('row', 24, [
                 (col_lbl, 1, 'inlineStr', 'ETF 3%'),
                 (col_val, 5, 'num', float(emp.get('etf3Lkr', 0.0) or 0.0))
             ], False))
 
             # 20. Signature Line
-            v_rows.append(('sig', 24, [
+            v_rows.append(('sig', 28, [
                 (col_lbl, 18, 'inlineStr', 'Signature: ....................................................'),
                 (col_val, 18, 'empty', '')
             ], True))
 
             # 21. Company Footer Name
-            v_rows.append(('sig_comp', 18, [
+            v_rows.append(('sig_comp', 22, [
                 (col_lbl, 19, 'inlineStr', comp_name),
                 (col_val, 19, 'empty', '')
             ], True))
 
             # 22. Company Address Line 1
-            v_rows.append(('sig_addr1', 16, [
+            v_rows.append(('sig_addr1', 20, [
                 (col_lbl, 20, 'inlineStr', addr1),
                 (col_val, 20, 'empty', '')
             ], True))
 
             # 23. Company Address Line 2
-            v_rows.append(('sig_addr2', 16, [
+            v_rows.append(('sig_addr2', 20, [
                 (col_lbl, 20, 'inlineStr', addr2),
                 (col_val, 20, 'empty', '')
             ], True))
@@ -728,11 +728,11 @@ def generate_payslips_xlsx(enriched_period, company_info=None, single_emp_id=Non
 
     cols_xml = """<cols>
   <col min="1" max="1" width="3" customWidth="1"/>
-  <col min="2" max="2" width="32" customWidth="1"/>
-  <col min="3" max="3" width="18" customWidth="1"/>
+  <col min="2" max="2" width="22" customWidth="1"/>
+  <col min="3" max="3" width="13" customWidth="1"/>
   <col min="4" max="4" width="5" customWidth="1"/>
-  <col min="5" max="5" width="32" customWidth="1"/>
-  <col min="6" max="6" width="18" customWidth="1"/>
+  <col min="5" max="5" width="22" customWidth="1"/>
+  <col min="6" max="6" width="13" customWidth="1"/>
   <col min="7" max="7" width="3" customWidth="1"/>
 </cols>"""
 
