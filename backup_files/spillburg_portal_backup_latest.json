@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-30T06:36:17Z",
+  "exportTimestamp": "2026-10-30T07:01:25Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5106,6 +5106,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Handed over the Hand wash can to Mr.Hameez Residence at Dehiwala"
+    },
+    {
+      "id": "ops_d7addb",
+      "no": 71,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Request course materials, session recording, certification and future programmes from CSM Business Solutions",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Office Operations",
+      "type": "Operational Task",
+      "taskedDate": "30-Oct-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Contact CSM Business Solutions via email to request complete course materials, the official session recording, and the final certificate for Mr. Shaameel. Additionally, request their upcoming programmes."
     }
   ],
   "payroll": {
