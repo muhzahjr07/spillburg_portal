@@ -10719,7 +10719,7 @@ function renderEpfFormC(container) {
         <div class="form-c-portrait-sheet ${epfDragModeActive ? 'epf-drag-active' : ''}" id="epfFormCSheet">
           
           <!-- Top Left Employer Name & Address Box (Postal M-13 Window Box) -->
-          <textarea id="epf_c_employer" onchange="saveEpfOverlayEdits()" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; font-weight: 700; line-height: 1.35; overflow: hidden; resize: none; background: rgba(255, 255, 255, 0.9);" title="Employer Name & Address (M-13 Box)">${escapeHtml(defaultEmployerText)}</textarea>
+          <textarea id="epf_c_employer" onchange="saveEpfOverlayEdits()" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; font-weight: 800; line-height: 1.35; overflow: hidden; resize: none; background: rgba(255, 255, 255, 0.9);" title="Employer Name & Address (M-13 Box)">${escapeHtml(defaultEmployerText)}</textarea>
 
           <!-- EPF Reg No (Right cell of Row 1) -->
           <input type="text" id="epf_c_reg_no" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(epfRegNo)}" placeholder="EPF Reg No" title="Employer Registration Number">
@@ -11034,7 +11034,7 @@ function renderEtfFormR4(container) {
     const pCts = getEtfFieldPos(`etf_r4_cts_${r}`);
 
     rowInputsHtml += `
-      <input type="text" class="form-overlay-input" id="etf_r4_name_${r}" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 8.5px; font-weight: 600;" value="${emp ? escapeHtml((emp.name || '').toUpperCase()) : ''}" title="Member Name">
+      <input type="text" class="form-overlay-input" id="etf_r4_name_${r}" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 8.5px; font-weight: 700;" value="${emp ? escapeHtml((emp.name || '').toUpperCase()) : ''}" title="Member Name">
       <input type="text" class="form-overlay-input" id="etf_r4_nic_${r}" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.nic) : ''}" title="National Identity Card No">
       <input type="text" class="form-overlay-input" id="etf_r4_mem_${r}" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.memberNo) : ''}" title="Member No">
       <input type="text" class="form-overlay-input" id="etf_r4_rs_${r}" style="left: ${pRs.left}; top: ${pRs.top}; width: ${pRs.width}; height: ${pRs.height}; font-size: 8.5px; font-weight: 700; text-align: right;" value="${emp ? emp.rs : ''}" title="Contribution (Rs.)">
@@ -11132,7 +11132,7 @@ function renderEtfFormR4(container) {
         <div class="form-r4-portrait-sheet ${etfDragModeActive ? 'etf-drag-active' : ''}" id="etfFormR4Sheet">
           
           <!-- Top Left Employer Name & Address Box -->
-          <textarea id="etf_r4_employer" onchange="saveEtfOverlayEdits()" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; line-height: 1.3;" title="Employer Name & Address">${escapeHtml(defaultEmployerText)}</textarea>
+          <textarea id="etf_r4_employer" onchange="saveEtfOverlayEdits()" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; font-weight: 800; line-height: 1.35;" title="Employer Name & Address">${escapeHtml(defaultEmployerText)}</textarea>
 
           <!-- Top Right 3-Column Header Boxes: Employer No, Month & Year, No. of Employees -->
           <input type="text" id="etf_r4_emp_no" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pEmpNo.left}; top: ${pEmpNo.top}; width: ${pEmpNo.width}; height: ${pEmpNo.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(etfRegNo)}" placeholder="ETF Reg No" title="Employer Registration No">
@@ -15226,7 +15226,7 @@ function printEpfFormC() {
     const pEarn = getEpfFieldPos(`epf_c_earn_${i}`);
 
     rowFieldsHtml += `
-      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 6.5pt; font-weight: bold; padding-left: 2px;">${escapeHtml((name || '').toUpperCase())}</div>
+      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 6.8pt; font-weight: 800; font-family: Arial, Helvetica, sans-serif; padding-left: 2px;">${escapeHtml((name || '').toUpperCase())}</div>
       <div class="field" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; justify-content: center; font-size: 6.5pt;">${escapeHtml(nic)}</div>
       <div class="field" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; justify-content: center; font-size: 6.5pt;">${escapeHtml(mem)}</div>
       <div class="field" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; justify-content: flex-end; padding-right: 3px; font-size: 6.5pt; font-weight: bold;">${escapeHtml(tot)}</div>
@@ -15308,7 +15308,7 @@ function printEpfFormC() {
     <body>
       <div class="print-sheet">
         <!-- Top Left Employer Name & Address (M-13 Box) -->
-        <div class="field" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 7.5pt; font-weight: bold; white-space: pre-line; line-height: 1.35; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; padding: 2px 4px;">${escapeHtml(document.getElementById('epf_c_employer')?.value || defaultEmployerText)}</div>
+        <div class="field" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 8pt; font-weight: 800; font-family: Arial, Helvetica, sans-serif; white-space: pre-line; line-height: 1.35; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; padding: 2px 4px;">${escapeHtml(document.getElementById('epf_c_employer')?.value || defaultEmployerText)}</div>
 
         <!-- Row 1: Reg No -->
         <div class="field" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(regNo)}</div>
@@ -15403,7 +15403,7 @@ function printEtfFormR4() {
     const pCts = getEtfFieldPos(`etf_r4_cts_${r}`);
 
     rowFieldsHtml += `
-      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 7.5pt; font-weight: bold;">${escapeHtml((name || '').toUpperCase())}</div>
+      <div class="field" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 7.5pt; font-weight: 800; font-family: Arial, Helvetica, sans-serif;">${escapeHtml((name || '').toUpperCase())}</div>
       <div class="field" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; justify-content: center; font-size: 7.5pt;">${escapeHtml(nic)}</div>
       <div class="field" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; justify-content: center; font-size: 7.5pt;">${escapeHtml(mem)}</div>
       <div class="field" style="left: ${pRs.left}; top: ${pRs.top}; width: ${pRs.width}; height: ${pRs.height}; justify-content: flex-end; font-size: 8pt; font-weight: bold;">${escapeHtml(rs)}</div>
@@ -15446,13 +15446,13 @@ function printEtfFormR4() {
           margin: 0;
         }
         * { box-sizing: border-box; }
-        body {
+        html, body {
           margin: 0;
           padding: 0;
+          width: 210mm;
+          height: 297mm;
           background: #fff;
-          display: flex;
-          justify-content: center;
-          align-items: flex-start;
+          overflow: hidden;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
@@ -15460,24 +15460,32 @@ function printEtfFormR4() {
           position: relative;
           width: 210mm;
           height: 243.1mm;
+          margin: 26.9mm auto;
           background-image: url('/public/form_r4_page1.png');
           background-size: 100% 100%;
           background-repeat: no-repeat;
+          page-break-inside: avoid;
+          page-break-after: avoid;
+          break-inside: avoid;
+          break-after: avoid;
+          overflow: hidden;
         }
         .field {
           position: absolute;
+          box-sizing: border-box;
           font-family: 'Courier New', Courier, monospace;
           color: #000;
           overflow: hidden;
           white-space: nowrap;
           display: flex;
           align-items: center;
+          line-height: 1;
         }
       </style>
     </head>
     <body>
       <div class="print-sheet">
-        <div class="field" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; white-space: pre-wrap; font-size: 7.5pt; align-items: flex-start; line-height: 1.3;">${escapeHtml(employer)}</div>
+        <div class="field" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; white-space: pre-wrap; font-size: 8pt; font-weight: 800; font-family: Arial, Helvetica, sans-serif; align-items: flex-start; line-height: 1.35; padding: 2px 4px;">${escapeHtml(employer)}</div>
         <div class="field" style="left: ${pEmpNo.left}; top: ${pEmpNo.top}; width: ${pEmpNo.width}; height: ${pEmpNo.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(empNo)}</div>
         <div class="field" style="left: ${pMonthYear.left}; top: ${pMonthYear.top}; width: ${pMonthYear.width}; height: ${pMonthYear.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(monthYear)}</div>
         <div class="field" style="left: ${pEmpCount.left}; top: ${pEmpCount.top}; width: ${pEmpCount.width}; height: ${pEmpCount.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(empCount)}</div>
