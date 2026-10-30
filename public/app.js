@@ -9589,9 +9589,9 @@ function renderPayrollSheet(container) {
                   <td style="text-align: right;">${formatMoney(e.lkrSalary || e.lkrGross || 0, 2)}</td>
                   <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
                   <td style="text-align: right; font-weight: 600;">${formatMoney(e.earnedLkr || e.lkrGross || 0, 2)}</td>
-                  <td style="text-align: right;">${formatMoney(e.epf8Lkr, 0)}</td>
-                  <td style="text-align: right;">${formatMoney(e.epf12Lkr, 0)}</td>
-                  <td style="text-align: right;">${formatMoney(e.etf3Lkr, 0)}</td>
+                  <td style="text-align: right;">${formatMoney(e.epf8Lkr, 2)}</td>
+                  <td style="text-align: right;">${formatMoney(e.epf12Lkr, 2)}</td>
+                  <td style="text-align: right;">${formatMoney(e.etf3Lkr, 2)}</td>
                   <td style="text-align: right; padding: 2px 4px;">
                     <input type="number" step="1" min="0"
                       value="${Math.round(e.apit || 0)}"
@@ -9613,7 +9613,7 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
-                  <td style="text-align: right; font-weight: 700; color: #047857; font-size: 11.5px;">${formatMoney(e.netSalaryLkr, 0)}</td>
+                  <td style="text-align: right; font-weight: 700; color: #047857; font-size: 11.5px;">${formatMoney(e.netSalaryLkr, 2)}</td>
                   <td style="text-align: left; font-family: monospace;">${escapeHtml(e.bankAccountNo)}${e.bankCode ? `(${escapeHtml(e.bankCode)})` : ''}</td>
                   <td style="text-align: center;">${escapeHtml(e.tinNo || '-')}</td>
                   <td style="text-align: center;">${escapeHtml(e.idNo || '-')}</td>
@@ -9631,12 +9631,12 @@ function renderPayrollSheet(container) {
                 <td style="text-align: right;">${formatMoney(totals.sumLkrGross || 0, 2)}</td>
                 <td></td>
                 <td style="text-align: right;">${formatMoney(totals.sumLkrGross || 0, 2)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEpf8Lkr, 0)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, 0)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 0)}</td>
-                <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, 0)}</td>
-                <td style="text-align: right; color: #b45309; font-weight: 700;">${formatMoney(totals.sumOtherDeductionsLkr || 0, 0)}</td>
-                <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 800;">${formatMoney(totals.sumNetSalaryLkr, 0)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEpf8Lkr, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 2)}</td>
+                <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, 2)}</td>
+                <td style="text-align: right; color: #b45309; font-weight: 700;">${formatMoney(totals.sumOtherDeductionsLkr || 0, 2)}</td>
+                <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 800;">${formatMoney(totals.sumNetSalaryLkr, 2)}</td>
                 <td colspan="5"></td>
               </tr>
             </tbody>
@@ -9688,8 +9688,8 @@ function renderPayrollSheet(container) {
                   <td style="text-align: right;">${formatMoney(e.gbpSalary, 2)}</td>
                   <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
                   <td style="text-align: right; font-weight: 600;">${formatMoney(e.earnedGbp, 2)}</td>
-                  <td style="text-align: right;">${formatMoney(e.epf12Gbp, 0)}</td>
-                  <td style="text-align: right;">${formatMoney(e.etf3Gbp, 0)}</td>
+                  <td style="text-align: right;">${formatMoney(e.epf12Gbp, 2)}</td>
+                  <td style="text-align: right;">${formatMoney(e.etf3Gbp, 2)}</td>
                   <td style="text-align: right; font-weight: 700; color: #1e3a8a;">${formatMoney(e.totalGbp, 2)}</td>
                   <td style="text-align: left; font-family: monospace;">${escapeHtml(e.bankAccountNo)}${e.bankCode ? `(${escapeHtml(e.bankCode)})` : ''}</td>
                   <td style="text-align: center;">${escapeHtml(e.tinNo || '-')}</td>
@@ -9709,8 +9709,8 @@ function renderPayrollSheet(container) {
                 <td style="text-align: right;">${formatMoney(totals.sumGbpSalary, 2)}</td>
                 <td></td>
                 <td style="text-align: right;">${formatMoney(totals.sumEarnedGbp, 2)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEpf12Gbp, 0)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEtf3Gbp, 0)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEpf12Gbp, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEtf3Gbp, 2)}</td>
                 <td style="text-align: right; font-size: 11.5px;">${formatMoney(totals.sumTotalGbp, 2)}</td>
                 <td colspan="5"></td>
               </tr>
@@ -9731,7 +9731,7 @@ function renderPayrollSheet(container) {
 
           <!-- TABLE 2: LKR SALARY SHEET -->
           <div class="excel-header-title flex items-center justify-between border-t-2 border-slate-300">
-            <span>SALARY SHEET (IN LKR) - ${p.month.toUpperCase()} @ ${formatMoney(p.exchangeRate, 0)}</span>
+            <span>SALARY SHEET (IN LKR) - ${p.month.toUpperCase()} @ ${formatMoney(p.exchangeRate, 2)}</span>
             <span class="text-[11px] font-normal text-slate-500">Exchange Rate: @${formatMoney(p.exchangeRate, 2)} LKR/${foreignCurr}</span>
           </div>
 
@@ -9763,9 +9763,9 @@ function renderPayrollSheet(container) {
                   <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
                   <td style="text-align: right;">${formatMoney(e.earnedGbp, 2)}</td>
                   <td style="text-align: right; font-weight: 600;">${formatMoney(e.lkrGross, 0)}</td>
-                  <td style="text-align: right;">${formatMoney(e.epf8Lkr, 0)}</td>
-                  <td style="text-align: right;">${formatMoney(e.epf12Lkr, 0)}</td>
-                  <td style="text-align: right;">${formatMoney(e.etf3Lkr, 0)}</td>
+                  <td style="text-align: right;">${formatMoney(e.epf8Lkr, 2)}</td>
+                  <td style="text-align: right;">${formatMoney(e.epf12Lkr, 2)}</td>
+                  <td style="text-align: right;">${formatMoney(e.etf3Lkr, 2)}</td>
                   <td style="text-align: right; padding: 2px 4px;">
                     <input type="number" step="1" min="0"
                       value="${Math.round(e.apit || 0)}"
@@ -9787,7 +9787,7 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
-                  <td style="text-align: right; font-weight: 700; color: #047857; font-size: 11.5px;">${formatMoney(e.netSalaryLkr, 0)}</td>
+                  <td style="text-align: right; font-weight: 700; color: #047857; font-size: 11.5px;">${formatMoney(e.netSalaryLkr, 2)}</td>
                 </tr>
               `).join('')}
 
@@ -9798,12 +9798,12 @@ function renderPayrollSheet(container) {
                 <td></td>
                 <td style="text-align: right;">${formatMoney(totals.sumEarnedGbp, 2)}</td>
                 <td style="text-align: right; font-weight: 700;">${formatMoney(totals.sumLkrGross, 0)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEpf8Lkr, 0)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, 0)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 0)}</td>
-                <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, 0)}</td>
-                <td style="text-align: right; color: #b45309; font-weight: 700;">${formatMoney(totals.sumOtherDeductionsLkr || 0, 0)}</td>
-                <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 800;">${formatMoney(totals.sumNetSalaryLkr, 0)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEpf8Lkr, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 2)}</td>
+                <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, 2)}</td>
+                <td style="text-align: right; color: #b45309; font-weight: 700;">${formatMoney(totals.sumOtherDeductionsLkr || 0, 2)}</td>
+                <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 800;">${formatMoney(totals.sumNetSalaryLkr, 2)}</td>
               </tr>
             </tbody>
           </table>
@@ -9906,6 +9906,118 @@ function updateActiveInvoiceNo(val) {
   }
 }
 
+
+function getAvailableLetterheads() {
+  return (payrollData && payrollData.letterheads && payrollData.letterheads.length > 0)
+    ? payrollData.letterheads
+    : [
+        { id: 'lh_spillburg', name: 'Spillburg Holdings (Default)', url: '/public/spillburg_letterhead.jpg' },
+        { id: 'lh_vacation', name: 'Spillburg Vacation', url: '/public/spillburg_vacation_letterhead.jpg' }
+      ];
+}
+
+function getActiveLetterheadUrl() {
+  const p = activePayrollPeriod;
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p?.companyId) || (payrollData?.companies && payrollData.companies[0]) || {};
+  return p?.letterheadUrl || currentComp?.letterheadUrl || '/public/spillburg_letterhead.jpg';
+}
+
+async function handleLetterheadChange(val) {
+  if (val === '__upload__') {
+    const fileInput = document.getElementById('letterheadFileInput');
+    if (fileInput) fileInput.click();
+    return;
+  }
+  if (!activePayrollPeriod) return;
+  activePayrollPeriod.letterheadUrl = val;
+  const currentComp = (payrollData?.companies || []).find(c => c.id === activePayrollPeriod.companyId);
+  if (currentComp) currentComp.letterheadUrl = val;
+
+  try {
+    await fetch('/api/payroll/period', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        id: activePayrollPeriod.id,
+        letterheadUrl: val
+      })
+    });
+  } catch (e) {
+    console.error('Failed to sync letterhead choice:', e);
+  }
+  if (typeof renderActivePayrollSubTab === 'function') {
+    renderActivePayrollSubTab();
+  }
+}
+
+async function uploadNewLetterhead(event) {
+  const file = event.target?.files?.[0];
+  if (!file) return;
+
+  const defaultName = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+  const title = prompt('Enter a title/label for this Letterhead:', defaultName);
+  if (title === null) {
+    event.target.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async function() {
+    try {
+      const payload = {
+        title: title.trim() || defaultName,
+        filename: file.name,
+        data: reader.result,
+        companyId: activePayrollPeriod?.companyId || ''
+      };
+      const res = await fetch('/api/payroll/upload-letterhead', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (!payrollData.letterheads) payrollData.letterheads = [];
+        payrollData.letterheads.push(data.letterhead);
+        if (activePayrollPeriod) activePayrollPeriod.letterheadUrl = data.url;
+        const currentComp = (payrollData?.companies || []).find(c => c.id === activePayrollPeriod?.companyId);
+        if (currentComp) currentComp.letterheadUrl = data.url;
+        alert('Letterhead uploaded and applied successfully!');
+        if (typeof refreshPayrollData === 'function') {
+          await refreshPayrollData();
+        }
+      } else {
+        alert('Failed to upload letterhead: ' + (data.error || 'Server error'));
+      }
+    } catch (err) {
+      alert('Error uploading letterhead: ' + err.message);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderLetterheadSelector(activeUrl) {
+  const lhs = getAvailableLetterheads();
+  const options = lhs.map(lh => `<option value="${escapeHtml(lh.url)}" ${lh.url === activeUrl ? 'selected' : ''}>${escapeHtml(lh.name)}</option>`).join('');
+  return `
+    <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 select-none">
+      <i data-lucide="image" class="w-3.5 h-3.5 text-slate-500"></i>
+      <span class="whitespace-nowrap">Letterhead:</span>
+      <select onchange="handleLetterheadChange(this.value)" class="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-medium focus:ring-teal-500 cursor-pointer">
+        ${options}
+        <option value="__upload__">+ Upload New Letterhead...</option>
+      </select>
+      <input type="file" id="letterheadFileInput" accept="image/*,.pdf" style="display:none;" onchange="uploadNewLetterhead(event)">
+    </div>
+  `;
+}
+
 function renderStaffCostSummary(container) {
   const p = activePayrollPeriod;
   if (!p) {
@@ -9915,6 +10027,7 @@ function renderStaffCostSummary(container) {
   const emps = p.employees || [];
   const totals = p.totals || {};
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const activeLhUrl = getActiveLetterheadUrl();
   const isSingleLkr = (currentComp.currencyMode === 'single') || (p.currencyMode === 'single') || (!currentComp.foreignCurrency && currentComp.baseCurrency === 'LKR') || (currentComp.foreignCurrency === 'LKR');
   const foreignCurr = isSingleLkr ? 'LKR' : (currentComp.foreignCurrency || 'GBP');
   const currSign = isSingleLkr ? 'Rs.' : (foreignCurr === 'GBP' ? '\u00A3' : (foreignCurr === 'USD' ? '$' : (foreignCurr === 'EUR' ? '\u20AC' : foreignCurr + ' ')));
@@ -9970,7 +10083,7 @@ function renderStaffCostSummary(container) {
   const bankCharges = p.bankCharges !== undefined ? Number(p.bankCharges) : defaultBankCharges;
   const withBankCharges = sumTotalCost + bankCharges;
   const invoiceNo = p.invoiceNo || (isSingleLkr ? `SBH-${p.monthCode || 'OCT26'}` : 'SBH007');
-  const invoiceDate = p.letterDate || p.date || '22.09.2026';
+  const invoiceDate = p.letterDate || p.date || '31.10.2026';
   const periodMonth = (p.month || 'September 2026').toUpperCase();
 
   container.innerHTML = `
@@ -9987,10 +10100,11 @@ function renderStaffCostSummary(container) {
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <!-- Dynamic Letterhead Toggle -->
+          <!-- Dynamic Letterhead Selector & Toggle -->
+          ${renderLetterheadSelector(activeLhUrl)}
           <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition border border-slate-200 select-none">
             <input type="checkbox" id="toggleStaffCostLetterheadPreview" ${staffCostLetterheadEnabled ? 'checked' : ''} onchange="toggleStaffCostLetterhead(this.checked)" class="rounded text-teal-600 focus:ring-teal-500">
-            <span>Use Spillburg Letterhead</span>
+            <span>Use Letterhead</span>
           </label>
 
           <button onclick="printStaffCostSummary()"
@@ -10015,7 +10129,7 @@ function renderStaffCostSummary(container) {
 
       <!-- Visual Preview of Staff Cost Summary matching Staff cost summary.pdf -->
       <div class="staff-cost-container">
-        <div class="staff-cost-sheet ${staffCostLetterheadEnabled ? '' : 'no-letterhead'}">
+        <div class="staff-cost-sheet ${staffCostLetterheadEnabled ? '' : 'no-letterhead'}" style="${staffCostLetterheadEnabled ? `background-image: url('${escapeHtml(activeLhUrl)}'); background-size: 100% 100%; background-repeat: no-repeat;` : ''}">
 
           <!-- Letterhead Header Space (Top of A4) -->
           <div style="display: flex; justify-content: flex-end; align-items: flex-start; min-height: 52px; margin-bottom: 8px;">
@@ -10170,12 +10284,12 @@ function renderStaffCostSummary(container) {
           <!-- Date & Beneficiary Banking Details matching Reference -->
           <div style="font-size: 10.5px; color: #000; line-height: 1.45; margin-top: 12px; margin-bottom: 12px;">
             <div style="margin-bottom: 3px;"><strong>Date</strong> : ${escapeHtml(invoiceDate)}</div>
-            <div><strong>Beneficiary</strong>: ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || currentComp.name || 'Spillburg Holdings (Private) Limited')}</div>
+            <div><strong>Beneficiary</strong>: ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')}</div>
             <div style="display: grid; grid-template-columns: 80px 1fr; gap: 1px;">
-              <span><strong>Bank</strong></span><span>: ${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC (NTB)')}</span>
+              <span><strong>Bank</strong></span><span>: ${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC')}</span>
               <span><strong>Branch</strong></span><span>: ${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')}</span>
-              <span><strong>Address</strong></span><span>: ${escapeHtml(p.bankAddress || currentComp.bankAddress || '67 D S Senanayake Mawatha Colombo 08 SriLanka').replace(/\n/g, ' ')}</span>
-              <span><strong>Ac No</strong></span><span>: <strong style="font-family: monospace;">${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001-5000-7554')}</strong></span>
+              <span><strong>Address</strong></span><span>: ${escapeHtml(p.bankAddress || currentComp.bankAddress || '67 D.S. Senanayake Mawatha, Colombo 08.').replace(/\n/g, ' ')}</span>
+              <span><strong>Ac No</strong></span><span>: <strong style="font-family: monospace;">${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')}</strong></span>
               ${currentComp.swiftCode ? `<span><strong>Swift Code</strong></span><span>: <strong style="font-family: monospace;">${escapeHtml(currentComp.swiftCode)}</strong></span>` : ''}
             </div>
           </div>
@@ -10200,6 +10314,7 @@ function renderStaffCostSummary(container) {
 let epfDragModeActive = false;
 
 const defaultEpfFormCPositions = {
+  epf_c_employer: { left: '6.0%', top: '8.2%', width: '40.0%', height: '13.0%' },
   epf_c_reg_no: { left: '66.8%', top: '9.8%', width: '22.0%', height: '2.5%' },
   epf_c_month_year: { left: '66.8%', top: '13.5%', width: '22.0%', height: '2.5%' },
   epf_c_total_contrib: { left: '74.0%', top: '16.7%', width: '15.0%', height: '2.2%' },
@@ -10535,6 +10650,12 @@ function renderEpfFormC(container) {
   }
 
   // Header & Summary Field positions
+  const pEmployer = getEpfFieldPos('epf_c_employer');
+  const defaultEmployerText = p.epfEmployerCustom || [
+    (currentComp.name || '').toUpperCase(),
+    currentComp.addressLine1 || currentComp.address || '',
+    currentComp.addressLine2 || ''
+  ].filter(Boolean).join('\n');
   const pReg = getEpfFieldPos('epf_c_reg_no');
   const pMonth = getEpfFieldPos('epf_c_month_year');
   const pContrib = getEpfFieldPos('epf_c_total_contrib');
@@ -10619,6 +10740,9 @@ function renderEpfFormC(container) {
       <div class="form-portrait-scroll-wrapper">
         <div class="form-c-portrait-sheet ${epfDragModeActive ? 'epf-drag-active' : ''}" id="epfFormCSheet">
           
+          <!-- Top Left Employer Name & Address Box (Postal M-13 Window Box) -->
+          <textarea id="epf_c_employer" onchange="saveEpfOverlayEdits()" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; font-weight: 700; line-height: 1.35; overflow: hidden; resize: none; background: rgba(255, 255, 255, 0.9);" title="Employer Name & Address (M-13 Box)">${escapeHtml(defaultEmployerText)}</textarea>
+
           <!-- EPF Reg No (Right cell of Row 1) -->
           <input type="text" id="epf_c_reg_no" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(epfRegNo)}" placeholder="EPF Reg No" title="Employer Registration Number">
 
@@ -11080,6 +11204,7 @@ function renderBankRequestLetter(container) {
   const emps = p.employees || [];
   const totals = p.totals || {};
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const activeLhUrl = getActiveLetterheadUrl();
 
   container.innerHTML = `
     <div class="space-y-4 fade-in">
@@ -11092,7 +11217,8 @@ function renderBankRequestLetter(container) {
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <!-- Letterhead Toggle -->
+          <!-- Letterhead Selector & Toggle -->
+          ${renderLetterheadSelector(activeLhUrl)}
           <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition border border-slate-200">
             <input type="checkbox" id="toggleLetterheadPreview" ${bankLetterheadEnabled ? 'checked' : ''} onchange="toggleBankLetterhead(this.checked)" class="rounded text-teal-600 focus:ring-teal-500">
             <span>Use Letterhead</span>
@@ -11114,11 +11240,11 @@ function renderBankRequestLetter(container) {
 
       <!-- Visual Preview of Bank Request Letter on Letterhead -->
       <div class="bank-letter-container">
-        <div class="bank-letter-sheet ${bankLetterheadEnabled ? '' : 'no-letterhead'}">
+        <div class="bank-letter-sheet ${bankLetterheadEnabled ? '' : 'no-letterhead'}" style="${bankLetterheadEnabled ? `background-image: url('${escapeHtml(activeLhUrl)}'); background-size: 100% 100%; background-repeat: no-repeat;` : ''}">
 
           <!-- Date -->
           <div style="margin-bottom: 12px; font-weight: 600;">
-            ${escapeHtml(p.letterDate || '30.09.2026')}
+            ${escapeHtml(p.letterDate || '31.10.2026')}
           </div>
 
           <!-- Addressee -->
@@ -11126,7 +11252,7 @@ function renderBankRequestLetter(container) {
             <div>The Manager</div>
             <div style="font-weight: 500;">${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC')},</div>
             <div>${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')},</div>
-            <div>${(p.bankAddress || currentComp.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.').split('\n').map(l => escapeHtml(l)).join('<br>')}</div>
+            <div>${(p.bankAddress || currentComp.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.').split('\n').map(l => escapeHtml(l.trim())).join('<br>')}</div>
           </div>
 
           <!-- Salutation -->
@@ -11170,7 +11296,7 @@ function renderBankRequestLetter(container) {
 
           <!-- Debit Authorization Paragraph -->
           <div style="margin-top: 10px; line-height: 1.4; text-align: justify;">
-            Please be kind enough to remit the respective amount for above mentioned staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || currentComp.name || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
+            Please be kind enough to remit the respective amount for above mentioned staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
           </div>
 
           <!-- Sign-off Block -->
@@ -11215,7 +11341,7 @@ function renderIndividualPayslips(container) {
             class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500">
             ${emps.map(e => `
               <option value="${e.id}" ${e.id === selectedEmp.id ? 'selected' : ''}>
-                ${e.no}. ${escapeHtml((e.name || '').toUpperCase())} (&pound;${formatMoney(e.gbpSalary, 0)})
+                ${e.no}. ${escapeHtml((e.name || '').toUpperCase())} (&pound;${formatMoney(e.gbpSalary, 2)})
               </option>
             `).join('')}
           </select>
@@ -11349,7 +11475,7 @@ function generatePayslipHtml(emp, period) {
           <td style="font-weight: bold; text-align: right; background: #f1f5f9;">LKR</td>
         </tr>
         <tr>
-          <td>${comp.currencyMode === 'single' ? 'Basic Pay' : `Basic Pay (${escapeHtml(comp.foreignCurrency || 'GBP')} ${formatMoney(emp.earnedGbp, 0)} @${formatMoney(period.exchangeRate, 0)})`}</td>
+          <td>${comp.currencyMode === 'single' ? 'Basic Pay' : `Basic Pay (${escapeHtml(comp.foreignCurrency || 'GBP')} ${formatMoney(emp.earnedGbp, 2)} @${formatMoney(period.exchangeRate, 2)})`}</td>
           <td style="text-align: right;">${formatMoney(emp.lkrGross, 2)}</td>
         </tr>
         <tr>
@@ -12219,7 +12345,7 @@ function openEditBankDetailsModal() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Letter Date</label>
-            <input type="text" id="bankLetterDate" value="${escapeHtml(p.letterDate || '30.09.2026')}" required
+            <input type="text" id="bankLetterDate" value="${escapeHtml(p.letterDate || '31.10.2026')}" required
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
           </div>
           <div>
@@ -12266,6 +12392,13 @@ function openEditBankDetailsModal() {
             <input type="text" id="bankAuthorizedCompanyInput" value="${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || '')}"
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg" placeholder="${escapeHtml(currentComp.name || '')}">
           </div>
+        </div>
+
+        <div class="pt-1">
+          <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 select-none">
+            <input type="checkbox" id="bankSaveToCompany" checked class="rounded text-teal-600 focus:ring-teal-500">
+            <span>Also save these bank &amp; debit details as company defaults for ${escapeHtml(currentComp.name || 'this company')}</span>
+          </label>
         </div>
 
         <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
@@ -12349,7 +12482,7 @@ function openEditStaffCostModal() {
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Invoice Date</label>
-            <input type="text" id="staffCostDate" value="${escapeHtml(p.letterDate || p.date || '30.09.2026')}" required
+            <input type="text" id="staffCostDate" value="${escapeHtml(p.letterDate || p.date || '31.10.2026')}" required
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
           </div>
           <div>
@@ -12361,6 +12494,43 @@ function openEditStaffCostModal() {
             <label class="block font-semibold text-slate-700 mb-1">Parent Group Entity</label>
             <input type="text" id="staffCostParentGroup" value="${escapeHtml(currentComp.parentGroup || '')}" placeholder="Leave blank if no parent group"
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-200">
+          <h4 class="font-bold text-slate-800 mb-2">Beneficiary &amp; Banking Information (Recharge Settlement)</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Beneficiary Name</label>
+              <input type="text" id="staffCostDebitName" value="${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')}" required
+                class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Bank Name</label>
+              <input type="text" id="staffCostBankName" value="${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC')}" required
+                class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Bank Branch</label>
+              <input type="text" id="staffCostBankBranch" value="${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')}" required
+                class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-700 mb-1">Account Number</label>
+              <input type="text" id="staffCostDebitAcc" value="${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')}" required
+                class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
+            </div>
+          </div>
+          <div class="mt-2.5">
+            <label class="block font-semibold text-slate-700 mb-1">Bank Address</label>
+            <textarea id="staffCostBankAddress" rows="2" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">${escapeHtml(p.bankAddress || currentComp.bankAddress || '67 D.S. Senanayake Mawatha, Colombo 08.')}</textarea>
+          </div>
+          <div class="pt-2">
+            <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 select-none">
+              <input type="checkbox" id="staffCostSaveToCompany" checked class="rounded text-teal-600 focus:ring-teal-500">
+              <span>Also save these bank details as company defaults for ${escapeHtml(currentComp.name || 'this company')}</span>
+            </label>
           </div>
         </div>
 
@@ -12385,7 +12555,12 @@ async function submitStaffCostDetails(e) {
     id: activePayrollPeriod.id,
     invoiceNo: document.getElementById('staffCostInvoiceNo').value.trim(),
     letterDate: document.getElementById('staffCostDate').value.trim(),
-    bankCharges: parseFloat(document.getElementById('staffCostBankCharges').value) || 0
+    bankCharges: parseFloat(document.getElementById('staffCostBankCharges').value) || 0,
+    debitAccountName: document.getElementById('staffCostDebitName') ? document.getElementById('staffCostDebitName').value.trim() : undefined,
+    bankName: document.getElementById('staffCostBankName') ? document.getElementById('staffCostBankName').value.trim() : undefined,
+    bankBranch: document.getElementById('staffCostBankBranch') ? document.getElementById('staffCostBankBranch').value.trim() : undefined,
+    bankAddress: document.getElementById('staffCostBankAddress') ? document.getElementById('staffCostBankAddress').value.trim() : undefined,
+    debitAccountNo: document.getElementById('staffCostDebitAcc') ? document.getElementById('staffCostDebitAcc').value.trim() : undefined
   };
 
   try {
@@ -12413,6 +12588,7 @@ async function submitStaffCostDetails(e) {
 async function saveEpfOverlayEdits() {
   if (!activePayrollPeriod || !canEdit('payroll')) return;
   const p = activePayrollPeriod;
+  const employerEl = document.getElementById('epf_c_employer');
   const regNoEl = document.getElementById('epf_c_reg_no');
   const chequeEl = document.getElementById('epf_c_cheque_no');
   const surchEl = document.getElementById('epf_c_surcharges');
@@ -12421,6 +12597,7 @@ async function saveEpfOverlayEdits() {
   const dateEl = document.getElementById('epf_c_date');
 
   const payload = { id: p.id };
+  if (employerEl) payload.epfEmployerCustom = employerEl.value;
   if (regNoEl) payload.epfRegNo = regNoEl.value.trim();
   if (chequeEl) payload.epfChequeNo = chequeEl.value.trim();
   if (surchEl) payload.epfSurcharges = surchEl.value.trim();
@@ -12581,6 +12758,11 @@ function openEditEpfModal() {
             <textarea id="epfBankBranchInput" rows="2"
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">${escapeHtml(epfBankBranch)}</textarea>
           </div>
+          <div class="md:col-span-2">
+            <label class="block font-semibold text-slate-700 mb-1">Employer Name &amp; Address (M-13 Postage Box)</label>
+            <textarea id="epfEmployerInput" rows="3"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-bold">${escapeHtml(document.getElementById('epf_c_employer')?.value || p.epfEmployerCustom || [(currentComp.name || '').toUpperCase(), currentComp.addressLine1 || currentComp.address || '', currentComp.addressLine2 || ''].filter(Boolean).join('\n'))}</textarea>
+          </div>
         </div>
 
         <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
@@ -12607,7 +12789,8 @@ async function submitEpfDetails(e) {
     epfSurcharges: document.getElementById('epfSurchargesInput').value.trim() || '0.00',
     letterDate: document.getElementById('epfDateInput').value.trim(),
     phone: document.getElementById('epfPhoneInput').value.trim(),
-    epfBankBranchCustom: document.getElementById('epfBankBranchInput').value.trim()
+    epfBankBranchCustom: document.getElementById('epfBankBranchInput').value.trim(),
+    epfEmployerCustom: document.getElementById('epfEmployerInput') ? document.getElementById('epfEmployerInput').value.trim() : undefined
   };
 
   try {
@@ -13914,7 +14097,7 @@ function printMasterSalarySheet() {
         </div>
 
         <!-- TABLE 2: LKR SALARY SHEET -->
-        <div class="header-title" style="margin-top: 10px;">SALARY SHEET (IN LKR) - ${p.month.toUpperCase()} @ ${formatMoney(p.exchangeRate, 0)}</div>
+        <div class="header-title" style="margin-top: 10px;">SALARY SHEET (IN LKR) - ${p.month.toUpperCase()} @ ${formatMoney(p.exchangeRate, 2)}</div>
         <table>
           <thead>
             <tr>
@@ -13986,6 +14169,7 @@ function printBankRequestLetter() {
   const emps = p.employees || [];
   const totals = p.totals || {};
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const activeLhUrl = getActiveLetterheadUrl();
 
   const printWin = window.open('', '_blank');
   if (!printWin) {
@@ -14170,7 +14354,7 @@ function printBankRequestLetter() {
       </div>
 
       <div class="letterhead-bg">
-        <img src="/public/spillburg_letterhead.jpg" alt="Spillburg Letterhead">
+        <img src="${escapeHtml(activeLhUrl)}" alt="Company Letterhead">
       </div>
 
       <table class="print-layout-table">
@@ -14227,7 +14411,7 @@ function printBankRequestLetter() {
                 </table>
 
                 <div class="debit-note">
-                  Please be kind enough to remit the respective amount for above mentioned staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || currentComp.name || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
+                  Please be kind enough to remit the respective amount for above mentioned staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
                 </div>
 
                 <div class="signoff-block">
@@ -14688,6 +14872,7 @@ function printStaffCostSummary() {
   const emps = p.employees || [];
   const totals = p.totals || {};
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const activeLhUrl = getActiveLetterheadUrl();
   const isSingleLkr = (currentComp.currencyMode === 'single') || (p.currencyMode === 'single') || (!currentComp.foreignCurrency && currentComp.baseCurrency === 'LKR') || (currentComp.foreignCurrency === 'LKR');
   const foreignCurr = isSingleLkr ? 'LKR' : (currentComp.foreignCurrency || 'GBP');
   const currSign = isSingleLkr ? 'Rs.' : (foreignCurr === 'GBP' ? '\u00A3' : (foreignCurr === 'USD' ? '$' : (foreignCurr === 'EUR' ? '\u20AC' : foreignCurr + ' ')));
@@ -14736,7 +14921,7 @@ function printStaffCostSummary() {
   const bankCharges = p.bankCharges !== undefined ? Number(p.bankCharges) : defaultBankCharges;
   const withBankCharges = sumTotalCost + bankCharges;
   const invoiceNo = document.getElementById('staffCostInvoiceNoInput')?.value || p.invoiceNo || (isSingleLkr ? `SBH-${p.monthCode || 'OCT26'}` : 'SBH007');
-  const invoiceDate = p.letterDate || p.date || '22.09.2026';
+  const invoiceDate = p.letterDate || p.date || '31.10.2026';
   const periodMonth = (p.month || 'September 2026').toUpperCase();
 
   // Read the live state of the letterhead tickbox directly from the DOM
@@ -14805,13 +14990,16 @@ function printStaffCostSummary() {
       </style>
     </head>
     <body>
+      ${isLetterhead ? `
+        <div style="position: fixed; top: 0; left: 0; width: 210mm; height: 297mm; z-index: -1; pointer-events: none;">
+          <img src="${escapeHtml(activeLhUrl)}" alt="Company Letterhead" style="width: 210mm; height: 297mm; display: block;">
+        </div>
+      ` : ''}
       <div class="a4-print-sheet">
         
         <!-- Letterhead Header Space (Top of A4) -->
         <div style="display: flex; justify-content: flex-end; align-items: flex-start; min-height: 15mm; margin-bottom: 2mm;">
-          ${isLetterhead ? `
-            <img src="/public/spillburg_header_logo.png" style="width: 170px; height: auto; object-fit: contain;" alt="Spillburg Holdings">
-          ` : '<div style="height: 15mm;"></div>'}
+          <div style="height: 15mm;"></div>
         </div>
 
         <!-- Company Title & Invoice No (Positioned Below Header Space) -->
@@ -14955,12 +15143,12 @@ function printStaffCostSummary() {
         <!-- Date & Bank Details -->
         <div style="font-size: 7.5pt; line-height: 1.35; margin-bottom: 0;">
           <div><strong>Date</strong> : ${escapeHtml(invoiceDate)}</div>
-          <div><strong>Beneficiary</strong>: ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || currentComp.name || 'Spillburg Holdings (Private) Limited')}</div>
+          <div><strong>Beneficiary</strong>: ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')}</div>
           <div style="display: grid; grid-template-columns: 20mm 1fr; gap: 1px;">
-            <span><strong>Bank</strong></span><span>: ${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC (NTB)')}</span>
+            <span><strong>Bank</strong></span><span>: ${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC')}</span>
             <span><strong>Branch</strong></span><span>: ${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')}</span>
-            <span><strong>Address</strong></span><span>: ${escapeHtml(p.bankAddress || currentComp.bankAddress || '67 D S Senanayake Mawatha Colombo 08 SriLanka').replace(/\n/g, ' ')}</span>
-            <span><strong>Ac No</strong></span><span>: <strong>${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001-5000-7554')}</strong></span>
+            <span><strong>Address</strong></span><span>: ${escapeHtml(p.bankAddress || currentComp.bankAddress || '67 D.S. Senanayake Mawatha, Colombo 08.').replace(/\n/g, ' ')}</span>
+            <span><strong>Ac No</strong></span><span>: <strong>${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')}</strong></span>
             ${currentComp.swiftCode ? `<span><strong>Swift Code</strong></span><span>: <strong>${escapeHtml(currentComp.swiftCode)}</strong></span>` : ''}
           </div>
         </div>
@@ -15081,6 +15269,12 @@ function printEpfFormC() {
   }
 
   // Header & Summary Field positions
+  const pEmployer = getEpfFieldPos('epf_c_employer');
+  const defaultEmployerText = p.epfEmployerCustom || [
+    (currentComp.name || '').toUpperCase(),
+    currentComp.addressLine1 || currentComp.address || '',
+    currentComp.addressLine2 || ''
+  ].filter(Boolean).join('\n');
   const pReg = getEpfFieldPos('epf_c_reg_no');
   const pMonth = getEpfFieldPos('epf_c_month_year');
   const pContrib = getEpfFieldPos('epf_c_total_contrib');
@@ -15145,6 +15339,9 @@ function printEpfFormC() {
     </head>
     <body>
       <div class="print-sheet">
+        <!-- Top Left Employer Name & Address (M-13 Box) -->
+        <div class="field" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 7.5pt; font-weight: bold; white-space: pre-line; line-height: 1.35; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; padding: 2px 4px;">${escapeHtml(document.getElementById('epf_c_employer')?.value || defaultEmployerText)}</div>
+
         <!-- Row 1: Reg No -->
         <div class="field" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(regNo)}</div>
         <!-- Row 2: Month and Year -->

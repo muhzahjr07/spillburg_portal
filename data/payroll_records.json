@@ -27,7 +27,8 @@
       "baseCurrency": "LKR",
       "defaultExchangeRate": 400,
       "phone": "+94 11 233 6116",
-      "email": "info@spillburg.com"
+      "email": "info@spillburg.com",
+      "letterheadUrl": "/public/spillburg_letterhead.jpg"
     },
     {
       "id": "comp_791e81",
@@ -51,7 +52,8 @@
       "epfRegNo": "A - 51349",
       "etfRegNo": "A - 51349",
       "phone": "+94 11 233 6116",
-      "email": "info@spillburg.com"
+      "email": "info@spillburg.com",
+      "letterheadUrl": "/public/spillburg_letterhead.jpg"
     },
     {
       "id": "comp_5eea88",
@@ -59,11 +61,11 @@
       "code": "SPVAC",
       "registrationNo": "PV205419",
       "address": "Office 14, Basement Level, Cinnamon Lakeside Hotel",
-      "bankName": "Nations Trust Bank PLC",
-      "bankBranch": "Borella Branch",
-      "bankAddress": "67 D.S. Senanayake Mawatha, Colombo 08.",
-      "debitAccountNo": "1001 5000 7554",
-      "debitAccountName": "Spillburg Holdings (Private) Limited",
+      "bankName": "Commercial Bank of Ceylon PLC",
+      "bankBranch": "Keyzer Street Branch",
+      "bankAddress": "Commercial Bank of Ceylon PLC, Keyzer Street Branch, 32, Keyzer Street, COLOMBO-11",
+      "debitAccountNo": "1000107348",
+      "debitAccountName": "Spillburg Vacation (Private) Limited",
       "authorizedSignatory": "Shaameel Mohideen",
       "authorizedTitle": "Director - Spillburg Vacation (Pvt) Ltd.",
       "checkedBy": "Hemanthi Basnayake",
@@ -75,7 +77,8 @@
       "epfRegNo": "A - 55322",
       "etfRegNo": "A - 55322",
       "phone": "+94 11 233 6116",
-      "email": "info@spillburg.com"
+      "email": "info@spillburg.com",
+      "letterheadUrl": "/public/spillburg_vacation_letterhead.jpg"
     }
   ],
   "activePeriodId": "period_d447b5",
@@ -97,7 +100,7 @@
       "authorizedCompany": "Spillburg Holdings (Pvt) Ltd.",
       "bankName": "Nations Trust Bank PLC",
       "bankBranch": "Borella Branch",
-      "bankAddress": "67 D.S. Senanayake Mawatha,\nColombo 08.",
+      "bankAddress": "67 D.S. Senanayake Mawatha, Colombo 08.",
       "debitAccountNo": "1001 5000 7554",
       "debitAccountName": "Spillburg Holdings (Private) Limited",
       "employees": [
@@ -360,7 +363,8 @@
       "etfRegNo": "A - 61279",
       "epfChequeNo": "CHQ-890214",
       "etfChequeNo": "ETF-CHQ-7721",
-      "createdAt": "2026-09-30T09:00:00Z"
+      "createdAt": "2026-09-30T09:00:00Z",
+      "letterheadUrl": "/public/spillburg_letterhead.jpg"
     },
     {
       "id": "period_2026_08",
@@ -611,7 +615,8 @@
       ],
       "createdAt": "2026-08-31T09:00:00Z",
       "epfRegNo": "A - 61279",
-      "etfRegNo": "A - 61279"
+      "etfRegNo": "A - 61279",
+      "letterheadUrl": "/public/spillburg_letterhead.jpg"
     },
     {
       "id": "period_8f9a05",
@@ -918,7 +923,8 @@
       "etfRegNo": "A - 61279",
       "epfChequeNo": "CHQ-890215",
       "etfChequeNo": "ETF-CHQ-7722",
-      "createdAt": "2026-10-23T08:32:33Z"
+      "createdAt": "2026-10-23T08:32:33Z",
+      "letterheadUrl": "/public/spillburg_letterhead.jpg"
     },
     {
       "id": "period_8ae2c5",
@@ -1074,7 +1080,8 @@
         }
       ],
       "epfRegNo": "A - 51349",
-      "etfRegNo": "A - 51349"
+      "etfRegNo": "A - 51349",
+      "letterheadUrl": "/public/spillburg_letterhead.jpg"
     },
     {
       "id": "period_d447b5",
@@ -1097,14 +1104,27 @@
       "checkedTitle": null,
       "authorizedSignatory": "Shaameel Mohideen",
       "authorizedCompany": null,
-      "bankName": "Nations Trust Bank PLC",
-      "bankBranch": "Borella Branch",
-      "bankAddress": "67 D.S. Senanayake Mawatha, Colombo 08.",
-      "debitAccountNo": "1001 5000 7554",
-      "debitAccountName": "Spillburg Holdings (Private) Limited",
+      "bankName": "Commercial Bank of Ceylon PLC",
+      "bankBranch": "Keyzer Street Branch",
+      "bankAddress": "Commercial Bank of Ceylon PLC, Keyzer Street Branch, 32, Keyzer Street, COLOMBO-11",
+      "debitAccountNo": "1000107348",
+      "debitAccountName": "Spillburg Vacation (Private) Limited",
       "employees": [],
       "epfRegNo": "A - 55322",
-      "etfRegNo": "A - 55322"
+      "etfRegNo": "A - 55322",
+      "letterheadUrl": "/public/spillburg_vacation_letterhead.jpg"
+    }
+  ],
+  "letterheads": [
+    {
+      "id": "lh_spillburg",
+      "name": "Spillburg Holdings (Default)",
+      "url": "/public/spillburg_letterhead.jpg"
+    },
+    {
+      "id": "lh_vacation",
+      "name": "Spillburg Vacation",
+      "url": "/public/spillburg_vacation_letterhead.jpg"
     }
   ]
 }

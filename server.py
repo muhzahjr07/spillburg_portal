@@ -3463,12 +3463,78 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 target_comp = {"id": comp_id}
                 comps.append(target_comp)
             
-            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate", "parentGroup", "parentAddress", "epfRegNo", "etfRegNo", "phone", "email", "swiftCode"]:
+            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate", "parentGroup", "parentAddress", "epfRegNo", "etfRegNo", "phone", "email", "swiftCode", "letterheadUrl"]:
                 if k in body:
                     target_comp[k] = body[k]
             
             save_payroll_records()
             self.send_json({"success": True, "company": target_comp})
+            return
+
+        # 12. Payroll: Upload Letterhead (image or PDF)
+        elif path == "/api/payroll/upload-letterhead":
+            user = self.require_permission("payroll", "editor")
+            if not user: return
+            sync_payroll_from_disk()
+
+            file_name = body.get("name", "custom_letterhead.png")
+            file_data = body.get("data", "")
+            comp_id = body.get("companyId", "")
+
+            if not file_data:
+                self.send_json({"error": "No file data provided"}, 400)
+                return
+
+            import base64
+            if "," in file_data:
+                header, base64_str = file_data.split(",", 1)
+            else:
+                base64_str = file_data
+
+            try:
+                raw_bytes = base64.b64decode(base64_str)
+            except Exception as e:
+                self.send_json({"error": f"Invalid base64 encoding: {e}"}, 400)
+                return
+
+            safe_base = "".join(c if c.isalnum() else "_" for c in os.path.splitext(file_name)[0]).strip("_") or "letterhead"
+            orig_ext = os.path.splitext(file_name)[1].lower()
+
+            out_dir = os.path.join(PUBLIC_DIR, "letterheads")
+            os.makedirs(out_dir, exist_ok=True)
+
+            out_filename = f"{safe_base}_{uuid.uuid4().hex[:6]}.jpg"
+            out_path = os.path.join(out_dir, out_filename)
+
+            if orig_ext == ".pdf":
+                try:
+                    import fitz
+                    pdf_doc = fitz.open(stream=raw_bytes, filetype="pdf")
+                    page = pdf_doc[0]
+                    pix = page.get_pixmap(dpi=200)
+                    pix.save(out_path)
+                except Exception as e:
+                    self.send_json({"error": f"Failed to process PDF letterhead: {e}"}, 500)
+                    return
+            else:
+                with open(out_path, "wb") as f:
+                    f.write(raw_bytes)
+
+            lh_url = f"/public/letterheads/{out_filename}"
+            lh_title = body.get("title") or safe_base.replace("_", " ").title()
+
+            lh_list = PAYROLL_RECORDS.setdefault("letterheads", [])
+            lh_item = {"id": f"lh_{uuid.uuid4().hex[:6]}", "name": lh_title, "url": lh_url}
+            lh_list.append(lh_item)
+
+            if comp_id:
+                for c in PAYROLL_RECORDS.get("companies", []):
+                    if c.get("id") == comp_id:
+                        c["letterheadUrl"] = lh_url
+                        break
+
+            save_payroll_records()
+            self.send_json({"success": True, "letterhead": lh_item, "url": lh_url})
             return
 
         self.send_json({"error": "Endpoint not found"}, 404)
@@ -3620,19 +3686,19 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Period not found"}, 404)
                 return
 
-            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "authorizedTitle", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "invoiceNo", "bankCharges", "epfRegNo", "etfRegNo", "epfChequeNo", "etfChequeNo", "epfSurcharges", "etfSurcharge", "etfBankCharges", "epfBankBranchCustom", "etfBankBranchCustom", "etfEmployerCustom", "completedDate", "currencyMode", "baseCurrency", "etfClarification", "phone", "email", "notes"]:
+            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "authorizedTitle", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "invoiceNo", "bankCharges", "epfRegNo", "etfRegNo", "epfChequeNo", "etfChequeNo", "epfSurcharges", "etfSurcharge", "etfBankCharges", "epfBankBranchCustom", "etfBankBranchCustom", "epfEmployerCustom", "etfEmployerCustom", "letterheadUrl", "completedDate", "currencyMode", "baseCurrency", "etfClarification", "phone", "email", "notes"]:
                 if k in body:
                     if k in ["exchangeRate", "bankCharges"]:
                         target_period[k] = float(body[k])
                     else:
                         target_period[k] = body[k]
 
-            # Also sync company-level statutory registration numbers & contact details if updated for this period's company
+            # Also sync company-level statutory registration numbers, bank details & contact details if updated for this period's company
             comp_id = target_period.get("companyId")
             if comp_id:
                 for c in PAYROLL_RECORDS.get("companies", []):
                     if c.get("id") == comp_id:
-                        for ck in ["epfRegNo", "etfRegNo", "phone", "email"]:
+                        for ck in ["epfRegNo", "etfRegNo", "phone", "email", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "letterheadUrl"]:
                             if ck in body and body[ck] is not None:
                                 c[ck] = body[ck]
                         break
@@ -3709,7 +3775,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Company not found"}, 404)
                 return
 
-            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate", "parentGroup", "parentAddress", "epfRegNo", "etfRegNo", "phone", "email", "swiftCode"]:
+            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate", "parentGroup", "parentAddress", "epfRegNo", "etfRegNo", "phone", "email", "swiftCode", "letterheadUrl"]:
                 if k in body:
                     target_comp[k] = body[k]
 
