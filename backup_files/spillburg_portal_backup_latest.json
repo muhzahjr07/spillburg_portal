@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-30T10:42:17Z",
+  "exportTimestamp": "2026-10-30T10:52:39Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5994,8 +5994,8 @@
             "id": "emp_696168",
             "no": 10,
             "epfNo": "10",
-            "name": "EGODA ARACHCHIGE KUSHANI AMANDA",
-            "shortName": "Kushani Amanda",
+            "name": "EGODA ARACHCHIGE KUSHANI ANURADHA",
+            "shortName": "Egoda Arachchige Kushani Anuradha",
             "position": "QA ENGINEER",
             "gbpSalary": 1539.15,
             "workDays": "",
@@ -6009,13 +6009,14 @@
             "tinNo": "108022086",
             "idNo": "908114167V",
             "dateJoined": "14.09.2026",
-            "specialAllowance": 0,
+            "specialAllowance": 0.0,
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
             "apit": 149801.0,
-            "lkrSalary": 0,
-            "earnedLkr": 0
+            "lkrSalary": 0.0,
+            "earnedLkr": 0.0,
+            "otherDeductions": 0.0
           },
           {
             "id": "emp_c2eb78",
