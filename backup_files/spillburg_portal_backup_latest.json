@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-30T08:41:50Z",
+  "exportTimestamp": "2026-10-30T08:45:59Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5132,7 +5132,7 @@
         "name": "APADMI SL (PRIVATE) LIMITED",
         "code": "APADMI",
         "registrationNo": "PV 00281234",
-        "address": "Level 12, West Tower, World Trade Center, Colombo 01, Sri Lanka",
+        "address": "Office 14, Basement Level, Cinnamon Lakeside Hotel, No 115, Sir Chittampalam A Gardiner Mawatha, Colombo 2, Sri Lanka.",
         "bankName": "Nations Trust Bank PLC",
         "bankBranch": "Borella Branch",
         "bankAddress": "67 D.S. Senanayake Mawatha, Colombo 08.",
