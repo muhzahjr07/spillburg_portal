@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-30T05:42:28Z",
+  "exportTimestamp": "2026-10-30T05:43:00Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -4959,17 +4959,17 @@
       "no": 170,
       "userId": "usr_6b04a953",
       "ownerUsername": "ravi",
-      "title": "Follow Up Labour Dept EPF Registration for ALP Consulting with Mr. Jayasekara",
+      "title": "Contact Labour Dept EPF Division to sort out APL consulting matter, at the time Labour...",
       "requestedBy": "Mr. Shameel",
       "assignedTo": "Ravindralal Mahinda Wijeweera",
-      "workstream": "Statutory & Payroll Compliance",
-      "type": "EPF / ETF / Tax",
-      "taskedDate": "22-Oct-2026",
+      "workstream": "Payroll & Statutory",
+      "type": "EPF / ETF / Payroll",
+      "taskedDate": "29-Oct-2026",
       "completedDate": "",
       "status": "In Progress",
       "priority": "High",
       "estimatedCost": "",
-      "notes": "Labour Officer Mr. Jayasekara requested follow-up on 29/10/2026 regarding ALP Consulting submission to the Labour Commissioner."
+      "notes": "Contact Labour Dept EPF Division to sort out APL consulting matter,at the time Labour officer Jayasekara on leave,Labour commissioner gone for a meeting. To be follow up"
     },
     {
       "id": "ops_88ef74",
@@ -5021,6 +5021,91 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Intergrate tasks for company staff in trackers, for bilal, ravi, hemanthi and insaaf"
+    },
+    {
+      "id": "ops_e5a393",
+      "no": 173,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Went to Comm Bank deposited cash to Spillburg Vacation Acc (Sivarajan)",
+      "requestedBy": "Mr. Hameez",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Banking & Treasury",
+      "type": "Banking & Fund Transfer",
+      "taskedDate": "29-Oct-2026",
+      "completedDate": "29-Oct-2026",
+      "status": "Completed",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Went to Comm Bank deposited cash to Spillburg Vacation Acc (Sivarajan)"
+    },
+    {
+      "id": "ops_cff109",
+      "no": 174,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Contact Piumi Collect account statement for Spillburg Holdings handed over to Mr.Shameel",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Banking & Treasury",
+      "type": "Banking & Fund Transfer",
+      "taskedDate": "29-Oct-2026",
+      "completedDate": "29-Oct-2026",
+      "status": "Completed",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Contact Piumi Collect account statement for Spillburg Holdings handed over to Mr.Shameel"
+    },
+    {
+      "id": "ops_af0fa1",
+      "no": 175,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Follow-Up: Labour Dept EPF Registration Approval with Mr. Jayasekara",
+      "requestedBy": "Muhammad Zaharan",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Payroll & Statutory",
+      "type": "Follow-Up Action",
+      "taskedDate": "29-Oct-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Auto-detected follow-up from work log: Contact Labour Dept EPF Division to sort out APL consulting matter,at the time Labour officer Jayasekara on leave,Labour commissioner gone for a meeting. To be follow up"
+    },
+    {
+      "id": "ops_146ead",
+      "no": 176,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Went Trigital World Order to print 100 visiting cards Mrs Manisha Kannangara To be...",
+      "requestedBy": "Muhammad Zaharan",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Tax, Accounting & Audit",
+      "type": "Tax / Audit Compliance",
+      "taskedDate": "29-Oct-2026",
+      "completedDate": "29-Oct-2026",
+      "status": "Completed",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Went Trigital World Order to print 100 visiting cards Mrs Manisha Kannangara To be collected in the evening"
+    },
+    {
+      "id": "ops_b28227",
+      "no": 177,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Handed over the Hand wash can to Mr.Hameez Residence at Dehiwala",
+      "requestedBy": "Mr. Hameez",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Office Operations",
+      "type": "Field / Office Operations",
+      "taskedDate": "29-Oct-2026",
+      "completedDate": "29-Oct-2026",
+      "status": "Completed",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Handed over the Hand wash can to Mr.Hameez Residence at Dehiwala"
     }
   ],
   "payroll": {
@@ -5708,7 +5793,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 110363
+            "apit": 112712.0
           },
           {
             "id": "emp_fab7b3",
@@ -5733,7 +5818,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 382377
+            "apit": 387852.8
           },
           {
             "id": "emp_550682",
