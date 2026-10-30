@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-30T10:53:51Z",
+  "exportTimestamp": "2026-10-30T11:19:44Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6051,13 +6051,18 @@
         "epfRegNo": "A - 61279",
         "etfRegNo": "A - 61279",
         "epfChequeNo": "366126",
-        "etfChequeNo": "ETF-CHQ-7722",
+        "etfChequeNo": "NTB 366127",
         "createdAt": "2026-10-23T08:32:33Z",
         "letterheadUrl": "/public/spillburg_letterhead.jpg",
         "epfSurcharges": "0.00",
         "epfBankBranchCustom": "Nations Trust Bank PLC\nBorella Branch",
         "epfEmployerCustom": "APADMI SL (PRIVATE) LIMITED\nOffice 14, Basement Level, Cinnamon Lakeside Hotel, No 115, Sir Chittampalam A Gardiner Mawatha, Colombo 2, Sri Lanka.",
-        "phone": "+94 11 233 6116"
+        "phone": "+94 11 233 6116",
+        "etfSurcharge": "0.00",
+        "etfBankCharges": "0.00",
+        "etfBankBranchCustom": "Nations Trust Bank PLC\nBorella Branch",
+        "etfClarification": "",
+        "email": "info@spillburg.com"
       },
       {
         "id": "period_8ae2c5",
