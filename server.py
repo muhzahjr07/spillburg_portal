@@ -1108,6 +1108,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
         
         total_deductions = epf8_lkr + apit + other_deductions
         net_salary_lkr = round(net_total_gross - total_deductions)
+        total_employer_lkr = round(lkr_gross + epf12_lkr + etf3_lkr)
         
         return {
             **emp,
@@ -1126,6 +1127,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             'epf8Lkr': epf8_lkr,
             'epf12Lkr': epf12_lkr,
             'etf3Lkr': etf3_lkr,
+            'totalEmployerLkr': total_employer_lkr,
             'apit': apit,
             'advance': advance,
             'loan': loan,
@@ -1167,6 +1169,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
         
         total_deductions = epf8_lkr + apit + other_deductions
         net_salary_lkr = round(net_total_gross - total_deductions)
+        total_employer_lkr = round(lkr_gross + epf12_lkr + etf3_lkr)
         
         return {
             **emp,
@@ -1183,6 +1186,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             'epf8Lkr': epf8_lkr,
             'epf12Lkr': epf12_lkr,
             'etf3Lkr': etf3_lkr,
+            'totalEmployerLkr': total_employer_lkr,
             'apit': apit,
             'advance': advance,
             'loan': loan,
@@ -1258,6 +1262,7 @@ def enrich_payroll_period(period):
         'sumEpf8Lkr': round(sum_epf8_lkr, 2),
         'sumEpf12Lkr': round(sum_epf12_lkr, 2),
         'sumEtf3Lkr': round(sum_etf3_lkr, 2),
+        'sumTotalEmployerLkr': round(sum_lkr_gross + sum_epf12_lkr + sum_etf3_lkr, 2),
         'sumApitLkr': round(sum_apit_lkr, 2),
         'sumOtherDeductionsLkr': round(sum_other_deductions_lkr, 2),
         'sumDeductionsLkr': round(sum_deductions_lkr, 2),

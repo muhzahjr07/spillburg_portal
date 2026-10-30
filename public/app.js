@@ -9832,7 +9832,24 @@ function getEmployeeCalculatedFields(e, exchangeRate = 440) {
     basicGbp = Number(e.baseSalaryGbp);
   } else if (e.earnedSalaryForeign !== undefined && e.earnedSalaryForeign !== null && e.earnedSalaryForeign !== '') {
     basicGbp = Number(e.earnedSalaryForeign);
-  } else if (e.lkrGross) {
+  }
+
+  // LKR Gross / basic salary (prioritizing direct LKR figures for single currency companies)
+  let lkrGross = 0;
+  if (e.lkrGross !== undefined && e.lkrGross !== null && e.lkrGross !== '') {
+    lkrGross = Number(e.lkrGross);
+  } else if (e.earnedLkr !== undefined && e.earnedLkr !== null && e.earnedLkr !== '') {
+    lkrGross = Number(e.earnedLkr);
+  } else if (e.lkrSalary !== undefined && e.lkrSalary !== null && e.lkrSalary !== '') {
+    lkrGross = Number(e.lkrSalary);
+  } else if (e.baseSalaryLkr !== undefined && e.baseSalaryLkr !== null && e.baseSalaryLkr !== '') {
+    lkrGross = Number(e.baseSalaryLkr);
+  } else if (basicGbp > 0) {
+    lkrGross = Math.round(basicGbp * rate);
+  }
+
+  // If basicGbp is 0 but lkrGross is known and rate > 1 (and not an LKR-only salary), derive basicGbp
+  if (!basicGbp && lkrGross > 0 && e.lkrGross && !e.lkrSalary && rate > 1) {
     basicGbp = Number(e.lkrGross) / rate;
   }
 
@@ -9860,18 +9877,14 @@ function getEmployeeCalculatedFields(e, exchangeRate = 440) {
     totalEmployerGbp = Math.round((basicGbp + epf12Gbp + etf3Gbp) * 100) / 100;
   }
 
-  // LKR Gross
-  let lkrGross = 0;
-  if (e.lkrGross !== undefined && e.lkrGross !== null && e.lkrGross !== '') {
-    lkrGross = Number(e.lkrGross);
-  } else {
-    lkrGross = Math.round(basicGbp * rate);
-  }
-
   let epf8Lkr = (e.epf8Lkr !== undefined && e.epf8Lkr !== null && e.epf8Lkr !== '') ? Number(e.epf8Lkr) : Math.round(lkrGross * 0.08);
   let epf12Lkr = (e.epf12Lkr !== undefined && e.epf12Lkr !== null && e.epf12Lkr !== '') ? Number(e.epf12Lkr) : Math.round(lkrGross * 0.12);
   let epf20Lkr = (e.epf20Lkr !== undefined && e.epf20Lkr !== null && e.epf20Lkr !== '') ? Number(e.epf20Lkr) : (epf8Lkr + epf12Lkr);
   let etf3Lkr = (e.etf3Lkr !== undefined && e.etf3Lkr !== null && e.etf3Lkr !== '') ? Number(e.etf3Lkr) : Math.round(lkrGross * 0.03);
+
+  let totalEmployerLkr = (e.totalEmployerLkr !== undefined && e.totalEmployerLkr !== null && e.totalEmployerLkr !== '')
+    ? Number(e.totalEmployerLkr)
+    : Math.round((lkrGross + epf12Lkr + etf3Lkr) * 100) / 100;
 
   return {
     basicGbp,
@@ -9882,7 +9895,8 @@ function getEmployeeCalculatedFields(e, exchangeRate = 440) {
     epf8Lkr,
     epf12Lkr,
     epf20Lkr,
-    etf3Lkr
+    etf3Lkr,
+    totalEmployerLkr
   };
 }
 
@@ -9901,9 +9915,10 @@ function renderStaffCostSummary(container) {
   const emps = p.employees || [];
   const totals = p.totals || {};
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
-  const foreignCurr = currentComp.foreignCurrency || 'GBP';
-  const currSign = foreignCurr === 'GBP' ? '\u00A3' : (foreignCurr === 'USD' ? '$' : (foreignCurr === 'EUR' ? '\u20AC' : foreignCurr + ' '));
-  const rate = Number(p.exchangeRate) || 440;
+  const isSingleLkr = (currentComp.currencyMode === 'single') || (p.currencyMode === 'single') || (!currentComp.foreignCurrency && currentComp.baseCurrency === 'LKR') || (currentComp.foreignCurrency === 'LKR');
+  const foreignCurr = isSingleLkr ? 'LKR' : (currentComp.foreignCurrency || 'GBP');
+  const currSign = isSingleLkr ? 'Rs.' : (foreignCurr === 'GBP' ? '\u00A3' : (foreignCurr === 'USD' ? '$' : (foreignCurr === 'EUR' ? '\u20AC' : foreignCurr + ' ')));
+  const rate = Number(p.exchangeRate) || (isSingleLkr ? 1 : 440);
 
   let sumBasic = 0;
   let sumEpf12 = 0;
@@ -9912,10 +9927,15 @@ function renderStaffCostSummary(container) {
 
   const empRows = emps.map((e, idx) => {
     const calc = getEmployeeCalculatedFields(e, rate);
-    sumBasic += calc.basicGbp;
-    sumEpf12 += calc.epf12Gbp;
-    sumEtf3 += calc.etf3Gbp;
-    sumTotalCost += calc.totalEmployerGbp;
+    const empCost = isSingleLkr ? calc.totalEmployerLkr : calc.totalEmployerGbp;
+    const empBasic = isSingleLkr ? calc.lkrGross : calc.basicGbp;
+    const empEpf12 = isSingleLkr ? calc.epf12Lkr : calc.epf12Gbp;
+    const empEtf3 = isSingleLkr ? calc.etf3Lkr : calc.etf3Gbp;
+
+    sumBasic += empBasic;
+    sumEpf12 += empEpf12;
+    sumEtf3 += empEtf3;
+    sumTotalCost += empCost;
 
     const rawName = e.shortName || e.name || '';
     const formattedName = rawName.toLowerCase().replace(/\b[a-z]/g, ch => ch.toUpperCase());
@@ -9924,24 +9944,32 @@ function renderStaffCostSummary(container) {
       no: e.no || (idx + 1),
       name: formattedName,
       fullName: e.name,
-      cost: calc.basicGbp,
-      epf12: calc.epf12Gbp,
-      etf3: calc.etf3Gbp,
-      totalEmployerCost: calc.totalEmployerGbp
+      cost: empBasic,
+      epf12: empEpf12,
+      etf3: empEtf3,
+      totalEmployerCost: empCost
     };
   });
 
-  if (totals.sumEarnedGbp) sumBasic = Number(totals.sumEarnedGbp);
-  else if (totals.sumGbpSalary) sumBasic = Number(totals.sumGbpSalary);
+  if (isSingleLkr) {
+    if (totals.sumLkrGross) sumBasic = Number(totals.sumLkrGross);
+    else if (totals.sumGrossSalaryLkr) sumBasic = Number(totals.sumGrossSalaryLkr);
+    if (totals.sumEpf12Lkr) sumEpf12 = Number(totals.sumEpf12Lkr);
+    if (totals.sumEtf3Lkr) sumEtf3 = Number(totals.sumEtf3Lkr);
+    sumTotalCost = sumBasic + sumEpf12 + sumEtf3;
+  } else {
+    if (totals.sumEarnedGbp) sumBasic = Number(totals.sumEarnedGbp);
+    else if (totals.sumGbpSalary) sumBasic = Number(totals.sumGbpSalary);
+    if (totals.sumEpf12Gbp) sumEpf12 = Number(totals.sumEpf12Gbp);
+    if (totals.sumEtf3Gbp) sumEtf3 = Number(totals.sumEtf3Gbp);
+    if (totals.sumTotalGbp) sumTotalCost = Number(totals.sumTotalGbp);
+    else sumTotalCost = sumBasic + sumEpf12 + sumEtf3;
+  }
 
-  if (totals.sumEpf12Gbp) sumEpf12 = Number(totals.sumEpf12Gbp);
-  if (totals.sumEtf3Gbp) sumEtf3 = Number(totals.sumEtf3Gbp);
-  if (totals.sumTotalGbp) sumTotalCost = Number(totals.sumTotalGbp);
-  else sumTotalCost = sumBasic + sumEpf12 + sumEtf3;
-
-  const bankCharges = p.bankCharges !== undefined ? Number(p.bankCharges) : 50.00;
+  const defaultBankCharges = isSingleLkr ? 0.00 : 50.00;
+  const bankCharges = p.bankCharges !== undefined ? Number(p.bankCharges) : defaultBankCharges;
   const withBankCharges = sumTotalCost + bankCharges;
-  const invoiceNo = p.invoiceNo || 'SBH007';
+  const invoiceNo = p.invoiceNo || (isSingleLkr ? `SBH-${p.monthCode || 'OCT26'}` : 'SBH007');
   const invoiceDate = p.letterDate || p.date || '22.09.2026';
   const periodMonth = (p.month || 'September 2026').toUpperCase();
 
@@ -10000,8 +10028,12 @@ function renderStaffCostSummary(container) {
           <!-- Company Title & Invoice No (Positioned Below Header Space) -->
           <div class="flex justify-between items-end mb-4">
             <div>
-              <div style="font-size: 13.5px; font-weight: 800; color: #000; letter-spacing: 0.2px;">${escapeHtml(currentComp.parentGroup || currentComp.name || 'APADMI GROUP LIMITED').toUpperCase()}</div>
-              <div style="font-size: 10.5px; font-weight: 700; color: #000; margin-top: 4px;">${escapeHtml(currentComp.name || 'APADMI SL (PRIVATE) LIMITED').toUpperCase()}</div>
+              ${currentComp.parentGroup ? `
+                <div style="font-size: 13.5px; font-weight: 800; color: #000; letter-spacing: 0.2px;">${escapeHtml(currentComp.parentGroup).toUpperCase()}</div>
+                <div style="font-size: 10.5px; font-weight: 700; color: #000; margin-top: 4px;">${escapeHtml(currentComp.name).toUpperCase()}</div>
+              ` : `
+                <div style="font-size: 13.5px; font-weight: 800; color: #000; letter-spacing: 0.2px;">${escapeHtml(currentComp.name).toUpperCase()}</div>
+              `}
               <div style="font-size: 10.5px; font-weight: 700; color: #000; margin-top: 2px;">STAFF COST SUMMARY</div>
             </div>
 
@@ -10018,7 +10050,7 @@ function renderStaffCostSummary(container) {
           <!-- Period and Intro Text -->
           <div class="mb-3 text-[11px] text-black">
             <div style="font-weight: 700; margin-bottom: 2px;">Period: ${escapeHtml(periodMonth)}</div>
-            <div>Month of ${escapeHtml(p.month || 'September 2026')} salary spreadsheet, the employer contributions in ${escapeHtml(foreignCurr)} (${currSign}) would be as follows:</div>
+            <div>Month of ${escapeHtml(p.month || 'September 2026')} salary spreadsheet, the employer contributions in ${escapeHtml(foreignCurr)} (${escapeHtml(currSign)}) would be as follows:</div>
           </div>
 
           <!-- Table 1: 3 Columns matching Reference PDF (compact width, brought closer to employee column) -->
@@ -10028,7 +10060,7 @@ function renderStaffCostSummary(container) {
                 <tr>
                   <th style="width: 38px; text-align: left; padding: 3px 6px; font-weight: 700;">No.</th>
                   <th style="text-align: left; padding: 3px 6px; font-weight: 700;">Employee</th>
-                  <th style="width: 170px; text-align: right; padding: 3px 8px; font-weight: 700;">Total Employer Cost (${currSign})</th>
+                  <th style="width: 170px; text-align: right; padding: 3px 8px; font-weight: 700;">Total Employer Cost (${escapeHtml(currSign)})</th>
                 </tr>
               </thead>
               <tbody>
@@ -10050,12 +10082,12 @@ function renderStaffCostSummary(container) {
           <!-- Table 2: Summary Statement matching Reference PDF (aligned width 475px) -->
           <div style="max-width: 475px; width: 100%; margin-bottom: 14px;">
             <div style="font-weight: 800; font-size: 11px; margin-bottom: 2px;">Summary Statement</div>
-            <div style="font-weight: 700; font-size: 10px; margin-bottom: 4px;">${escapeHtml(periodMonth)} Salary & Employer Contributions (${foreignCurr})</div>
+            <div style="font-weight: 700; font-size: 10px; margin-bottom: 4px;">${escapeHtml(periodMonth)} Salary & Employer Contributions (${escapeHtml(foreignCurr)})</div>
             <table style="width: 100%; border-collapse: collapse; font-size: 10.5px;">
               <thead>
                 <tr style="border-top: 1.2px solid #000; border-bottom: 1.2px solid #000;">
                   <th style="text-align: left; padding: 2.5px 6px; font-weight: 700;">Description</th>
-                  <th style="text-align: right; padding: 2.5px 8px; font-weight: 700; width: 170px;">Amount (${currSign})</th>
+                  <th style="text-align: right; padding: 2.5px 8px; font-weight: 700; width: 170px;">Amount (${escapeHtml(currSign)})</th>
                 </tr>
               </thead>
               <tbody>
@@ -10093,7 +10125,10 @@ function renderStaffCostSummary(container) {
           <!-- Certification Statement -->
           <div style="font-size: 10px; color: #000; line-height: 1.35; margin-bottom: 14px;">
             <div style="font-weight: 700; margin-bottom: 2px;">Certification</div>
-            <div>We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.parentGroup || currentComp.name || 'APADMI Group Limited')} and are being recharged accordingly.</div>
+            <div>${currentComp.parentGroup
+              ? `We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.parentGroup)} and are being recharged accordingly.`
+              : `We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.name)}.`
+            }</div>
           </div>
 
           <!-- Signatures (Official Lines with generous space for signing & company stamp) -->
@@ -10111,7 +10146,7 @@ function renderStaffCostSummary(container) {
                 <!-- Generous space for physical signing & company stamp -->
                 <div style="height: 56px;"></div>
                 <div style="border-top: 1px dotted #000; width: 100%;"></div>
-                <div style="font-size: 10px; font-weight: 600; color: #000; margin-top: 4px;">Accountant</div>
+                <div style="font-size: 10px; font-weight: 600; color: #000; margin-top: 4px;">${escapeHtml(p.checkedTitle || currentComp.checkedTitle || 'Accountant')}</div>
               </div>
             </div>
 
@@ -10127,7 +10162,7 @@ function renderStaffCostSummary(container) {
                 <!-- Generous space for physical signing & company stamp -->
                 <div style="height: 56px;"></div>
                 <div style="border-top: 1px dotted #000; width: 100%;"></div>
-                <div style="font-size: 10px; font-weight: 600; color: #000; margin-top: 4px;">Director</div>
+                <div style="font-size: 10px; font-weight: 600; color: #000; margin-top: 4px;">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')}</div>
               </div>
             </div>
           </div>
@@ -10135,13 +10170,13 @@ function renderStaffCostSummary(container) {
           <!-- Date & Beneficiary Banking Details matching Reference -->
           <div style="font-size: 10.5px; color: #000; line-height: 1.45; margin-top: 12px; margin-bottom: 12px;">
             <div style="margin-bottom: 3px;"><strong>Date</strong> : ${escapeHtml(invoiceDate)}</div>
-            <div><strong>Beneficiary</strong>: ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')}</div>
+            <div><strong>Beneficiary</strong>: ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || currentComp.name || 'Spillburg Holdings (Private) Limited')}</div>
             <div style="display: grid; grid-template-columns: 80px 1fr; gap: 1px;">
-              <span><strong>Bank</strong></span><span>: ${escapeHtml(p.bankName || currentComp.bankName || 'Nation Trust Bank PLC (NTB)')}</span>
+              <span><strong>Bank</strong></span><span>: ${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC (NTB)')}</span>
               <span><strong>Branch</strong></span><span>: ${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')}</span>
               <span><strong>Address</strong></span><span>: ${escapeHtml(p.bankAddress || currentComp.bankAddress || '67 D S Senanayake Mawatha Colombo 08 SriLanka').replace(/\n/g, ' ')}</span>
               <span><strong>Ac No</strong></span><span>: <strong style="font-family: monospace;">${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001-5000-7554')}</strong></span>
-              <span><strong>Swift Code</strong></span><span>: <strong style="font-family: monospace;">${escapeHtml(currentComp.swiftCode || 'NTBLLKLX')}</strong></span>
+              ${currentComp.swiftCode ? `<span><strong>Swift Code</strong></span><span>: <strong style="font-family: monospace;">${escapeHtml(currentComp.swiftCode)}</strong></span>` : ''}
             </div>
           </div>
 
@@ -11135,7 +11170,7 @@ function renderBankRequestLetter(container) {
 
           <!-- Debit Authorization Paragraph -->
           <div style="margin-top: 10px; line-height: 1.4; text-align: justify;">
-            Please be kind enough to remit the respective amount for above mentioned staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
+            Please be kind enough to remit the respective amount for above mentioned staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || currentComp.name || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
           </div>
 
           <!-- Sign-off Block -->
@@ -11144,7 +11179,7 @@ function renderBankRequestLetter(container) {
             <div style="margin-top: 4px;">Yours faithfully,</div>
             <div style="height: 48px;"></div>
             <div style="font-weight: 700; color: #1e293b;">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
-            <div style="font-size: 11px; color: #475569;">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')} &middot; ${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
+            <div style="font-size: 11px; color: #475569;">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')}${(p.authorizedCompany || currentComp.authorizedCompany) ? ' &middot; ' + escapeHtml(p.authorizedCompany || currentComp.authorizedCompany) : ''}</div>
           </div>
 
         </div>
@@ -12136,13 +12171,14 @@ async function submitExchangeRate(e) {
 function openEditBankDetailsModal() {
   if (!activePayrollPeriod) return;
   const p = activePayrollPeriod;
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || {};
   const c = document.getElementById('modalContent');
   c.innerHTML = `
     <div class="space-y-4 text-xs">
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
         <div>
           <h3 class="font-display font-bold text-base text-slate-900">Edit Bank Remittance Letter Details</h3>
-          <p class="text-[11px] text-slate-500">Official addressee, debit account, and authorized signatory presentation.</p>
+          <p class="text-[11px] text-slate-500">Official addressee, debit account, and authorized signatory presentation for ${escapeHtml(currentComp.name || 'Company')}.</p>
         </div>
         <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
           <i data-lucide="x" class="w-4 h-4"></i>
@@ -12158,17 +12194,17 @@ function openEditBankDetailsModal() {
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Bank Name</label>
-            <input type="text" id="bankNameInput" value="${escapeHtml(p.bankName || 'Nations Trust Bank PLC')}" required
+            <input type="text" id="bankNameInput" value="${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC')}" required
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Bank Branch</label>
-            <input type="text" id="bankBranchInput" value="${escapeHtml(p.bankBranch || 'Borella Branch')}" required
+            <input type="text" id="bankBranchInput" value="${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')}" required
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Debit Account Number</label>
-            <input type="text" id="bankDebitAccInput" value="${escapeHtml(p.debitAccountNo || '1001 5000 7554')}" required
+            <input type="text" id="bankDebitAccInput" value="${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')}" required
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
           </div>
         </div>
@@ -12176,19 +12212,29 @@ function openEditBankDetailsModal() {
         <div>
           <label class="block font-semibold text-slate-700 mb-1">Bank Branch Address (Multi-line)</label>
           <textarea id="bankAddressInput" rows="2" required
-            class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">${escapeHtml(p.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.')}</textarea>
+            class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">${escapeHtml(p.bankAddress || currentComp.bankAddress || '67 D.S. Senanayake Mawatha,\nColombo 08.')}</textarea>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Debit Account Entity Name</label>
-            <input type="text" id="bankDebitNameInput" value="${escapeHtml(p.debitAccountName || 'Spillburg Holdings (Private) Limited')}" required
+            <input type="text" id="bankDebitNameInput" value="${escapeHtml(p.debitAccountName || currentComp.debitAccountName || currentComp.name || 'Spillburg Holdings (Private) Limited')}" required
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Authorized Signatory</label>
-            <input type="text" id="bankSignatoryInput" value="${escapeHtml(p.authorizedSignatory || 'Shaameel Mohideen')}" required
+            <label class="block font-semibold text-slate-700 mb-1">Authorized Signatory Name</label>
+            <input type="text" id="bankSignatoryInput" value="${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}" required
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Signatory Title</label>
+            <input type="text" id="bankAuthorizedTitleInput" value="${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')}" required
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Signatory Company (Optional)</label>
+            <input type="text" id="bankAuthorizedCompanyInput" value="${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || '')}"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg" placeholder="${escapeHtml(currentComp.name || '')}">
           </div>
         </div>
 
@@ -12217,7 +12263,9 @@ async function submitBankDetails(e) {
     bankAddress: document.getElementById('bankAddressInput').value.trim(),
     debitAccountNo: document.getElementById('bankDebitAccInput').value.trim(),
     debitAccountName: document.getElementById('bankDebitNameInput').value.trim(),
-    authorizedSignatory: document.getElementById('bankSignatoryInput').value.trim()
+    authorizedSignatory: document.getElementById('bankSignatoryInput').value.trim(),
+    authorizedTitle: document.getElementById('bankAuthorizedTitleInput').value.trim(),
+    authorizedCompany: document.getElementById('bankAuthorizedCompanyInput').value.trim()
   };
 
   try {
@@ -12246,13 +12294,16 @@ function openEditStaffCostModal() {
   if (!activePayrollPeriod) return;
   const p = activePayrollPeriod;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || {};
+  const isSingleLkr = (currentComp.currencyMode === 'single') || (p.currencyMode === 'single') || (!currentComp.foreignCurrency && currentComp.baseCurrency === 'LKR') || (currentComp.foreignCurrency === 'LKR');
+  const currLabel = isSingleLkr ? 'Rs.' : (currentComp.foreignCurrency || '£');
+  const defaultBankCharges = isSingleLkr ? 0.00 : 50.00;
   const c = document.getElementById('modalContent');
   c.innerHTML = `
     <div class="space-y-4 text-xs">
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
         <div>
           <h3 class="font-display font-bold text-base text-slate-900">Edit Staff Cost Recharge Details</h3>
-          <p class="text-[11px] text-slate-500">Invoice reference, bank processing charges, and parent company presentation.</p>
+          <p class="text-[11px] text-slate-500">Invoice reference, bank processing charges, and company presentation.</p>
         </div>
         <button onclick="closeModal()" class="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
           <i data-lucide="x" class="w-4 h-4"></i>
@@ -12263,7 +12314,7 @@ function openEditStaffCostModal() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Invoice Number</label>
-            <input type="text" id="staffCostInvoiceNo" value="${escapeHtml(p.invoiceNo || 'INV-2026-09-01')}" required
+            <input type="text" id="staffCostInvoiceNo" value="${escapeHtml(p.invoiceNo || (isSingleLkr ? `SBH-${p.monthCode || 'OCT26'}` : 'SBH007'))}" required
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg font-mono">
           </div>
           <div>
@@ -12272,13 +12323,13 @@ function openEditStaffCostModal() {
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
           </div>
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Bank Processing Charges (£)</label>
-            <input type="number" step="0.01" id="staffCostBankCharges" value="${p.bankCharges !== undefined ? p.bankCharges : 50.00}" required
+            <label class="block font-semibold text-slate-700 mb-1">Bank Processing Charges (${currLabel})</label>
+            <input type="number" step="0.01" id="staffCostBankCharges" value="${p.bankCharges !== undefined ? p.bankCharges : defaultBankCharges}" required
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Parent Group Entity</label>
-            <input type="text" id="staffCostParentGroup" value="${escapeHtml(currentComp.parentGroup || 'Apadmi Group Ltd')}"
+            <input type="text" id="staffCostParentGroup" value="${escapeHtml(currentComp.parentGroup || '')}" placeholder="Leave blank if no parent group"
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
           </div>
         </div>
@@ -14146,7 +14197,7 @@ function printBankRequestLetter() {
                 </table>
 
                 <div class="debit-note">
-                  Please be kind enough to remit the respective amount for above mentioned staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
+                  Please be kind enough to remit the respective amount for above mentioned staff members in their respective bank accounts. Kindly debit the amounts from the A/C Number ${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001 5000 7554')} of ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || currentComp.name || 'Spillburg Holdings (Private) Limited')} and credit the same to the above A/C holders with immediate effects.
                 </div>
 
                 <div class="signoff-block">
@@ -14154,7 +14205,7 @@ function printBankRequestLetter() {
                   <div style="margin-top: 1.5mm;">Yours faithfully,</div>
                   <div class="signature-space"></div>
                   <div class="signatory-name">${escapeHtml(p.authorizedSignatory || currentComp.authorizedSignatory || 'Shaameel Mohideen')}</div>
-                  <div class="signatory-title">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')} &middot; ${escapeHtml(p.authorizedCompany || currentComp.authorizedCompany || 'Spillburg Holdings (Pvt) Ltd.')}</div>
+                  <div class="signatory-title">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')}${(p.authorizedCompany || currentComp.authorizedCompany) ? ' &middot; ' + escapeHtml(p.authorizedCompany || currentComp.authorizedCompany) : ''}</div>
                 </div>
               </div>
             </td>
@@ -14607,18 +14658,24 @@ function printStaffCostSummary() {
   const emps = p.employees || [];
   const totals = p.totals || {};
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
-  const foreignCurr = currentComp.foreignCurrency || 'GBP';
-  const currSign = foreignCurr === 'GBP' ? '\u00A3' : (foreignCurr === 'USD' ? '$' : (foreignCurr === 'EUR' ? '\u20AC' : foreignCurr + ' '));
-  const rate = Number(p.exchangeRate) || 440;
+  const isSingleLkr = (currentComp.currencyMode === 'single') || (p.currencyMode === 'single') || (!currentComp.foreignCurrency && currentComp.baseCurrency === 'LKR') || (currentComp.foreignCurrency === 'LKR');
+  const foreignCurr = isSingleLkr ? 'LKR' : (currentComp.foreignCurrency || 'GBP');
+  const currSign = isSingleLkr ? 'Rs.' : (foreignCurr === 'GBP' ? '\u00A3' : (foreignCurr === 'USD' ? '$' : (foreignCurr === 'EUR' ? '\u20AC' : foreignCurr + ' ')));
+  const rate = Number(p.exchangeRate) || (isSingleLkr ? 1 : 440);
 
   let sumBasic = 0, sumEpf12 = 0, sumEtf3 = 0, sumTotalCost = 0;
 
   const empRows = emps.map((e, idx) => {
     const calc = getEmployeeCalculatedFields(e, rate);
-    sumBasic += calc.basicGbp;
-    sumEpf12 += calc.epf12Gbp;
-    sumEtf3 += calc.etf3Gbp;
-    sumTotalCost += calc.totalEmployerGbp;
+    const empCost = isSingleLkr ? calc.totalEmployerLkr : calc.totalEmployerGbp;
+    const empBasic = isSingleLkr ? calc.lkrGross : calc.basicGbp;
+    const empEpf12 = isSingleLkr ? calc.epf12Lkr : calc.epf12Gbp;
+    const empEtf3 = isSingleLkr ? calc.etf3Lkr : calc.etf3Gbp;
+
+    sumBasic += empBasic;
+    sumEpf12 += empEpf12;
+    sumEtf3 += empEtf3;
+    sumTotalCost += empCost;
 
     const rawName = e.shortName || e.name || '';
     const formattedName = rawName.toLowerCase().replace(/\b[a-z]/g, ch => ch.toUpperCase());
@@ -14626,20 +14683,29 @@ function printStaffCostSummary() {
     return {
       no: e.no || (idx + 1),
       name: formattedName,
-      totalEmployerCost: calc.totalEmployerGbp
+      totalEmployerCost: empCost
     };
   });
 
-  if (totals.sumEarnedGbp) sumBasic = Number(totals.sumEarnedGbp);
-  else if (totals.sumGbpSalary) sumBasic = Number(totals.sumGbpSalary);
-  if (totals.sumEpf12Gbp) sumEpf12 = Number(totals.sumEpf12Gbp);
-  if (totals.sumEtf3Gbp) sumEtf3 = Number(totals.sumEtf3Gbp);
-  if (totals.sumTotalGbp) sumTotalCost = Number(totals.sumTotalGbp);
-  else sumTotalCost = sumBasic + sumEpf12 + sumEtf3;
+  if (isSingleLkr) {
+    if (totals.sumLkrGross) sumBasic = Number(totals.sumLkrGross);
+    else if (totals.sumGrossSalaryLkr) sumBasic = Number(totals.sumGrossSalaryLkr);
+    if (totals.sumEpf12Lkr) sumEpf12 = Number(totals.sumEpf12Lkr);
+    if (totals.sumEtf3Lkr) sumEtf3 = Number(totals.sumEtf3Lkr);
+    sumTotalCost = sumBasic + sumEpf12 + sumEtf3;
+  } else {
+    if (totals.sumEarnedGbp) sumBasic = Number(totals.sumEarnedGbp);
+    else if (totals.sumGbpSalary) sumBasic = Number(totals.sumGbpSalary);
+    if (totals.sumEpf12Gbp) sumEpf12 = Number(totals.sumEpf12Gbp);
+    if (totals.sumEtf3Gbp) sumEtf3 = Number(totals.sumEtf3Gbp);
+    if (totals.sumTotalGbp) sumTotalCost = Number(totals.sumTotalGbp);
+    else sumTotalCost = sumBasic + sumEpf12 + sumEtf3;
+  }
 
-  const bankCharges = p.bankCharges !== undefined ? Number(p.bankCharges) : 50.00;
+  const defaultBankCharges = isSingleLkr ? 0.00 : 50.00;
+  const bankCharges = p.bankCharges !== undefined ? Number(p.bankCharges) : defaultBankCharges;
   const withBankCharges = sumTotalCost + bankCharges;
-  const invoiceNo = document.getElementById('staffCostInvoiceNoInput')?.value || p.invoiceNo || 'SBH007';
+  const invoiceNo = document.getElementById('staffCostInvoiceNoInput')?.value || p.invoiceNo || (isSingleLkr ? `SBH-${p.monthCode || 'OCT26'}` : 'SBH007');
   const invoiceDate = p.letterDate || p.date || '22.09.2026';
   const periodMonth = (p.month || 'September 2026').toUpperCase();
 
@@ -14721,8 +14787,12 @@ function printStaffCostSummary() {
         <!-- Company Title & Invoice No (Positioned Below Header Space) -->
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 4mm;">
           <div>
-            <div style="font-size: 11pt; font-weight: bold; color: #000; letter-spacing: 0.2px;">APADMI GROUP LIMITED</div>
-            <div style="font-size: 8pt; font-weight: bold; margin-top: 3px;">APADMI SL (PRIVATE) LIMITED</div>
+            ${currentComp.parentGroup ? `
+              <div style="font-size: 11pt; font-weight: bold; color: #000; letter-spacing: 0.2px;">${escapeHtml(currentComp.parentGroup).toUpperCase()}</div>
+              <div style="font-size: 8pt; font-weight: bold; margin-top: 3px;">${escapeHtml(currentComp.name).toUpperCase()}</div>
+            ` : `
+              <div style="font-size: 11pt; font-weight: bold; color: #000; letter-spacing: 0.2px;">${escapeHtml(currentComp.name).toUpperCase()}</div>
+            `}
             <div style="font-size: 8pt; font-weight: bold; margin-top: 1px;">STAFF COST SUMMARY</div>
           </div>
           <div style="text-align: right;">
@@ -14735,7 +14805,7 @@ function printStaffCostSummary() {
         <!-- Period and Intro Text -->
         <div style="margin-top: 3mm; margin-bottom: 3mm; font-size: 8pt;">
           <div style="font-weight: bold; margin-bottom: 1px;">Period: ${escapeHtml(periodMonth)}</div>
-          <div>Month of ${escapeHtml(p.month || 'September 2026')} salary spreadsheet, the employer contributions in GBP (${currSign}) would be as follows:</div>
+          <div>Month of ${escapeHtml(p.month || 'September 2026')} salary spreadsheet, the employer contributions in ${escapeHtml(foreignCurr)} (${escapeHtml(currSign)}) would be as follows:</div>
         </div>
 
         <!-- Table 1: 3 Columns matching Reference PDF (compact width, brought closer to employee column) -->
@@ -14745,7 +14815,7 @@ function printStaffCostSummary() {
               <tr class="single-top single-bottom">
                 <th style="width: 10mm; text-align: left; padding: 2px 4px; font-weight: bold;">No.</th>
                 <th style="text-align: left; padding: 2px 4px; font-weight: bold;">Employee</th>
-                <th style="width: 44mm; text-align: right; padding: 2px 4px; font-weight: bold;">Total Employer Cost (${currSign})</th>
+                <th style="width: 44mm; text-align: right; padding: 2px 4px; font-weight: bold;">Total Employer Cost (${escapeHtml(currSign)})</th>
               </tr>
             </thead>
             <tbody>
@@ -14767,12 +14837,12 @@ function printStaffCostSummary() {
         <!-- Table 2: Summary Statement matching Reference PDF (same width 125mm as Table 1) -->
         <div style="width: 125mm; max-width: 125mm; margin-bottom: 3.5mm;">
           <div style="font-weight: bold; font-size: 8pt; margin-bottom: 1px;">Summary Statement</div>
-          <div style="font-weight: bold; font-size: 7.2pt; margin-bottom: 2px;">${escapeHtml(periodMonth)} Salary &amp; Employer Contributions (${foreignCurr})</div>
+          <div style="font-weight: bold; font-size: 7.2pt; margin-bottom: 2px;">${escapeHtml(periodMonth)} Salary &amp; Employer Contributions (${escapeHtml(foreignCurr)})</div>
           <table style="width: 100%; font-size: 7.2pt;">
             <thead>
               <tr class="single-top single-bottom">
                 <th style="text-align: left; padding: 1.8px 4px; font-weight: bold;">Description</th>
-                <th style="text-align: right; padding: 1.8px 4px; font-weight: bold; width: 44mm;">Amount (${currSign})</th>
+                <th style="text-align: right; padding: 1.8px 4px; font-weight: bold; width: 44mm;">Amount (${escapeHtml(currSign)})</th>
               </tr>
             </thead>
             <tbody>
@@ -14810,7 +14880,10 @@ function printStaffCostSummary() {
         <!-- Certification Statement -->
         <div style="font-size: 7.5pt; line-height: 1.3; margin-bottom: 4mm;">
           <div style="font-weight: bold; margin-bottom: 1px;">Certification</div>
-          <div>We hereby confirm that the above staff costs were incurred on behalf of APADMI Group Limited and are being recharged accordingly.</div>
+          <div>${currentComp.parentGroup
+            ? `We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.parentGroup)} and are being recharged accordingly.`
+            : `We hereby confirm that the above staff costs were incurred on behalf of ${escapeHtml(currentComp.name)}.`
+          }</div>
         </div>
 
         <!-- Signatures (Official Lines with generous space for signing & stamp) -->
@@ -14828,7 +14901,7 @@ function printStaffCostSummary() {
               <!-- Generous space for physical signature & stamp -->
               <div style="height: 16mm;"></div>
               <div style="border-top: 1px dotted #000; width: 100%;"></div>
-              <div style="font-size: 7.2pt; font-weight: bold; margin-top: 2px;">Accountant</div>
+              <div style="font-size: 7.2pt; font-weight: bold; margin-top: 2px;">${escapeHtml(p.checkedTitle || currentComp.checkedTitle || 'Accountant')}</div>
             </div>
           </div>
 
@@ -14844,7 +14917,7 @@ function printStaffCostSummary() {
               <!-- Generous space for physical signature & stamp -->
               <div style="height: 16mm;"></div>
               <div style="border-top: 1px dotted #000; width: 100%;"></div>
-              <div style="font-size: 7.2pt; font-weight: bold; margin-top: 2px;">Director</div>
+              <div style="font-size: 7.2pt; font-weight: bold; margin-top: 2px;">${escapeHtml(p.authorizedTitle || currentComp.authorizedTitle || 'Director')}</div>
             </div>
           </div>
         </div>
@@ -14852,13 +14925,13 @@ function printStaffCostSummary() {
         <!-- Date & Bank Details -->
         <div style="font-size: 7.5pt; line-height: 1.35; margin-bottom: 0;">
           <div><strong>Date</strong> : ${escapeHtml(invoiceDate)}</div>
-          <div><strong>Beneficiary</strong>: ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || 'Spillburg Holdings (Private) Limited')}</div>
+          <div><strong>Beneficiary</strong>: ${escapeHtml(p.debitAccountName || currentComp.debitAccountName || currentComp.name || 'Spillburg Holdings (Private) Limited')}</div>
           <div style="display: grid; grid-template-columns: 20mm 1fr; gap: 1px;">
-            <span><strong>Bank</strong></span><span>: ${escapeHtml(p.bankName || currentComp.bankName || 'Nation Trust Bank PLC (NTB)')}</span>
+            <span><strong>Bank</strong></span><span>: ${escapeHtml(p.bankName || currentComp.bankName || 'Nations Trust Bank PLC (NTB)')}</span>
             <span><strong>Branch</strong></span><span>: ${escapeHtml(p.bankBranch || currentComp.bankBranch || 'Borella Branch')}</span>
             <span><strong>Address</strong></span><span>: ${escapeHtml(p.bankAddress || currentComp.bankAddress || '67 D S Senanayake Mawatha Colombo 08 SriLanka').replace(/\n/g, ' ')}</span>
             <span><strong>Ac No</strong></span><span>: <strong>${escapeHtml(p.debitAccountNo || currentComp.debitAccountNo || '1001-5000-7554')}</strong></span>
-            <span><strong>Swift Code</strong></span><span>: <strong>${escapeHtml(currentComp.swiftCode || 'NTBLLKLX')}</strong></span>
+            ${currentComp.swiftCode ? `<span><strong>Swift Code</strong></span><span>: <strong>${escapeHtml(currentComp.swiftCode)}</strong></span>` : ''}
           </div>
         </div>
 
@@ -14886,19 +14959,21 @@ function exportStaffCostCsv() {
   const p = activePayrollPeriod;
   if (!p) return;
   const emps = p.employees || [];
-  const rate = Number(p.exchangeRate) || 440;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
-  const foreignCurr = currentComp.foreignCurrency || 'GBP';
+  const isSingleLkr = (currentComp.currencyMode === 'single') || (p.currencyMode === 'single') || (!currentComp.foreignCurrency && currentComp.baseCurrency === 'LKR') || (currentComp.foreignCurrency === 'LKR');
+  const currCode = isSingleLkr ? 'LKR' : (currentComp.foreignCurrency || 'GBP');
+  const rate = Number(p.exchangeRate) || (isSingleLkr ? 1 : 440);
 
-  let csvContent = `No,Employee,Total Employer Cost (${foreignCurr})\n`;
+  let csvContent = `No,Employee,Total Employer Cost (${currCode})\n`;
   let totalCost = 0;
 
   emps.forEach((e, idx) => {
     const calc = getEmployeeCalculatedFields(e, rate);
-    totalCost += calc.totalEmployerGbp;
+    const empCost = isSingleLkr ? calc.totalEmployerLkr : calc.totalEmployerGbp;
+    totalCost += empCost;
     const rawName = e.shortName || e.name || '';
     const formattedName = rawName.toLowerCase().replace(/\b[a-z]/g, ch => ch.toUpperCase());
-    csvContent += `${e.no || (idx + 1)},"${formattedName.replace(/"/g, '""')}",${calc.totalEmployerGbp.toFixed(2)}\n`;
+    csvContent += `${e.no || (idx + 1)},"${formattedName.replace(/"/g, '""')}",${empCost.toFixed(2)}\n`;
   });
 
   csvContent += `Total,,${totalCost.toFixed(2)}\n`;
@@ -14907,7 +14982,7 @@ function exportStaffCostCsv() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `Staff_Cost_Summary_${(p.month || 'period').replace(/\s+/g, '_')}.csv`);
+  link.setAttribute('download', `Staff_Cost_Summary_${currCode}_${(p.month || 'period').replace(/\s+/g, '_')}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
