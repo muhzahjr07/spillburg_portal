@@ -617,14 +617,15 @@ span.flatpickr-weekday {
   border-bottom: 3px double #000;
 }
 
-/* Individual Payslip Voucher (Matching payroll.pdf - Long Rectangle View) */
+/* Individual Payslip Voucher (Matching payroll.pdf - Elongated Vertical Rectangle View) */
 .payslip-voucher {
   width: 100%;
-  max-width: 430px;
+  max-width: 345px;
   margin: 0 auto;
   background: #ffffff;
   border: 2px solid #1e293b;
-  font-family: Arial, Calibri, sans-serif;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  font-family: Calibri, Arial, sans-serif;
   font-size: 11px;
   color: #0f172a;
   box-sizing: border-box;
@@ -636,9 +637,10 @@ span.flatpickr-weekday {
 }
 
 .payslip-voucher td, .payslip-voucher th {
-  padding: 3.5px 7px;
+  padding: 5px 9px;
   border: 1px solid #475569;
   font-variant-numeric: tabular-nums;
+  line-height: 1.35;
 }
 
 /* Print Utilities */

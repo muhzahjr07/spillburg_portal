@@ -2578,6 +2578,49 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             self.wfile.write(xlsx_bytes)
             return
 
+        elif path == "/api/payroll/export-payslips-xlsx":
+            user = self.require_permission("payroll", "viewer")
+            if not user: return
+            sync_payroll_from_disk()
+
+            pid = query.get("id", [""])[0] or query.get("periodId", [""])[0] or PAYROLL_RECORDS.get("activePeriodId", "")
+            target_period = None
+            for p in PAYROLL_RECORDS.get("periods", []):
+                if p.get("id") == pid:
+                    target_period = p
+                    break
+            
+            if not target_period:
+                self.send_json({"error": "Payroll period not found"}, 404)
+                return
+
+            comp_id = target_period.get("companyId")
+            target_comp = next((c for c in PAYROLL_RECORDS.get("companies", []) if c.get("id") == comp_id), {})
+
+            emp_id = query.get("empId", [""])[0] or query.get("employeeId", [""])[0] or None
+            enriched = enrich_payroll_period(target_period)
+            xlsx_bytes = payroll_excel.generate_payslips_xlsx(enriched, target_comp, single_emp_id=emp_id)
+
+            raw_comp_code = (target_comp.get("code") or target_comp.get("name", "Payroll")).upper().strip()
+            safe_code = "".join(c if c.isalnum() else "_" for c in raw_comp_code).strip("_") or "Payroll"
+            raw_month = enriched.get("monthCode") or enriched.get("month", "Period")
+            safe_month = "".join(c if c.isalnum() else "_" for c in raw_month).upper().strip("_")
+
+            if emp_id:
+                emp_obj = next((e for e in enriched.get("employees", []) if str(e.get("id")) == str(emp_id)), None)
+                emp_name_str = "".join(c if c.isalnum() else "_" for c in ((emp_obj.get("name") if emp_obj else "") or "Staff")).strip("_")
+                filename = f"{safe_code}_Payslip_{emp_name_str}_{safe_month}.xlsx"
+            else:
+                filename = f"{safe_code}_Payslips_{safe_month}.xlsx"
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(xlsx_bytes)))
+            self.end_headers()
+            self.wfile.write(xlsx_bytes)
+            return
+
         # 6.8. API: SpillburgAI Context & Access Profile
         elif path == "/api/ai/context":
             user = self.get_auth_user()

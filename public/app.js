@@ -11256,6 +11256,22 @@ function renderIndividualPayslips(container) {
             <i data-lucide="layers" class="w-3.5 h-3.5"></i>
             <span>Print All (${emps.length} Slips)</span>
           </button>
+
+          <!-- Export Slip to Excel -->
+          <button onclick="exportPayslipsExcel('${selectedEmp.id}')"
+            class="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+            title="Export this employee's payslip to Excel (.xlsx)">
+            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-700"></i>
+            <span>Export Slip (Excel)</span>
+          </button>
+
+          <!-- Export All Payslips to Excel -->
+          <button onclick="exportPayslipsExcel()"
+            class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+            title="Batch export all ${emps.length} payslips to Excel (.xlsx)">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Export All (Excel)</span>
+          </button>
         </div>
       </div>
 
@@ -11292,6 +11308,20 @@ function selectPayslipEmployee(empId) {
   if (window.lucide) lucide.createIcons();
 }
 
+function exportPayslipsExcel(empId) {
+  const p = activePayrollPeriod;
+  if (!p) {
+    if (typeof showToast === 'function') showToast('No active payroll period found', 'error');
+    else alert('No active payroll period found');
+    return;
+  }
+  let url = `/api/payroll/export-payslips-xlsx?periodId=${encodeURIComponent(p.id)}`;
+  if (empId) {
+    url += `&empId=${encodeURIComponent(empId)}`;
+  }
+  window.open(url, '_blank');
+}
+
 function generatePayslipHtml(emp, period) {
   const comp = (payrollData?.companies || []).find(c => c.id === period.companyId) || { name: 'APADMI SL (PRIVATE) LIMITED' };
   return `
@@ -11305,8 +11335,8 @@ function generatePayslipHtml(emp, period) {
           </td>
         </tr>
         <tr>
-          <td style="width: 40%; font-weight: bold; background: #f8fafc;">Month</td>
-          <td style="font-weight: 600; text-align: right;">${escapeHtml(period.monthCode || period.month)}</td>
+          <td style="width: 58%; font-weight: bold; background: #f8fafc;">Month</td>
+          <td style="width: 42%; font-weight: 600; text-align: right;">${escapeHtml(period.monthCode || period.month)}</td>
         </tr>
         <tr>
           <td style="font-weight: bold; background: #f8fafc; vertical-align: middle;">Name</td>
@@ -11387,9 +11417,9 @@ function generatePayslipHtml(emp, period) {
         <tr>
           <td colspan="2" style="border-top: 2px solid #000; padding-top: 10px; font-size: 9.5px; line-height: 1.35;">
             <div style="margin-bottom: 18px;">Signature: ....................................................</div>
-            <div style="font-weight: bold;">Spillburg Holdings (Pvt) Ltd.</div>
-            <div>Office 14, Basement Level</div>
-            <div>Cinnamon Lakeside Hotel - Colombo 02</div>
+            <div style="font-weight: bold;">${escapeHtml(comp.name || 'Spillburg Holdings (Pvt) Ltd.')}</div>
+            <div>${escapeHtml(comp.addressLine1 || comp.address || 'Office 14, Basement Level')}</div>
+            <div>${escapeHtml(comp.addressLine2 || 'Cinnamon Lakeside Hotel - Colombo 02')}</div>
           </td>
         </tr>
       </table>
@@ -14332,10 +14362,10 @@ function printSinglePayslip(empId, layoutMode) {
         }
 
         .payslip-voucher {
-          width: 120mm;
-          max-width: 120mm;
+          width: 95mm;
+          max-width: 95mm;
           border: 1.5px solid #111;
-          padding: 4mm 6mm;
+          padding: 4.5mm 6mm;
           font-size: 8pt;
           box-sizing: border-box;
           margin: 0 auto;
@@ -14346,10 +14376,10 @@ function printSinglePayslip(empId, layoutMode) {
           border-collapse: collapse;
         }
         td {
-          padding: 2.2px 5px;
+          padding: 3.5px 6px;
           border: 1px solid #475569;
           font-size: 8pt;
-          line-height: 1.25;
+          line-height: 1.35;
         }
 
         /* Interactive On-screen Toolbar */
@@ -14565,10 +14595,10 @@ function printAllPayslips(layoutMode) {
         }
 
         .payslip-voucher {
-          width: 120mm;
-          max-width: 120mm;
+          width: 95mm;
+          max-width: 95mm;
           border: 1.5px solid #111;
-          padding: 4mm 6mm;
+          padding: 4.5mm 6mm;
           font-size: 8pt;
           box-sizing: border-box;
           margin: 0 auto;
@@ -14579,10 +14609,10 @@ function printAllPayslips(layoutMode) {
           border-collapse: collapse;
         }
         td {
-          padding: 2.2px 5px;
+          padding: 3.5px 6px;
           border: 1px solid #475569;
           font-size: 8pt;
-          line-height: 1.25;
+          line-height: 1.35;
         }
 
         /* Interactive On-screen Toolbar */
