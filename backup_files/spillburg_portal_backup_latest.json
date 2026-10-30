@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-30T10:52:39Z",
+  "exportTimestamp": "2026-10-30T10:52:52Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5969,8 +5969,8 @@
             "id": "emp_144b56",
             "no": 9,
             "epfNo": "09",
-            "name": "ALUTHWALA HEWAGE WIKUM CHANDIMA",
-            "shortName": "Wikum Chandima",
+            "name": "ALUTHWALA HEWAGE WIKUM CHANDIMAL",
+            "shortName": "Aluthwala Hewage Wikum Chandimal",
             "position": "SENIOR SOFTWARE ENGINEER",
             "gbpSalary": 1349.6,
             "workDays": "",
@@ -5984,11 +5984,14 @@
             "tinNo": "116335352",
             "idNo": "198912202203",
             "dateJoined": "17.08.2026",
-            "specialAllowance": 0,
+            "specialAllowance": 0.0,
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 119777.0
+            "apit": 119777.0,
+            "lkrSalary": 0.0,
+            "earnedLkr": 0.0,
+            "otherDeductions": 0.0
           },
           {
             "id": "emp_696168",
