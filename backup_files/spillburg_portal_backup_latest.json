@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-30T09:25:00Z",
+  "exportTimestamp": "2026-10-30T09:26:06Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6222,7 +6222,7 @@
         "currencyMode": "single",
         "status": "Draft",
         "invoiceNo": "SBH001",
-        "bankCharges": 50.0,
+        "bankCharges": 0.0,
         "epfChequeNo": "DIRECT DEBIT / SLIPS",
         "etfChequeNo": "DIRECT DEBIT / SLIPS",
         "checkedBy": "Hemanthi Basnayake",
@@ -6230,10 +6230,10 @@
         "authorizedSignatory": "Shaameel Mohideen",
         "authorizedCompany": null,
         "bankName": "Commercial Bank of Ceylon PLC",
-        "bankBranch": "Borella Branch",
-        "bankAddress": "67 D.S. Senanayake Mawatha, Colombo 08.",
-        "debitAccountNo": "1001 5000 7554",
-        "debitAccountName": "Spillburg Holdings (Private) Limited",
+        "bankBranch": "Keyzer Street Branch",
+        "bankAddress": "Commercial Bank of Ceylon PLC, Keyzer Street Branch, 32, Keyzer Street, Colombo - 11",
+        "debitAccountNo": "1000107348",
+        "debitAccountName": "Spillburg Vacation (Private) Limited",
         "employees": [
           {
             "id": "emp_14fc98",
