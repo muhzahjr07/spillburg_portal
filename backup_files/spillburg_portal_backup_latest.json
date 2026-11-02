@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-02T10:18:06Z",
+  "exportTimestamp": "2026-11-02T10:42:03Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1192,7 +1192,7 @@
       "type": "Operational Task",
       "taskedDate": "22-Oct-2026",
       "completedDate": "",
-      "status": "On Hold",
+      "status": "In Progress",
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Apply for Director & Corporate Leadership Programme with CA\nNotes - Registered, payment to be made after 29th of October"
