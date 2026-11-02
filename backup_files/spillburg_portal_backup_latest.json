@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-10-31T04:28:47Z",
+  "exportTimestamp": "2026-11-02T06:01:42Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5259,6 +5259,23 @@
       "priority": "High",
       "estimatedCost": "",
       "notes": "Banking update and filling works will do"
+    },
+    {
+      "id": "ops_5d765a",
+      "no": 72,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Purchase Laptop Batteries and Keyboard for Toshiba and Samsung Laptops",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Procurement",
+      "type": "Operational Task",
+      "taskedDate": "28-Oct-2026",
+      "completedDate": "02-Nov-2026",
+      "status": "Completed",
+      "priority": "Medium",
+      "estimatedCost": "16400",
+      "notes": "Purchase Laptop Batteries and Keyboard for Toshiba and Samsung Laptops"
     }
   ],
   "payroll": {
