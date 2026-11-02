@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-02T10:42:03Z",
+  "exportTimestamp": "2026-11-02T11:42:44Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5344,6 +5344,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Going to Labour Dept Narahenpita to meet Labour commissioner Reg.ALP matter"
+    },
+    {
+      "id": "ops_763bd2",
+      "no": 73,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Prepare Staff Appraisal File",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Office Operations",
+      "type": "Operational Task",
+      "taskedDate": "02-Nov-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Prepare Staff Appraisal File based on staff performance"
     }
   ],
   "payroll": {
