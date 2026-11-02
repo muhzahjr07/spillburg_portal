@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-02T06:03:18Z",
+  "exportTimestamp": "2026-11-02T06:04:31Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5274,7 +5274,7 @@
       "completedDate": "02-Nov-2026",
       "status": "Completed",
       "priority": "Medium",
-      "estimatedCost": "LKR 16,600",
+      "estimatedCost": "16600",
       "notes": "Purchase Laptop Batteries and Keyboard for Toshiba and Samsung Laptops"
     }
   ],
