@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-02T10:00:45Z",
+  "exportTimestamp": "2026-11-02T10:18:06Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1957,7 +1957,7 @@
       "type": "General Operations",
       "taskedDate": "23-Oct-2026",
       "completedDate": "",
-      "status": "In Progress",
+      "status": "Completed",
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Assigned by Mr. Shaameel Mohideen to ensure the daily morning call is conducted between 9:00 AM and 9:30 AM and daily work statuses are updated."
@@ -2042,7 +2042,7 @@
       "type": "Regulatory / Secretarial",
       "taskedDate": "26-Oct-2026",
       "completedDate": "",
-      "status": "In Progress",
+      "status": "Completed",
       "priority": "High",
       "estimatedCost": "",
       "notes": "Initiated Apadmi salary calculation on Oct 26 and scheduled final processing on Oct 29, 2026 ('APADMI Salary will do')."
