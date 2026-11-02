@@ -559,7 +559,7 @@ def classify_workstream_and_type(text):
         return "Corporate Secretarial & ROC", "ROC / Statutory Filing"
     if any(k in lower for k in ['epf', 'etf', 'form c', 'form r-4', 'form r4', 'salary', 'payroll', 'labour', 'rahul']):
         return "Payroll & Statutory", "EPF / ETF / Payroll"
-    if any(k in lower for k in ['ird', 'ramis', 'tin', 'apit', 'apiit', 'wht', 'tax', 'vat', 'sscl', 'audit', 'financial statement', 'shehan', 'frontier', 'draft account', 'qunli', 'wanli', 'manhan', 'gaia ella', 'tdl']):
+    if any(re.search(rf'\b{re.escape(k)}\b' if len(k) <= 4 else re.escape(k), lower) for k in ['ird', 'ramis', 'tin', 'apit', 'apiit', 'wht', 'tax', 'vat', 'sscl', 'audit', 'financial statement', 'shehan', 'frontier', 'draft account', 'qunli', 'wanli', 'manhan', 'gaia ella', 'tdl']):
         return "Tax, Accounting & Audit", "Tax / Audit Compliance"
     if any(k in lower for k in ['petty cash', 'voucher', 'reimbursement']):
         return "Finance & Petty Cash", "Petty Cash & Vouchers"
@@ -608,8 +608,18 @@ def build_clean_task_title(raw_text):
         return "Commercial Bank Keyzer Street – ALP Fund Transfer Approval"
     if "people's park" in lower and 'sh' in lower:
         return "People's Park – Spillburg Holdings (SH) Operational Needful"
+    if 'ird' in lower and ('apiit' in lower or 'tax slip' in lower or 'slip' in lower):
+        return "Inland Revenue Department (IRD) – Collect Tax Slips for APIIT"
+    if ('epf' in lower or 'etf' in lower) and ('apadmi' in lower or 'roc' in lower):
+        return "Pay EPF/ETF Remittance for Apadmi & ROC Statutory Payments"
+    if 'chamber of commerce' in lower or 'ceylon chamber' in lower:
+        return "Ceylon Chamber of Commerce Field Visit & Submissions"
+    if 'trigital' in lower and ('visiting card' in lower or 'card' in lower or 'manisha' in lower):
+        return "Trigital World – Collect Visiting Cards for Manisha"
+    if 'labour' in lower and ('alp' in lower or 'commissioner' in lower or 'narahenpita' in lower):
+        return "Labour Dept Narahenpita – Meet Labour Commissioner Reg. ALP Matter"
 
-    cleaned = first_line
+    cleaned = re.sub(r'^(?:going\s+to|went\s+to|visit)\s+', '', first_line, flags=re.I).strip()
     typo_fixes = [
         (r'\bApprovels\b', 'Approvals'),
         (r'\bapprovels\b', 'approvals'),
@@ -898,6 +908,79 @@ def parse_ai_cross_module_intent(user, message, customer_records, financial_reco
     return None
 
 
+
+def extract_raw_task_items(text, users=None):
+    """
+    Extracts individual task entries from a raw message, supporting:
+    1. Numbered lists: 1) ... 2) ... or 1. ... 2. ... or bullet points
+    2. Repeated staff name markers: 'Ravi\nGoing to...\nRavi\nGoing to...'
+    3. Action verb sequences: 'Going to IRD...\nGoing to pay EPF...'
+    4. Multi-line work plans and command prefixes
+    """
+    lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
+    if not lines:
+        return []
+
+    # 1. Explicit numbered items
+    num_matches = list(re.finditer(r'(?:^|\n)\s*(?:\(?(\d{1,2})\)\s*|\(?(\d{1,2})[.:]\s+|[-•*]\s+)', text))
+    if len(num_matches) < 2:
+        inline_m = list(re.finditer(r'(?:^|\n|(?<=\s))\(?(\d{1,2})\)\s*(?=[A-Za-z])', text))
+        if len(inline_m) >= 2:
+            num_matches = inline_m
+    if num_matches:
+        items = []
+        for idx, m in enumerate(num_matches):
+            s = m.end()
+            e = num_matches[idx + 1].start() if idx + 1 < len(num_matches) else len(text)
+            it = text[s:e].strip()
+            if it:
+                items.append(it)
+        if len(items) >= 1:
+            return items
+
+    # 2. Repeated name separators or action line sequences
+    cmd_head_pat = r'^(?:tasks?\s*tracker\s*update|(?:(?:create|add|new|update|edit|track)\s+)+(?:the\s+)?(?:tasks?|tracker)?)(?:\s+(?:for|of|to)\s+)?(?:\b(?:ravi|hemanthi|insaaf|bilal|zaharan|shameel|shaameel)\b)?\s*$'
+    name_pat = r'^(?:ravi|hemanthi|insaaf|bilal|zaharan|shameel|shaameel)\b[:\- ]*$'
+    action_verb_pat = r'^(?:going\s+to|went\s+to|visit|visiting|to\s+be|need\s+to|collect|collecting|collected|hand\s+over|handed\s+over|call|calling|called|pay|paying|paid|meet|meeting|met|deposit|depositing|deposited|purchas|purchasing|follow\s+up|followed\s+up|submit|submitting|submitted|sort\s+out|sorted\s+out)\b'
+
+    items = []
+    current_item = []
+
+    for l in lines:
+        if re.match(cmd_head_pat, l, re.I):
+            continue
+        is_name_hdr = bool(re.match(name_pat, l, re.I))
+        is_act = bool(re.match(action_verb_pat, l, re.I))
+
+        if is_name_hdr:
+            if current_item:
+                items.append(' '.join(current_item))
+                current_item = []
+        elif is_act:
+            if current_item:
+                items.append(' '.join(current_item))
+                current_item = [l]
+            else:
+                current_item.append(l)
+        else:
+            if current_item:
+                current_item.append(l)
+            else:
+                current_item = [l]
+
+    if current_item:
+        items.append(' '.join(current_item))
+
+    cleaned_items = []
+    for it in items:
+        it_clean = re.sub(r'^(?:tasks?\s*tracker\s*update|(?:(?:create|add|new|update|edit|track)\s+)+(?:the\s+)?(?:tasks?|tracker)?(?:\s+(?:for|to|of)\s+)?(?:\b(?:ravi|hemanthi|insaaf|bilal|zaharan|shameel|shaameel)\b)?\s*)', '', it, flags=re.I).strip()
+        it_clean = re.sub(r'^(?:ravi|hemanthi|insaaf|bilal|zaharan|shameel|shaameel)\b[:\- ]*', '', it_clean, flags=re.I).strip()
+        if it_clean and len(it_clean) >= 4:
+            cleaned_items.append(it_clean)
+
+    return cleaned_items
+
+
 def parse_ai_task_intent(user, message, users, operations):
     """
     Detects if the user's message is a work report / task list (like Ravi's 1) 2) 3) 4) report
@@ -917,14 +1000,17 @@ def parse_ai_task_intent(user, message, users, operations):
         if len(inline_matches) >= 2:
             numbered_matches = inline_matches
 
-    # Also check unnumbered multi-line work plans (e.g. "Today's works to be\nQunli\nWanli\nManhan")
+    # Also check unnumbered multi-line work plans
     is_work_plan_header = bool(re.search(r"today'?s\s+works?\s*(?:to\s+be|done)?|yesterday'?s?\s+(?:completed\s+)?works?", lower))
     is_explicit_task_cmd = bool(re.search(
-        r'\b(?:add\s+task|create\s+task|new\s+task|assign\s+task|update\s+task|edit\s+task|mark\s+task|change\s+status|done\s+the\s+works|works\s+done\s+by|daily\s+report|work\s+report)\b',
+        r'\b(?:add|create|new|assign|update|edit|mark|log|track)\s*(?:and\s*update\s*)?(?:the\s*)?(?:tasks?|tracker|deliverables?|todos?|to-dos?|works?|work\s*log|daily\s*log)\b|\b(?:tasks?|tracker)\s+(?:update|create|entry|log)\b|\b(?:done\s+the\s+works|works\s+done|daily\s+report|work\s+report)\b',
         lower
     ))
 
-    if len(numbered_matches) < 1 and not is_explicit_task_cmd and not is_work_plan_header:
+    raw_items = extract_raw_task_items(text, users)
+    is_action_sequence = len(raw_items) >= 2
+
+    if len(numbered_matches) < 1 and not is_explicit_task_cmd and not is_work_plan_header and not is_action_sequence:
         return None
 
     target_user = resolve_target_user_from_text(text, users, user)
@@ -946,14 +1032,19 @@ def parse_ai_task_intent(user, message, users, operations):
     proposed_tasks = []
     auto_followups_count = 0
 
+    items_to_process = []
     if numbered_matches:
         for idx, m in enumerate(numbered_matches):
             start_pos = m.end()
             end_pos = numbered_matches[idx + 1].start() if idx + 1 < len(numbered_matches) else len(text)
             raw_item = text[start_pos:end_pos].strip()
-            if not raw_item:
-                continue
+            if raw_item:
+                items_to_process.append(raw_item)
+    elif raw_items:
+        items_to_process = raw_items
 
+    if items_to_process:
+        for raw_item in items_to_process:
             cleaned_notes = clean_item_notes(raw_item)
             if not cleaned_notes:
                 continue
