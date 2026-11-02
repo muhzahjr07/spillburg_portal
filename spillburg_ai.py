@@ -124,7 +124,253 @@ def get_gemini_api_key():
     return ""
 
 
-def call_gemini_enhancement(user, message, history, deterministic_reply, access_summary):
+
+SRI_LANKA_STATUTORY_KNOWLEDGE = {
+    "roc_forms": {
+        "form_1": {
+            "title": "ROC Form 1 — Application for Incorporation of a Company",
+            "statute": "Companies Act No. 7 of 2007 (Section 4)",
+            "purpose": "Primary incorporation application to register a new Private Limited (Pvt Ltd) or Public company in Sri Lanka.",
+            "requirements": [
+                "Approved Name Reservation from ROC (valid for 3 months)",
+                "Articles of Association (Table A or custom)",
+                "Form 18 (Consent and Certificate of each Director)",
+                "Form 19 (Consent and Certificate of Company Secretary)",
+                "Registered office address in Sri Lanka",
+                "Shareholder schedule and stated capital"
+            ],
+            "statutory_fee": "Rs. 4,000 + 18% VAT (approx Rs. 4,720) + Form 18 (Rs. 2,000 per director) + Form 19 (Rs. 2,000)",
+            "filing_mode": "Online eROC Portal (e-services.drc.gov.lk) followed by seal endorsement."
+        },
+        "form_13": {
+            "title": "ROC Form 13 — Notice of Change of Registered Office Address",
+            "statute": "Companies Act No. 7 of 2007 (Section 113)",
+            "purpose": "Statutory notification to the Registrar of Companies of change in registered office location.",
+            "timeline": "Must be filed within 10 working days of the effective change date.",
+            "requirements": [
+                "Board Resolution approving new registered address",
+                "Exact postal address with postal code and district",
+                "Signed by active Director or Secretary"
+            ],
+            "statutory_fee": "Rs. 2,000 + 18% VAT (approx Rs. 2,360)",
+            "filing_mode": "Online eROC Portal (e-services.drc.gov.lk)."
+        },
+        "form_15": {
+            "title": "ROC Form 15 / 15(A) — Annual Return of a Company",
+            "statute": "Companies Act No. 7 of 2007 (Section 131)",
+            "purpose": "Mandatory annual statutory return declaring shareholders, directors, stated capital, charges, and registered address.",
+            "timeline": "Must be filed annually within 30 working days of the Annual General Meeting (AGM) or written resolution.",
+            "requirements": [
+                "List of active shareholders & shareholdings",
+                "List of active directors and company secretary",
+                "Stated capital statement",
+                "Audited Accounts (where statutory turnover thresholds apply)"
+            ],
+            "statutory_fee": "Rs. 6,000 + 18% VAT (approx Rs. 7,080). Late filing incurs stepped statutory penalties up to Rs. 20,000.",
+            "filing_mode": "Online eROC Portal."
+        },
+        "form_20": {
+            "title": "ROC Form 20 — Notice of Change of Director / Secretary or Particulars",
+            "statute": "Companies Act No. 7 of 2007 (Section 223)",
+            "purpose": "Statutory notification of appointment, resignation, removal, or change of particulars of a Director or Secretary.",
+            "timeline": "STRICT STATUTORY DEADLINE: Must be filed within 20 working days of the effective resolution date.",
+            "requirements": [
+                "Board of Directors Resolution or Shareholder Resolution",
+                "Form 18 (Consent of new Director) or signed Resignation Letter",
+                "Form 19 (Consent of new Secretary, if applicable)",
+                "Certified NIC copy (Sri Lankan citizens) or Certified Passport copy (foreign nationals)",
+                "Full legal name, residential address, occupation, and nationalities",
+                "Signed by active Director or Secretary"
+            ],
+            "statutory_fee": "Rs. 2,000 + 18% VAT (approx Rs. 2,360). Delay requires court order or compounding penalty.",
+            "filing_mode": "Online eROC Portal (scanned upload with wet signatures) + seal endorsement."
+        },
+        "bo_2": {
+            "title": "ROC Form BO 2 — Beneficial Ownership Disclosure Register",
+            "statute": "Companies Act No. 7 of 2007 & Companies (Amendment) Act No. 28 of 2023",
+            "purpose": "Mandatory disclosure to ROC of natural persons holding 25% or more shares, voting rights, or controlling interest.",
+            "timeline": "Mandatory upon incorporation and within 14 working days of any ownership/control change.",
+            "requirements": [
+                "Full legal name, date of birth, nationality, residential address of ultimate beneficial owner(s)",
+                "National Identity Card (NIC) or Passport number",
+                "Nature and percentage of beneficial interest (direct or indirect)",
+                "Declaration signed by Directors/Secretary"
+            ],
+            "statutory_fee": "Rs. 2,000 + 18% VAT.",
+            "filing_mode": "Online eROC Portal."
+        }
+    },
+    "tax_compliance": {
+        "cit": {
+            "title": "Corporate Income Tax (CIT)",
+            "rate": "Standard 30% on taxable corporate profits under Inland Revenue Act No. 24 of 2017 (as amended).",
+            "basis": "Applicable to standard resident private limited companies in Sri Lanka."
+        },
+        "apit": {
+            "title": "Advance Personal Income Tax (APIT / PAYE)",
+            "description": "Progressive tax deducted directly from employee monthly gross employment remuneration.",
+            "slabs": [
+                {"bracket": "First Rs. 100,000 / month (Rs. 1,200,000 / year)", "rate": "0% (Exempt relief)"},
+                {"bracket": "Next Rs. 41,667 / month (Rs. 500,000 / year)", "rate": "6%"},
+                {"bracket": "Next Rs. 41,667 / month (Rs. 500,000 / year)", "rate": "12%"},
+                {"bracket": "Next Rs. 41,667 / month (Rs. 500,000 / year)", "rate": "18%"},
+                {"bracket": "Next Rs. 41,667 / month (Rs. 500,000 / year)", "rate": "24%"},
+                {"bracket": "Next Rs. 41,667 / month (Rs. 500,000 / year)", "rate": "30%"},
+                {"bracket": "Balance exceeding Rs. 308,333 / month (Rs. 3,700,000 / year)", "rate": "36%"}
+            ],
+            "remittance_deadline": "On or before the 15th day of the following month to Inland Revenue Department (IRD)."
+        },
+        "sscl": {
+            "title": "Social Security Contribution Levy (SSCL)",
+            "rate": "2.5% liable turnover tax on liable supplies, imports, and services exceeding statutory turnover thresholds (SSCL Act No. 25 of 2022)."
+        },
+        "vat": {
+            "title": "Value Added Tax (VAT)",
+            "rate": "Standard 18% (effective Jan 1, 2024 under VAT Amendment Act No. 32 of 2023)."
+        },
+        "ramis_deadlines": {
+            "quarterly_installments": "Quarter 1: 15 August | Quarter 2: 15 November | Quarter 3: 15 February | Quarter 4: 15 May",
+            "set": "Statement of Estimated Tax (SET) submission: Due on or before 15 August of the assessment year.",
+            "annual_return": "Final Annual Return of Income & Audited Accounts: Due on or before 30 November following assessment year end."
+        }
+    },
+    "epf_etf_statutory": {
+        "epf": {
+            "rate": "20% Total = 12% Employer Contribution + 8% Employee Contribution.",
+            "base": "Total gross earnings (including basic salary, cost of living allowance, attendance bonus, and food allowances).",
+            "governing_body": "Central Bank of Sri Lanka (CBSL) & Department of Labour.",
+            "statutory_form": "Central Bank EPF Form C (monthly advice of remittance) with employer registration number."
+        },
+        "etf": {
+            "rate": "3% Employer Contribution (0% Employee deduction).",
+            "base": "Total gross earnings.",
+            "governing_body": "Employees' Trust Fund Board (ETFB).",
+            "statutory_form": "ETF Form R-4 (Advice of Remittance)."
+        },
+        "deadline": "On or before the LAST WORKING DAY of the month following the salary period (e.g. October 2026 remittance due by November 30, 2026).",
+        "surcharges": [
+            {"period": "Delayed by 1 to 10 days", "penalty": "5% surcharge on unpaid amount"},
+            {"period": "Delayed by 11 to 30 days", "penalty": "10% surcharge"},
+            {"period": "Delayed by 1 to 3 months", "penalty": "15% surcharge"},
+            {"period": "Delayed by 3 to 6 months", "penalty": "20% surcharge"},
+            {"period": "Delayed by 6 to 12 months", "penalty": "30% surcharge"},
+            {"period": "Delayed by 12 to 24 months", "penalty": "40% surcharge"},
+            {"period": "Delayed by over 2 years", "penalty": "50% maximum surcharge"}
+        ]
+    }
+}
+
+
+def get_statutory_knowledge_response(query_text):
+    """
+    Returns rich, structured Sri Lankan statutory information when queries match
+    ROC filing procedures, IRD/RAMIS tax compliance, or EPF/ETF statutory regulations.
+    """
+    low = (query_text or "").lower()
+    sections = []
+
+    # 1. ROC Form Queries
+    if "form 20" in low or ("director" in low and ("change" in low or "resign" in low or "appoint" in low)):
+        f20 = SRI_LANKA_STATUTORY_KNOWLEDGE["roc_forms"]["form_20"]
+        sections.append(
+            f"### 📜 {f20['title']}\n"
+            f"- **Statute**: `{f20['statute']}`\n"
+            f"- **Statutory Window**: **{f20['timeline']}**\n"
+            f"- **Statutory Fee**: `{f20['statutory_fee']}`\n"
+            f"- **Filing Mode**: {f20['filing_mode']}\n"
+            f"\n**Mandatory Required Documents**:\n" +
+            "\n".join(f"  - {r}" for r in f20["requirements"])
+        )
+    elif "form 13" in low or ("address" in low and "roc" in low):
+        f13 = SRI_LANKA_STATUTORY_KNOWLEDGE["roc_forms"]["form_13"]
+        sections.append(
+            f"### 📜 {f13['title']}\n"
+            f"- **Statute**: `{f13['statute']}`\n"
+            f"- **Statutory Window**: **{f13['timeline']}**\n"
+            f"- **Statutory Fee**: `{f13['statutory_fee']}`\n"
+            f"\n**Mandatory Requirements**:\n" +
+            "\n".join(f"  - {r}" for r in f13["requirements"])
+        )
+    elif "form 15" in low or ("annual return" in low and "roc" in low):
+        f15 = SRI_LANKA_STATUTORY_KNOWLEDGE["roc_forms"]["form_15"]
+        sections.append(
+            f"### 📜 {f15['title']}\n"
+            f"- **Statute**: `{f15['statute']}`\n"
+            f"- **Statutory Window**: **{f15['timeline']}**\n"
+            f"- **Statutory Fee**: `{f15['statutory_fee']}`\n"
+            f"\n**Requirements**:\n" +
+            "\n".join(f"  - {r}" for r in f15["requirements"])
+        )
+    elif "bo 2" in low or "bo2" in low or "beneficial" in low:
+        bo2 = SRI_LANKA_STATUTORY_KNOWLEDGE["roc_forms"]["bo_2"]
+        sections.append(
+            f"### 📜 {bo2['title']}\n"
+            f"- **Statute**: `{bo2['statute']}`\n"
+            f"- **Threshold**: Natural persons holding **25% or more** shares, voting rights, or significant control.\n"
+            f"- **Timeline**: **{bo2['timeline']}**\n"
+            f"- **Statutory Fee**: `{bo2['statutory_fee']}`\n"
+            f"\n**Required Details**:\n" +
+            "\n".join(f"  - {r}" for r in bo2["requirements"])
+        )
+    elif "form 1" in low or ("incorporat" in low and "roc" in low):
+        f1 = SRI_LANKA_STATUTORY_KNOWLEDGE["roc_forms"]["form_1"]
+        sections.append(
+            f"### 📜 {f1['title']}\n"
+            f"- **Statute**: `{f1['statute']}`\n"
+            f"- **Statutory Fee**: `{f1['statutory_fee']}`\n"
+            f"\n**Incorporation Checklist**:\n" +
+            "\n".join(f"  - {r}" for r in f1["requirements"])
+        )
+
+    # 2. Tax / APIT / CIT / RAMIS Queries
+    if "apit" in low or "tax slab" in low or "tax bracket" in low or "paye" in low:
+        apit = SRI_LANKA_STATUTORY_KNOWLEDGE["tax_compliance"]["apit"]
+        lines = [
+            f"### 🏛️ {apit['title']} (Inland Revenue Act)\n"
+            f"{apit['description']}\n"
+            f"- **Remittance Deadline**: `{apit['remittance_deadline']}`\n\n"
+            f"| Monthly Taxable Remuneration | APIT Rate | Cumulative Top Tax |\n"
+            f"| :--- | :---: | :---: |"
+        ]
+        for s in apit["slabs"]:
+            lines.append(f"| {s['bracket']} | **{s['rate']}** | Statutory Band |")
+        sections.append("\n".join(lines))
+    elif any(k in low for k in ["cit", "corporate tax", "sscl", "vat", "ramis deadline", "tax deadline"]):
+        cit = SRI_LANKA_STATUTORY_KNOWLEDGE["tax_compliance"]["cit"]
+        sscl = SRI_LANKA_STATUTORY_KNOWLEDGE["tax_compliance"]["sscl"]
+        vat = SRI_LANKA_STATUTORY_KNOWLEDGE["tax_compliance"]["vat"]
+        ram = SRI_LANKA_STATUTORY_KNOWLEDGE["tax_compliance"]["ramis_deadlines"]
+        sections.append(
+            f"### 🏛️ Sri Lankan Corporate Tax Rates & RAMIS Deadlines\n"
+            f"- **Corporate Income Tax (CIT)**: `{cit['rate']}`\n"
+            f"- **Social Security Contribution Levy (SSCL)**: `{sscl['rate']}`\n"
+            f"- **Value Added Tax (VAT)**: `{vat['rate']}`\n\n"
+            f"#### 📅 RAMIS Statutory Filing Deadlines:\n"
+            f"- **Quarterly CIT Installments**: `{ram['quarterly_installments']}`\n"
+            f"- **Statement of Estimated Tax (SET)**: `{ram['set']}`\n"
+            f"- **Annual Return of Income (Final)**: `{ram['annual_return']}`"
+        )
+
+    # 3. EPF & ETF Statutory Rules & Penalties
+    if any(k in low for k in ["epf rate", "etf rate", "epf deadline", "etf deadline", "surcharge", "penalty", "late payment"]):
+        epf_info = SRI_LANKA_STATUTORY_KNOWLEDGE["epf_etf_statutory"]
+        lines = [
+            f"### 🏦 Sri Lanka Statutory EPF & ETF Regulations\n"
+            f"- **EPF (Central Bank)**: `{epf_info['epf']['rate']}` ({epf_info['epf']['base']})\n"
+            f"- **ETF (Trust Fund)**: `{epf_info['etf']['rate']}` ({epf_info['etf']['base']})\n"
+            f"- **Statutory Remittance Due Date**: **{epf_info['deadline']}**\n\n"
+            f"#### ⚠️ Statutory Surcharge Scale for Delayed Remittance:\n"
+            f"| Period of Delay | Statutory Surcharge Penalty |\n"
+            f"| :--- | :---: |"
+        ]
+        for sc in epf_info["surcharges"]:
+            lines.append(f"| {sc['period']} | **{sc['penalty']}** |")
+        sections.append("\n".join(lines))
+
+    return "\n\n---\n\n".join(sections) if sections else None
+
+
+def call_gemini_enhancement(user, message, history, deterministic_reply, access_summary, attachments=None):
     """
     If GEMINI_API_KEY is configured, refines or answers conversational queries using
     Gemini 3.5 Flash Lite (with fallback to 3.1 Flash Lite) while strictly bounding
@@ -134,7 +380,7 @@ def call_gemini_enhancement(user, message, history, deterministic_reply, access_
     if not api_key:
         return None
 
-    models_to_try = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-latest"]
+    models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
     sys_prompt = (
         "You are SpillburgAI, the official corporate intelligence assistant for Spillburg Holdings (Pvt) Ltd "
         "and Spillburg Vacation (Pvt) Ltd in Colombo, Sri Lanka.\n"
@@ -147,7 +393,22 @@ def call_gemini_enhancement(user, message, history, deterministic_reply, access_
     for h in (history or [])[-6:]:
         role = "user" if h.get("role") == "user" else "model"
         contents.append({"role": role, "parts": [{"text": str(h.get("content", ""))[:1500]}]})
-    contents.append({"role": "user", "parts": [{"text": message}]})
+
+    user_parts = [{"text": message or ("Please analyze the attached document or voice note." if attachments else "")}]
+    if attachments:
+        for att in attachments:
+            b64 = att.get("base64") or ""
+            mtype = att.get("type", "image/jpeg")
+            if b64:
+                if "," in b64:
+                    b64 = b64.split(",", 1)[1]
+                user_parts.append({
+                    "inlineData": {
+                        "mimeType": mtype,
+                        "data": b64
+                    }
+                })
+    contents.append({"role": "user", "parts": user_parts})
 
     payload = {
         "systemInstruction": {"parts": [{"text": sys_prompt}]},
@@ -956,7 +1217,33 @@ def generate_morning_call_briefing(user, users, operations, customer_records, fi
         )
 
     # Stale / On-Hold / Compliance Alerts
-    alert_lines = ["\n#### ⚠️ Compliance & Stale Task Alerts"]
+    # Calculate dynamic statutory countdowns
+    today = datetime.date.today()
+    next_m = today.replace(day=28) + datetime.timedelta(days=4)
+    last_day_of_month = next_m - datetime.timedelta(days=next_m.day)
+    days_to_epf = max(0, (last_day_of_month - today).days)
+
+    nov_30 = datetime.date(today.year if (today.month < 11 or (today.month == 11 and today.day <= 30)) else today.year + 1, 11, 30)
+    days_to_nov_30 = max(0, (nov_30 - today).days)
+
+    quarters = [
+        datetime.date(today.year, 2, 15),
+        datetime.date(today.year, 5, 15),
+        datetime.date(today.year, 8, 15),
+        datetime.date(today.year, 11, 15),
+        datetime.date(today.year + 1, 2, 15),
+    ]
+    next_inst = min(d for d in quarters if d >= today)
+    days_to_inst = max(0, (next_inst - today).days)
+
+    lines.append(
+        f"\n#### 📅 Statutory Compliance Calendar & Deadlines\n"
+        f"- **EPF & ETF Monthly Remittance**: Due by `{last_day_of_month.strftime('%d-%b-%Y')}` (**{days_to_epf} days remaining**)\n"
+        f"- **IRD RAMIS Quarterly Tax Installment**: Next payment due `{next_inst.strftime('%d-%b-%Y')}` (**{days_to_inst} days remaining**)\n"
+        f"- **RAMIS Corporate Return of Income**: Statutory deadline `{nov_30.strftime('%d-%b-%Y')}` (**{days_to_nov_30} days remaining**)"
+    )
+
+    alert_lines = ["\n#### ⚠️ Operational Compliance & Stale Task Alerts"]
     if on_hold:
         alert_lines.append(f"- **On-Hold Deliverables**: `{len(on_hold)}` tasks are currently marked `On Hold` and may need scope review.")
     if access["modules"]["payroll"]["view"]:
@@ -989,7 +1276,7 @@ def generate_morning_call_briefing(user, users, operations, customer_records, fi
     }
 
 
-def answer_knowledge_query(user, message, users, operations, customer_records, financial_records, payroll_records, enrich_payroll_fn, history=None):
+def answer_knowledge_query(user, message, users, operations, customer_records, financial_records, payroll_records, enrich_payroll_fn, history=None, attachments=None):
     """
     Answers natural language questions across all Spillburg Holdings datasets, strictly enforcing
     each user's module permissions and personal/team scope.
@@ -1073,6 +1360,11 @@ def answer_knowledge_query(user, message, users, operations, customer_records, f
 
     sections = []
     nav_actions = []
+
+    # Check for Sri Lankan statutory / ROC / Tax compliance guidance
+    statutory_info = get_statutory_knowledge_response(text)
+    if statutory_info:
+        sections.append(statutory_info)
 
     mentioned_user = resolve_target_user_from_text(text, users, None)
     if mentioned_user and not is_exec and mentioned_user.get("id") != user.get("id") and asks_ops:
@@ -1371,7 +1663,7 @@ def answer_knowledge_query(user, message, users, operations, customer_records, f
         )
 
     base_reply = "\n\n---\n\n".join(sections)
-    gemini_reply = call_gemini_enhancement(user, message, history, base_reply, access)
+    gemini_reply = call_gemini_enhancement(user, message, history, base_reply, access, attachments=attachments)
     final_reply = gemini_reply if gemini_reply else base_reply
 
     return {
@@ -1382,7 +1674,7 @@ def answer_knowledge_query(user, message, users, operations, customer_records, f
     }
 
 
-def process_spillburg_ai_message(user, message, history, users, operations, customer_records, financial_records, payroll_records, enrich_payroll_fn=None):
+def process_spillburg_ai_message(user, message, history, users, operations, customer_records, financial_records, payroll_records, enrich_payroll_fn=None, attachments=None):
     """
     Main entry point for POST /api/ai/chat.
     1. Checks SpillburgAI access permission.
@@ -1435,7 +1727,8 @@ def process_spillburg_ai_message(user, message, history, users, operations, cust
         financial_records=financial_records,
         payroll_records=payroll_records,
         enrich_payroll_fn=enrich_payroll_fn,
-        history=history
+        history=history,
+        attachments=attachments
     )
     return {
         "success": True,
@@ -1455,7 +1748,7 @@ def generate_task_action_notes(title, workstream="", requestedBy="", user=None):
 
     api_key = get_gemini_api_key()
     if api_key:
-        models_to_try = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-latest"]
+        models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
         sys_prompt = (
             "You are SpillburgAI, the corporate operations assistant for Spillburg Holdings (Pvt) Ltd, Colombo, Sri Lanka.\n"
             "Your task is to generate 1 to 2 concise, professional action details / notes for an operations task based on its title.\n"

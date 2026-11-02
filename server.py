@@ -3009,6 +3009,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             sync_payroll_from_disk()
             message = body.get("message", "")
             history = body.get("history", [])
+            attachments = body.get("attachments", [])
             resp_data, status_code = spillburg_ai.process_spillburg_ai_message(
                 user=user,
                 message=message,
@@ -3018,7 +3019,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 customer_records=CUSTOMER_RECORDS,
                 financial_records=FINANCIAL_RECORDS,
                 payroll_records=PAYROLL_RECORDS,
-                enrich_payroll_fn=enrich_payroll_period
+                enrich_payroll_fn=enrich_payroll_period,
+                attachments=attachments
             )
             self.send_json(resp_data, status_code)
             return

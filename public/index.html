@@ -52,7 +52,7 @@
   <link rel="stylesheet" href="/public/flatpickr.min.css">
   <script src="/public/flatpickr.min.js"></script>
 
-  <link rel="stylesheet" href="/public/styles.css?v=20261030_7">
+  <link rel="stylesheet" href="/public/styles.css?v=20261102_1">
 </head>
 
 <body
@@ -152,6 +152,21 @@
           </div>
         </div>
       </div>
+
+      <!-- Global Command Palette Launcher (Ctrl + K) -->
+      <button onclick="openGlobalCommandPalette()"
+        title="Open Quick Search & SpillburgAI Command Palette (Ctrl+K / Cmd+K)"
+        class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-purple-50 text-slate-600 hover:text-purple-700 border border-slate-200 hover:border-purple-300 text-xs font-medium transition shadow-2xs cursor-pointer">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-purple-600"></i>
+        <span>Search or ask AI...</span>
+        <kbd class="px-1.5 py-0.5 rounded bg-white border border-slate-300 text-[10px] font-mono font-semibold text-slate-500 shadow-2xs">Ctrl K</kbd>
+      </button>
+
+      <button onclick="openGlobalCommandPalette()"
+        title="Open SpillburgAI Search Palette"
+        class="sm:hidden p-2 rounded-xl bg-slate-100 hover:bg-purple-50 text-purple-700 border border-slate-200 transition cursor-pointer">
+        <i data-lucide="search" class="w-4 h-4"></i>
+      </button>
 
       <!-- Active User Profile Bar -->
       <div class="flex items-center gap-2 md:gap-4">
@@ -438,7 +453,7 @@
     </div>
   </div>
 
-  <script src="/public/app.js?v=20261030_7"></script>
+  <script src="/public/app.js?v=20261102_1"></script>
 </body>
 
 </html>

@@ -7958,6 +7958,10 @@ function formatAiMarkdown(md) {
   html = html.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-slate-100 text-purple-800 font-mono text-[11px] border border-slate-200">$1</code>');
   html = html.replace(/^---$/gm, '<hr class="my-2.5 border-slate-200">');
   html = html.replace(/^\s*-\s+(.*)$/gm, '<div class="flex items-start gap-1.5 ml-1 my-0.5"><span class="text-purple-600 font-bold">&bull;</span><span class="flex-1">$1</span></div>');
+  // Turn #123 into interactive quick-jump buttons
+  html = html.replace(/(?:^|\s)#(\d{1,5})\b/g, (match, tNum) => {
+    return ` <button type="button" onclick="executeAiNavAction('operations', '', '#${tNum}')" class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 font-mono font-bold text-[11px] border border-blue-200 cursor-pointer" title="Jump to Task #${tNum}">#${tNum}</button>`;
+  });
   html = html.replace(/\n/g, '<br>');
   return html;
 }
@@ -8615,15 +8619,160 @@ function renderSpillburgAiMessagesList() {
   if (window.lucide) lucide.createIcons();
 }
 
+let aiAttachedFiles = []; // array of { name, type, size, base64 }
+let aiMediaRecorder = null;
+let aiAudioChunks = [];
+let aiIsRecording = false;
+let aiRecordTimer = null;
+let aiRecordSeconds = 0;
+
+function handleSpillburgAiFileSelect(event) {
+  const files = event.target.files;
+  if (!files || files.length === 0) return;
+  const file = files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    aiAttachedFiles.push({
+      name: file.name,
+      type: file.type || 'application/octet-stream',
+      size: file.size,
+      base64: e.target.result
+    });
+    renderSpillburgAiAttachmentPreview();
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+async function toggleSpillburgAiAudioRecord() {
+  const micBtn = document.getElementById('spillburgAiMicBtn');
+  if (aiIsRecording) {
+    // Stop recording
+    if (aiMediaRecorder && aiMediaRecorder.state !== 'inactive') {
+      aiMediaRecorder.stop();
+    }
+    aiIsRecording = false;
+    clearInterval(aiRecordTimer);
+    if (micBtn) {
+      micBtn.classList.remove('bg-rose-500', 'text-white', 'animate-pulse');
+      micBtn.classList.add('bg-slate-100', 'text-slate-600');
+      micBtn.innerHTML = '<i data-lucide="mic" class="w-4 h-4"></i>';
+      if (window.lucide) lucide.createIcons();
+    }
+  } else {
+    // Start recording
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      aiAudioChunks = [];
+      aiMediaRecorder = new MediaRecorder(stream);
+      aiMediaRecorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) aiAudioChunks.push(e.data);
+      };
+      aiMediaRecorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop());
+        const audioBlob = new Blob(aiAudioChunks, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const nowStr = new Date().toISOString().replace(/[:.]/g, '-').slice(11, 19);
+          aiAttachedFiles.push({
+            name: `Voice_Note_${nowStr}.webm`,
+            type: 'audio/webm',
+            size: audioBlob.size,
+            base64: e.target.result
+          });
+          renderSpillburgAiAttachmentPreview();
+        };
+        reader.readAsDataURL(audioBlob);
+      };
+      aiMediaRecorder.start();
+      aiIsRecording = true;
+      aiRecordSeconds = 0;
+      if (micBtn) {
+        micBtn.classList.remove('bg-slate-100', 'text-slate-600');
+        micBtn.classList.add('bg-rose-500', 'text-white', 'animate-pulse');
+        micBtn.innerHTML = '<i data-lucide="square" class="w-4 h-4"></i>';
+        if (window.lucide) lucide.createIcons();
+      }
+      aiRecordTimer = setInterval(() => {
+        aiRecordSeconds++;
+        const bar = document.getElementById('spillburgAiRecordStatus');
+        if (bar) {
+          const mins = Math.floor(aiRecordSeconds / 60);
+          const secs = (aiRecordSeconds % 60).toString().padStart(2, '0');
+          bar.textContent = `Recording audio note... (${mins}:${secs}) Click mic to stop.`;
+        }
+      }, 1000);
+      renderSpillburgAiAttachmentPreview();
+    } catch (err) {
+      alert('Microphone access could not be established. Please check your browser microphone permissions: ' + err.message);
+    }
+  }
+}
+
+function removeSpillburgAiAttachment(idx) {
+  aiAttachedFiles.splice(idx, 1);
+  renderSpillburgAiAttachmentPreview();
+}
+
+function renderSpillburgAiAttachmentPreview() {
+  const container = document.getElementById('spillburgAiAttachmentBar');
+  if (!container) return;
+  if (!aiIsRecording && aiAttachedFiles.length === 0) {
+    container.classList.add('hidden');
+    container.innerHTML = '';
+    return;
+  }
+  container.classList.remove('hidden');
+  let html = '';
+  if (aiIsRecording) {
+    html += `
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-xs font-semibold animate-pulse">
+        <span class="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
+        <span id="spillburgAiRecordStatus">Recording audio note... (0:00) Click mic to stop.</span>
+      </div>
+    `;
+  }
+  aiAttachedFiles.forEach((f, idx) => {
+    const isAudio = f.type.startsWith('audio');
+    const isImg = f.type.startsWith('image');
+    const iconName = isAudio ? 'mic' : (isImg ? 'image' : 'file-text');
+    const sizeKb = Math.round(f.size / 1024);
+    html += `
+      <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-100 text-purple-900 border border-purple-300 text-xs shadow-2xs">
+        <i data-lucide="${iconName}" class="w-3.5 h-3.5 text-purple-700"></i>
+        <span class="font-medium max-w-[140px] truncate" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+        <span class="text-[10px] text-purple-500">(${sizeKb} KB)</span>
+        <button type="button" onclick="removeSpillburgAiAttachment(${idx})" class="p-0.5 hover:bg-purple-200 rounded text-purple-700 ml-1 cursor-pointer">
+          <i data-lucide="x" class="w-3 h-3"></i>
+        </button>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+  if (window.lucide) lucide.createIcons();
+}
+
+
 async function sendSpillburgAiMessage(e) {
   if (e) e.preventDefault();
   const input = document.getElementById('spillburgAiInput');
   if (!input) return;
   const text = input.value.trim();
-  if (!text) return;
+  const hasAttachments = aiAttachedFiles.length > 0;
+  if (!text && !hasAttachments) return;
 
   input.value = '';
-  spillburgAiHistory.push({ role: 'user', content: text });
+  const currentAttachments = [...aiAttachedFiles];
+  aiAttachedFiles = [];
+  renderSpillburgAiAttachmentPreview();
+
+  let userDisplayContent = text;
+  if (currentAttachments.length > 0) {
+    const fileLabels = currentAttachments.map(f => (f.type.startsWith('audio') ? `🎙️ [Voice Note: ${f.name}]` : `📎 [Document: ${f.name}]`)).join(' ');
+    userDisplayContent = text ? `${text}\n\n${fileLabels}` : fileLabels;
+  }
+
+  spillburgAiHistory.push({ role: 'user', content: userDisplayContent });
   spillburgAiIsThinking = true;
   saveSpillburgAiStateToStorage();
   renderSpillburgAiMessagesList();
@@ -8648,7 +8797,8 @@ async function sendSpillburgAiMessage(e) {
       },
       body: JSON.stringify({
         message: text,
-        history: spillburgAiHistory.slice(-8).map(h => ({ role: h.role, content: h.content }))
+        history: spillburgAiHistory.slice(-8).map(h => ({ role: h.role, content: h.content })),
+        attachments: currentAttachments
       })
     });
     const data = await res.json();
@@ -8721,6 +8871,9 @@ let spillburgAiPromptOffset = 0;
 
 const SPILLBURG_AI_GENERAL_PROMPT_POOL = [
   { label: "☀️ Morning Standup Briefing", text: "Generate 9:00 AM Morning Call Briefing and Compliance Alerts", badge: "Daily", role: "all" },
+  { label: "📜 ROC Form 20 Steps", text: "What are the requirements, statutory timeline, and filing steps for ROC Form 20 (Change of Directors)?", badge: "ROC", role: "all" },
+  { label: "🏛️ RAMIS Tax Slabs & CIT", text: "Explain Sri Lankan APIT monthly tax slabs, Corporate Income Tax rate (CIT 30%), and RAMIS filing deadlines", badge: "Tax", role: "all" },
+  { label: "🏦 EPF/ETF Rules & Surcharges", text: "What are the statutory EPF and ETF contribution rates, remittance deadlines, and surcharge penalties for late payment?", badge: "Statutory", role: "all" },
   { label: "📋 Active Deliverables", text: "Summarize active deliverables and in-progress tasks across the team", badge: "Operations", role: "exec" },
   { label: "📋 My Active Deliverables", text: "Summarize my active deliverables and in-progress tasks", badge: "Personal", role: "staff" },
   { label: "⚡ Urgent Follow-ups", text: "What tasks or approvals currently require urgent follow-up?", badge: "Urgent", role: "all" },
@@ -8732,8 +8885,7 @@ const SPILLBURG_AI_GENERAL_PROMPT_POOL = [
   { label: "🏢 Bank & Cheque Clearances", text: "Summarize bank transactions, fund transfers, and cheque clearances in progress", badge: "Banking", role: "all" },
   { label: "📑 Recent Incorporations", text: "List recently incorporated client companies and their registration numbers", badge: "Corporate", role: "all" },
   { label: "🏦 Payroll & EPF/ETF", text: "Show corporate payroll summary and EPF/ETF registration numbers", badge: "Payroll", requires: "payroll", role: "all" },
-  { label: "💡 Work Log Import Guide", text: "How should I format a staff member's daily work report for automatic task import?", badge: "Guide", role: "all" },
-  { label: "🔄 Cross-Module Update Guide", text: "How can I update Customer File cupboards or Financial Register TINs via chat?", badge: "Guide", role: "all" }
+  { label: "🎙️ Voice Note Task Log", text: "How can I record or upload an audio voice note for SpillburgAI to extract my completed tasks?", badge: "Voice AI", role: "all" }
 ];
 
 function getFilteredAiPrompts() {
@@ -8897,8 +9049,23 @@ async function renderSpillburgAI(container) {
         <div id="spillburgAiMessages" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4"></div>
 
         <form onsubmit="sendSpillburgAiMessage(event)" class="p-3.5 bg-white border-t border-slate-200 flex flex-col gap-2">
+          <!-- Active Attachment Chips -->
+          <div id="spillburgAiAttachmentBar" class="hidden flex flex-wrap items-center gap-2 p-2 bg-purple-50/70 border border-purple-200 rounded-xl"></div>
+
           <div class="flex items-end gap-2">
-            <textarea id="spillburgAiInput" rows="3" placeholder="Ask SpillburgAI anything across your permitted databases, paste a multi-line staff work report (e.g. Ravi's 1) 2) 3) 4) log), or update a Customer/Financial file..." onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendSpillburgAiMessage(); }" class="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 resize-y"></textarea>
+            <!-- Hidden File Input for Audio / Documents -->
+            <input type="file" id="spillburgAiFileInput" class="hidden" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,image/*,.png,.jpg,.jpeg,.pdf" onchange="handleSpillburgAiFileSelect(event)">
+            
+            <button type="button" onclick="document.getElementById('spillburgAiFileInput').click()" class="p-3 rounded-xl bg-slate-100 hover:bg-purple-100 text-slate-600 hover:text-purple-700 border border-slate-200 transition shrink-0 cursor-pointer" title="Attach Audio Note, Receipt Image, or Document">
+              <i data-lucide="paperclip" class="w-4 h-4"></i>
+            </button>
+
+            <button type="button" id="spillburgAiMicBtn" onclick="toggleSpillburgAiAudioRecord()" class="p-3 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-700 border border-slate-200 transition shrink-0 cursor-pointer" title="Record Audio Voice Note">
+              <i data-lucide="mic" class="w-4 h-4"></i>
+            </button>
+
+            <textarea id="spillburgAiInput" rows="3" placeholder="Ask SpillburgAI anything across your permitted databases, record/attach an audio note, paste a multi-line staff report (e.g. Ravi's 1) 2) 3) 4) log), or update a Customer/Financial file..." onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendSpillburgAiMessage(); }" class="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 resize-y"></textarea>
+
             <button type="submit" id="spillburgAiSendBtn" class="px-5 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition shrink-0 cursor-pointer">
               <i data-lucide="send" class="w-4 h-4"></i>
               <span>Send / Analyze</span>
@@ -15652,3 +15819,246 @@ async function generateTaskNotes(titleInputId, notesTextareaId, workstreamSelect
     }
   }
 }
+
+
+// ---------------- GLOBAL COMMAND PALETTE (CTRL+K / CMD+K) ----------------
+let cmdPaletteSelectedIdx = 0;
+let cmdPaletteResults = [];
+
+function openGlobalCommandPalette() {
+  let modal = document.getElementById('globalCommandPaletteModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'globalCommandPaletteModal';
+    modal.className = 'fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[99999] flex items-start justify-center pt-16 md:pt-24 px-4 fade-in';
+    modal.onclick = (e) => {
+      if (e.target === modal) closeGlobalCommandPalette();
+    };
+    modal.innerHTML = `
+      <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col" onclick="e.stopPropagation()">
+        <!-- Search Input Header -->
+        <div class="p-3.5 border-b border-slate-200 flex items-center gap-3 bg-slate-50">
+          <i data-lucide="search" class="w-5 h-5 text-purple-600 shrink-0"></i>
+          <input type="text" id="cmdPaletteInput" placeholder="Search tasks, client files, tax records, or ask SpillburgAI..." oninput="handleCommandPaletteInput(this.value)" onkeydown="handleCommandPaletteKeydown(event)" class="w-full bg-transparent border-none text-sm text-slate-900 focus:outline-none font-medium placeholder:text-slate-400">
+          <kbd class="px-2 py-0.5 rounded bg-white border border-slate-300 text-[10px] font-mono text-slate-500 shadow-2xs shrink-0">ESC to close</kbd>
+        </div>
+
+        <!-- Dynamic Results List -->
+        <div id="cmdPaletteResultsList" class="max-h-[380px] overflow-y-auto p-2 divide-y divide-slate-100"></div>
+
+        <!-- Footer / Shortcuts -->
+        <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-400">
+          <div class="flex items-center gap-3">
+            <span><strong>&uarr; &darr;</strong> navigate</span>
+            <span><strong>Enter</strong> select</span>
+            <span><strong>ESC</strong> close</span>
+          </div>
+          <span class="text-purple-600 font-semibold flex items-center gap-1">
+            <i data-lucide="sparkles" class="w-3 h-3"></i> SpillburgAI Global Palette
+          </span>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  } else {
+    modal.classList.remove('hidden');
+  }
+
+  const inp = document.getElementById('cmdPaletteInput');
+  if (inp) {
+    inp.value = '';
+    setTimeout(() => inp.focus(), 50);
+  }
+  handleCommandPaletteInput('');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeGlobalCommandPalette() {
+  const modal = document.getElementById('globalCommandPaletteModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function handleCommandPaletteInput(q) {
+  const listEl = document.getElementById('cmdPaletteResultsList');
+  if (!listEl) return;
+  const cleanQ = (q || '').trim().toLowerCase();
+  cmdPaletteResults = [];
+  cmdPaletteSelectedIdx = 0;
+
+  // 1. Navigation options
+  const navOptions = [
+    { title: "Operations Tracker", subtitle: "Deliverables, follow-ups & team checklists", icon: "check-square", action: () => switchView('operations') },
+    { title: "Customer Files Database", subtitle: "Archived physical files, cupboards & boxes", icon: "folder", action: () => switchView('customer-files') },
+    { title: "Financial & Tax Register", subtitle: "TINs, IRD PINs, SSIDs & compliance checklists", icon: "file-text", action: () => switchView('financial-files') },
+    { title: "Corporate Payroll & Slips", subtitle: "APADMI, Spillburg Vacation, EPF & ETF returns", icon: "calculator", action: () => switchView('payroll') },
+    { title: "SpillburgAI Assistant", subtitle: "Corporate intelligence & task automation chat", icon: "sparkles", action: () => switchView('spillburg-ai') }
+  ];
+
+  if (!cleanQ) {
+    cmdPaletteResults = navOptions;
+  } else {
+    // Dynamic 'Ask AI' option first if query looks like a question or command
+    cmdPaletteResults.push({
+      title: `Ask SpillburgAI: "${q}"`,
+      subtitle: "Query live databases or analyze with Gemini AI",
+      icon: "sparkles",
+      isAi: true,
+      action: () => {
+        switchView('spillburg-ai');
+        setTimeout(() => {
+          const inp = document.getElementById('spillburgAiInput');
+          if (inp) {
+            inp.value = q;
+            sendSpillburgAiMessage();
+          }
+        }, 150);
+      }
+    });
+
+    // Match Customer Files
+    if (typeof customerRecords !== 'undefined' && Array.isArray(customerRecords)) {
+      customerRecords.forEach(c => {
+        const name = (c['Company Name'] || '').toLowerCase();
+        const reg = (c['Registration No'] || '').toLowerCase();
+        if (name.includes(cleanQ) || reg.includes(cleanQ)) {
+          cmdPaletteResults.push({
+            title: c['Company Name'],
+            subtitle: `Customer File: ${c['Cupboard']} -> ${c['Box No']} (Reg: ${c['Registration No'] || 'N/A'})`,
+            icon: "folder",
+            action: () => {
+              switchView('customer-files');
+              setTimeout(() => {
+                const inp = document.getElementById('customerSearchInput');
+                if (inp) { inp.value = c['Company Name']; handleCustomerFilter(); }
+              }, 100);
+            }
+          });
+        }
+      });
+    }
+
+    // Match Financial Files
+    if (typeof financialRecords !== 'undefined' && Array.isArray(financialRecords)) {
+      financialRecords.forEach(f => {
+        const name = (f.entityName || '').toLowerCase();
+        const tin = (f.tinNo || '').toLowerCase();
+        if (name.includes(cleanQ) || tin.includes(cleanQ)) {
+          cmdPaletteResults.push({
+            title: f.entityName,
+            subtitle: `Financial DB: TIN ${f.tinNo || 'N/A'} · IRD PIN ${f.irdPin || 'N/A'} · ${f.filingStatus || 'Pending'}`,
+            icon: "file-text",
+            action: () => {
+              switchView('financial-files');
+              setTimeout(() => {
+                const inp = document.getElementById('finSearchInput');
+                if (inp) { inp.value = f.entityName; handleFinancialFilter(); }
+              }, 100);
+            }
+          });
+        }
+      });
+    }
+
+    // Match Operations Tasks
+    if (typeof operationsTasks !== 'undefined' && Array.isArray(operationsTasks)) {
+      operationsTasks.forEach(t => {
+        const title = (t.title || '').toLowerCase();
+        const assignee = (t.assignedTo || '').toLowerCase();
+        const no = String(t.no || '');
+        if (title.includes(cleanQ) || assignee.includes(cleanQ) || no === cleanQ) {
+          cmdPaletteResults.push({
+            title: `#${t.no} ${t.title}`,
+            subtitle: `Task: ${t.assignedTo} · [${t.status}] · ${t.workstream || 'Operations'}`,
+            icon: "check-square",
+            action: () => {
+              switchView('operations');
+              setTimeout(() => {
+                const inp = document.getElementById('opsSearchInput');
+                if (inp) { inp.value = '#' + t.no; handleOperationsFilter(); }
+              }, 100);
+            }
+          });
+        }
+      });
+    }
+
+    // Navigation matches
+    navOptions.forEach(n => {
+      if (n.title.toLowerCase().includes(cleanQ)) {
+        cmdPaletteResults.push(n);
+      }
+    });
+  }
+
+  renderCommandPaletteResults();
+}
+
+function renderCommandPaletteResults() {
+  const listEl = document.getElementById('cmdPaletteResultsList');
+  if (!listEl) return;
+  const items = cmdPaletteResults.slice(0, 10);
+  if (items.length === 0) {
+    listEl.innerHTML = `
+      <div class="p-8 text-center text-slate-400 text-xs">
+        No matches found. Press Enter to ask SpillburgAI or refine your search.
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = items.map((it, idx) => {
+    const isSelected = idx === cmdPaletteSelectedIdx;
+    return `
+      <div onclick="executeCommandPaletteItem(${idx})" class="p-2.5 rounded-xl flex items-center gap-3 transition cursor-pointer ${isSelected ? 'bg-purple-50 text-purple-900 border border-purple-200' : 'hover:bg-slate-50 text-slate-700'}">
+        <div class="w-8 h-8 rounded-lg ${it.isAi ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'} flex items-center justify-center shrink-0">
+          <i data-lucide="${it.icon || 'circle'}" class="w-4 h-4"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold text-xs truncate">${escapeHtml(it.title)}</div>
+          <div class="text-[11px] text-slate-400 truncate">${escapeHtml(it.subtitle || '')}</div>
+        </div>
+        ${isSelected ? '<kbd class="text-[10px] bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded font-mono font-bold">↵</kbd>' : ''}
+      </div>
+    `;
+  }).join('');
+  if (window.lucide) lucide.createIcons();
+}
+
+function executeCommandPaletteItem(idx) {
+  const item = cmdPaletteResults[idx];
+  if (item && typeof item.action === 'function') {
+    closeGlobalCommandPalette();
+    item.action();
+  }
+}
+
+function handleCommandPaletteKeydown(e) {
+  const max = Math.min(cmdPaletteResults.length, 10);
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (max > 0) {
+      cmdPaletteSelectedIdx = (cmdPaletteSelectedIdx + 1) % max;
+      renderCommandPaletteResults();
+    }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (max > 0) {
+      cmdPaletteSelectedIdx = (cmdPaletteSelectedIdx - 1 + max) % max;
+      renderCommandPaletteResults();
+    }
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    executeCommandPaletteItem(cmdPaletteSelectedIdx);
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    closeGlobalCommandPalette();
+  }
+}
+
+// Global Ctrl+K / Cmd+K listener
+window.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    openGlobalCommandPalette();
+  }
+});
