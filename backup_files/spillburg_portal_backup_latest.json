@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-02T11:42:44Z",
+  "exportTimestamp": "2026-11-03T05:43:50Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5084,11 +5084,11 @@
       "workstream": "Office Operations",
       "type": "Field / Office Operations",
       "taskedDate": "02-Nov-2026",
-      "completedDate": "",
-      "status": "Pending",
+      "completedDate": "02-Nov-2026",
+      "status": "Completed",
       "priority": "Medium",
       "estimatedCost": "",
-      "notes": "Going to Trigital World to collect Manisha' s Visiting cards"
+      "notes": "Went to Trigital World collected 100 visiting for Manisha Kannangara (Destination Consultancy handed over to Mr.Shameel"
     },
     {
       "id": "ops_b28227",
@@ -5288,11 +5288,11 @@
       "workstream": "Tax, Accounting & Audit",
       "type": "Tax / Audit Compliance",
       "taskedDate": "02-Nov-2026",
-      "completedDate": "",
-      "status": "Pending",
+      "completedDate": "02-Nov-2026",
+      "status": "Completed",
       "priority": "High",
       "estimatedCost": "",
-      "notes": "Going to IRD to get tax slips for Apiit"
+      "notes": "Went to IRD brought tax paying slips for make the payments Apiit. Apadmi SL (Pvt) Ltd"
     },
     {
       "id": "ops_9f3154",
@@ -5302,14 +5302,14 @@
       "title": "Pay EPF/ETF Remittance for Apadmi & ROC Statutory Payments",
       "requestedBy": "Mr. Shameel",
       "assignedTo": "Ravindralal Mahinda Wijeweera",
-      "workstream": "Corporate Secretarial & ROC",
-      "type": "ROC / Statutory Filing",
+      "workstream": "Payroll & Statutory",
+      "type": "EPF / ETF / Payroll",
       "taskedDate": "02-Nov-2026",
-      "completedDate": "",
-      "status": "Pending",
+      "completedDate": "02-Nov-2026",
+      "status": "Completed",
       "priority": "High",
       "estimatedCost": "",
-      "notes": "Going to pay EPF/ETF Apadmi/ROC"
+      "notes": "Went to EPF/ETF made a payment by cheques for Apadmi SL (Pvt) Ltd staff members contribution for said funds"
     },
     {
       "id": "ops_549411",
@@ -5339,11 +5339,11 @@
       "workstream": "Payroll & Statutory",
       "type": "EPF / ETF / Payroll",
       "taskedDate": "02-Nov-2026",
-      "completedDate": "",
-      "status": "Pending",
-      "priority": "Medium",
+      "completedDate": "02-Nov-2026",
+      "status": "Completed",
+      "priority": "High",
       "estimatedCost": "",
-      "notes": "Going to Labour Dept Narahenpita to meet Labour commissioner Reg.ALP matter"
+      "notes": "Went to Labour Dept to sort out ALP Consulting Matter. Labour officer Mr.Jayasekara/Mrs Dammi Assistance Commissioner of Labour Dept EPF said to do the needful Informed to Mr.Shameel"
     },
     {
       "id": "ops_763bd2",
@@ -5361,6 +5361,57 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Prepare Staff Appraisal File based on staff performance"
+    },
+    {
+      "id": "ops_fc9892",
+      "no": 188,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "ROC contact the officer IT division discussed about share dividends informed to Mr.Shameel",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Corporate Secretarial & ROC",
+      "type": "ROC / Statutory Filing",
+      "taskedDate": "02-Nov-2026",
+      "completedDate": "02-Nov-2026",
+      "status": "Completed",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Went to ROC contact the officer IT division discussed about share dividends informed to Mr.Shameel"
+    },
+    {
+      "id": "ops_47c67a",
+      "no": 189,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "BO level 3rd get the approvals from Assistance Registrar Mrs Harshanee, at the time she had...",
+      "requestedBy": "Muhammad Zaharan",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Corporate Secretarial & ROC",
+      "type": "ROC / Statutory Filing",
+      "taskedDate": "02-Nov-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "BO level 3rd get the approvals from Assistance Registrar Mrs Harshanee, at the time she had gone for the meeting.To be follow up 111)Went to check the status of form 6 Coconut Hut there is a officer ask me to write the record book.To be follow up"
+    },
+    {
+      "id": "ops_4a3fe9",
+      "no": 190,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Comm Bank deposited cash to Spillburg Vacation Acc",
+      "requestedBy": "Mr. Hameez",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Banking & Treasury",
+      "type": "Banking & Fund Transfer",
+      "taskedDate": "02-Nov-2026",
+      "completedDate": "02-Nov-2026",
+      "status": "Completed",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Went to Comm Bank deposited cash to Spillburg Vacation Acc (Shah Shan /CDK Lanka)"
     }
   ],
   "payroll": {
