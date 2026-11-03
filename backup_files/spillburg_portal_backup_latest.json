@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-03T05:43:50Z",
+  "exportTimestamp": "2026-11-03T06:41:06Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6043,7 +6043,7 @@
         "baseCurrency": "LKR",
         "localCurrency": "LKR",
         "currencyMode": "dual",
-        "status": "Approved",
+        "status": "Finalized",
         "checkedBy": "Hemanthi Basnayake",
         "checkedTitle": "Accountant",
         "authorizedSignatory": "Shaameel Mohideen",
