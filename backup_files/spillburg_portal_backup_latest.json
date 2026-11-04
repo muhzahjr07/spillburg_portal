@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-04T07:45:03Z",
+  "exportTimestamp": "2026-11-04T07:52:05Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -5548,6 +5548,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Execute deliverables for Spillburg Vacation Strategic Business Plan as instructed by Mr. Shameel, coordinate with relevant team members"
+    },
+    {
+      "id": "ops_9318ab",
+      "no": 75,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Post Accounts Executive Vacancy in LinkedIn",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Office Operations",
+      "type": "Operational Task",
+      "taskedDate": "04-Nov-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Post Accounts Executive Vacancy in LinkedIn"
     }
   ],
   "payroll": {
