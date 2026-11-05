@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-05T11:38:04Z",
+  "exportTimestamp": "2026-11-05T11:58:41Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6717,24 +6717,24 @@
             "epfNo": "13",
             "name": "M. A. S. R. HEMANTHI",
             "shortName": "M. A. S. R. Hemanthi",
-            "position": "Accounts Executive",
-            "gbpSalary": 0,
-            "lkrSalary": 40000,
-            "earnedLkr": 40000,
+            "position": "Accountant",
+            "gbpSalary": 0.0,
+            "lkrSalary": 40000.0,
+            "earnedLkr": 40000.0,
             "workDays": "",
-            "earnedGbp": 0,
+            "earnedGbp": 0.0,
             "bankAccountNo": "200510088349",
             "bankCode": "",
             "bankBranch": "Nations Trust Bank PLC",
             "tinNo": "",
             "idNo": "718601657V",
             "dateJoined": "02.09.2024",
-            "specialAllowance": 37500,
+            "specialAllowance": 37500.0,
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "otherDeductions": 0,
-            "apit": 0
+            "otherDeductions": 0.0,
+            "apit": 0.0
           },
           {
             "id": "emp_477008",
