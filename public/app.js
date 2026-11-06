@@ -9536,18 +9536,20 @@ async function renderPayroll(container) {
             </div>
           </div>
 
-          <!-- 2. Total Earned Base GBP -->
+          <!-- 2. Total Earned Salary -->
           <div class="glass-card p-4 rounded-xl border border-slate-200 bg-white shadow-2xs">
             <div class="flex items-center justify-between text-xs text-slate-500 mb-1">
-              <span class="font-semibold uppercase tracking-wider text-[10px] text-blue-700">Earned Base (GBP)</span>
+              <span class="font-semibold uppercase tracking-wider text-[10px] text-blue-700">${selectedComp.currencyMode === 'single' ? 'Earned Salary (LKR)' : `Earned Salary (${selectedComp.foreignCurrency || 'GBP'})`}</span>
               <i data-lucide="coins" class="w-4 h-4 text-blue-600"></i>
             </div>
             <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
-              &pound; ${formatMoney(totals.sumEarnedGbp, 2)}
+              ${selectedComp.currencyMode === 'single'
+                ? `Rs ${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), 2)}`
+                : `&pound; ${formatMoney(totals.sumTotalEarnedGbp ?? (Number(totals.sumEarnedGbp || 0) + Number(totals.sumFixedAllowanceGbp || 0) + Number(totals.sumSpecialAllowanceGbp || 0)), 2)}`}
             </div>
             <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>Total GBP Base</span>
-              <span class="font-medium text-slate-700">Contract &pound; ${formatMoney(totals.sumGbpSalary, 2)}</span>
+              <span>Basic + Allowances</span>
+              <span class="font-medium text-slate-700">${selectedComp.currencyMode === 'single' ? `Basic Rs ${formatMoney(totals.sumLkrGross || 0, 2)}` : `Basic &pound; ${formatMoney(totals.sumEarnedGbp || 0, 2)}`}</span>
             </div>
           </div>
 
@@ -9791,7 +9793,7 @@ function renderPayrollSheet(container) {
                     />
                   </td>
                   <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
-                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.earnedLkr || e.lkrGross || 0, 2)}</td>
+                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || e.earnedLkr || e.lkrSalary || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.epf8Lkr, 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.epf12Lkr, 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.etf3Lkr, 2)}</td>
@@ -9835,7 +9837,7 @@ function renderPayrollSheet(container) {
                 <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumFixedAllowanceLkr || 0, 2)}</td>
                 <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumSpecialAllowanceLkr || 0, 2)}</td>
                 <td></td>
-                <td style="text-align: right;">${formatMoney(totals.sumLkrGross || 0, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), 2)}</td>
                 <td style="text-align: right;">${formatMoney(totals.sumEpf8Lkr, 2)}</td>
                 <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, 2)}</td>
                 <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 2)}</td>
@@ -9875,7 +9877,7 @@ function renderPayrollSheet(container) {
                 <th style="min-width: 92px;" title="Adds to Remittance &amp; Staff Cost, excluded from EPF/ETF">Fixed Allow. (${foreignCurr})</th>
                 <th style="min-width: 92px;" title="Adds to Remittance &amp; Staff Cost, excluded from EPF/ETF">Special Allow. (${foreignCurr})</th>
                 <th>Working Days</th>
-                <th>Earned Base (${foreignCurr})</th>
+                <th>Earned Salary (${foreignCurr})</th>
                 <th>EPF (12% )</th>
                 <th>ETF(3% )</th>
                 <th>Total Employer Cost (${foreignCurr})</th>
@@ -9916,7 +9918,7 @@ function renderPayrollSheet(container) {
                     />
                   </td>
                   <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
-                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.earnedGbp, 2)}</td>
+                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.totalEarnedGbp ?? (Number(e.earnedGbp || 0) + Number(e.fixedAllowanceGbp || 0) + Number(e.specialAllowanceGbp || 0)), 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.epf12Gbp, 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.etf3Gbp, 2)}</td>
                   <td style="text-align: right; font-weight: 700; color: #1e3a8a;">${formatMoney(e.totalGbp, 2)}</td>
@@ -9939,7 +9941,7 @@ function renderPayrollSheet(container) {
                 <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumFixedAllowanceGbp || 0, 2)}</td>
                 <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumSpecialAllowanceGbp || 0, 2)}</td>
                 <td></td>
-                <td style="text-align: right;">${formatMoney(totals.sumEarnedGbp, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumTotalEarnedGbp ?? (Number(totals.sumEarnedGbp || 0) + Number(totals.sumFixedAllowanceGbp || 0) + Number(totals.sumSpecialAllowanceGbp || 0)), 2)}</td>
                 <td style="text-align: right;">${formatMoney(totals.sumEpf12Gbp, 2)}</td>
                 <td style="text-align: right;">${formatMoney(totals.sumEtf3Gbp, 2)}</td>
                 <td style="text-align: right; font-size: 11.5px;">${formatMoney(totals.sumTotalGbp, 2)}</td>
@@ -9978,6 +9980,7 @@ function renderPayrollSheet(container) {
                 <th>Basic Salary (LKR)</th>
                 <th style="min-width: 98px;" title="Adds to Remittance &amp; Staff Cost, excluded from EPF/ETF">Fixed Allowance</th>
                 <th style="min-width: 98px;" title="Adds to Remittance &amp; Staff Cost, excluded from EPF/ETF">Special Allowance</th>
+                <th>Earned Salary (LKR)</th>
                 <th>EPF 8%</th>
                 <th>EPF12%</th>
                 <th>ETF 3%</th>
@@ -10018,6 +10021,7 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
+                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.epf8Lkr, 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.epf12Lkr, 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.etf3Lkr, 2)}</td>
@@ -10055,6 +10059,7 @@ function renderPayrollSheet(container) {
                 <td style="text-align: right; font-weight: 700;">${formatMoney(totals.sumLkrGross, 0)}</td>
                 <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumFixedAllowanceLkr || 0, 2)}</td>
                 <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumSpecialAllowanceLkr || 0, 2)}</td>
+                <td style="text-align: right; font-weight: 700;">${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), 2)}</td>
                 <td style="text-align: right;">${formatMoney(totals.sumEpf8Lkr, 2)}</td>
                 <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, 2)}</td>
                 <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 2)}</td>
@@ -14328,7 +14333,7 @@ function printMasterSalarySheet() {
                 <td class="text-right">${e.fixedAllowance ? formatMoney(e.fixedAllowance, 2) : '-'}</td>
                 <td class="text-right">${e.specialAllowance ? formatMoney(e.specialAllowance, 2) : '-'}</td>
                 <td class="text-center bold">${escapeHtml(e.workDays || '')}</td>
-                <td class="text-right bold">${formatMoney(e.earnedLkr || e.lkrGross || 0, 2)}</td>
+                <td class="text-right bold">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || e.earnedLkr || e.lkrSalary || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}</td>
                 <td class="text-right">${formatMoney(e.epf8Lkr, 0)}</td>
                 <td class="text-right">${formatMoney(e.epf12Lkr, 0)}</td>
                 <td class="text-right">${formatMoney(e.etf3Lkr, 0)}</td>
@@ -14347,7 +14352,7 @@ function printMasterSalarySheet() {
               <td class="text-right">${formatMoney(totals.sumFixedAllowanceLkr || 0, 2)}</td>
               <td class="text-right">${formatMoney(totals.sumSpecialAllowanceLkr || 0, 2)}</td>
               <td></td>
-              <td class="text-right">${formatMoney(totals.sumLkrGross || 0, 2)}</td>
+              <td class="text-right">${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), 2)}</td>
               <td class="text-right">${formatMoney(totals.sumEpf8Lkr, 0)}</td>
               <td class="text-right">${formatMoney(totals.sumEpf12Lkr, 0)}</td>
               <td class="text-right">${formatMoney(totals.sumEtf3Lkr, 0)}</td>
@@ -14383,7 +14388,7 @@ function printMasterSalarySheet() {
               <th>Fixed Allow. (${foreignCurr})</th>
               <th>Special Allow. (${foreignCurr})</th>
               <th>Working Days</th>
-              <th>Earned Base (${foreignCurr})</th>
+              <th>Earned Salary (${foreignCurr})</th>
               <th>EPF (12% )</th>
               <th>ETF(3% )</th>
               <th>Total Employer Cost (${foreignCurr})</th>
@@ -14403,7 +14408,7 @@ function printMasterSalarySheet() {
                 <td class="text-right">${e.fixedAllowanceGbp ? formatMoney(e.fixedAllowanceGbp, 2) : '-'}</td>
                 <td class="text-right">${e.specialAllowanceGbp ? formatMoney(e.specialAllowanceGbp, 2) : '-'}</td>
                 <td class="text-center bold">${escapeHtml(e.workDays || '')}</td>
-                <td class="text-right bold">${formatMoney(e.earnedGbp, 2)}</td>
+                <td class="text-right bold">${formatMoney(e.totalEarnedGbp ?? (Number(e.earnedGbp || 0) + Number(e.fixedAllowanceGbp || 0) + Number(e.specialAllowanceGbp || 0)), 2)}</td>
                 <td class="text-right">${formatMoney(e.epf12Gbp, 0)}</td>
                 <td class="text-right">${formatMoney(e.etf3Gbp, 0)}</td>
                 <td class="text-right bold">${formatMoney(e.totalGbp, 2)}</td>
@@ -14419,7 +14424,7 @@ function printMasterSalarySheet() {
               <td class="text-right">${formatMoney(totals.sumFixedAllowanceGbp || 0, 2)}</td>
               <td class="text-right">${formatMoney(totals.sumSpecialAllowanceGbp || 0, 2)}</td>
               <td></td>
-              <td class="text-right">${formatMoney(totals.sumEarnedGbp, 2)}</td>
+              <td class="text-right">${formatMoney(totals.sumTotalEarnedGbp ?? (Number(totals.sumEarnedGbp || 0) + Number(totals.sumFixedAllowanceGbp || 0) + Number(totals.sumSpecialAllowanceGbp || 0)), 2)}</td>
               <td class="text-right">${formatMoney(totals.sumEpf12Gbp, 0)}</td>
               <td class="text-right">${formatMoney(totals.sumEtf3Gbp, 0)}</td>
               <td class="text-right bold">${formatMoney(totals.sumTotalGbp, 2)}</td>
@@ -14454,6 +14459,7 @@ function printMasterSalarySheet() {
               <th>Basic Salary (LKR)</th>
               <th>Fixed Allowance</th>
               <th>Special Allowance</th>
+              <th>Earned Salary (LKR)</th>
               <th>EPF 8%</th>
               <th>EPF12%</th>
               <th>ETF 3%</th>
@@ -14474,6 +14480,7 @@ function printMasterSalarySheet() {
                 <td class="text-right bold">${formatMoney(e.lkrGross, 0)}</td>
                 <td class="text-right">${e.fixedAllowance ? formatMoney(e.fixedAllowance, 2) : '-'}</td>
                 <td class="text-right">${e.specialAllowance ? formatMoney(e.specialAllowance, 2) : '-'}</td>
+                <td class="text-right bold">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}</td>
                 <td class="text-right">${formatMoney(e.epf8Lkr, 0)}</td>
                 <td class="text-right">${formatMoney(e.epf12Lkr, 0)}</td>
                 <td class="text-right">${formatMoney(e.etf3Lkr, 0)}</td>
@@ -14490,6 +14497,7 @@ function printMasterSalarySheet() {
               <td class="text-right bold">${formatMoney(totals.sumLkrGross, 0)}</td>
               <td class="text-right">${formatMoney(totals.sumFixedAllowanceLkr || 0, 2)}</td>
               <td class="text-right">${formatMoney(totals.sumSpecialAllowanceLkr || 0, 2)}</td>
+              <td class="text-right bold">${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), 2)}</td>
               <td class="text-right">${formatMoney(totals.sumEpf8Lkr, 0)}</td>
               <td class="text-right">${formatMoney(totals.sumEpf12Lkr, 0)}</td>
               <td class="text-right">${formatMoney(totals.sumEtf3Lkr, 0)}</td>

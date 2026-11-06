@@ -1116,8 +1116,10 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             **emp,
             'lkrSalary': lkr_salary,
             'earnedLkr': earned_lkr,
+            'earnedSalaryLkr': total_gross_lkr,
             'gbpSalary': 0.0,
             'earnedGbp': 0.0,
+            'totalEarnedGbp': 0.0,
             'fixedAllowanceGbp': 0.0,
             'specialAllowanceGbp': 0.0,
             'epf12Gbp': 0.0,
@@ -1149,11 +1151,12 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
         special_allowance = float(emp.get('specialAllowance') or 0.0)
         fixed_allowance_gbp = round(fixed_allowance / rate, 2) if rate else 0.0
         special_allowance_gbp = round(special_allowance / rate, 2) if rate else 0.0
+        total_earned_gbp = round(earned_gbp + fixed_allowance_gbp + special_allowance_gbp, 2)
         
         # EPF & ETF are calculated strictly on Basic Salary (earned_gbp / lkr_gross), excluding Fixed & Special Allowances
         epf12_gbp = round(earned_gbp * 0.12)
         etf3_gbp = round(earned_gbp * 0.03)
-        total_gbp = round(earned_gbp + fixed_allowance_gbp + special_allowance_gbp + epf12_gbp + etf3_gbp, 2)
+        total_gbp = round(total_earned_gbp + epf12_gbp + etf3_gbp, 2)
         
         lkr_gross = round(earned_gbp * rate)
         total_gross_lkr = round(lkr_gross + fixed_allowance + special_allowance, 2)
@@ -1185,12 +1188,14 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             **emp,
             'gbpSalary': gbp_salary,
             'earnedGbp': earned_gbp,
+            'totalEarnedGbp': total_earned_gbp,
             'fixedAllowanceGbp': fixed_allowance_gbp,
             'specialAllowanceGbp': special_allowance_gbp,
             'epf12Gbp': epf12_gbp,
             'etf3Gbp': etf3_gbp,
             'totalGbp': total_gbp,
             'lkrGross': lkr_gross,
+            'earnedSalaryLkr': total_gross_lkr,
             'fixedAllowance': fixed_allowance,
             'specialAllowance': special_allowance,
             'totalGrossLkr': total_gross_lkr,
@@ -1222,12 +1227,14 @@ def enrich_payroll_period(period):
     
     sum_gbp_salary = 0.0
     sum_earned_gbp = 0.0
+    sum_total_earned_gbp = 0.0
     sum_fixed_allowance_gbp = 0.0
     sum_special_allowance_gbp = 0.0
     sum_epf12_gbp = 0.0
     sum_etf3_gbp = 0.0
     sum_total_gbp = 0.0
     sum_lkr_gross = 0.0
+    sum_total_gross_lkr = 0.0
     sum_fixed_allowance_lkr = 0.0
     sum_special_allowance_lkr = 0.0
     sum_epf8_lkr = 0.0
@@ -1243,12 +1250,14 @@ def enrich_payroll_period(period):
         computed_emps.append(c)
         sum_gbp_salary += c.get('gbpSalary', 0.0)
         sum_earned_gbp += c.get('earnedGbp', 0.0)
+        sum_total_earned_gbp += c.get('totalEarnedGbp', 0.0)
         sum_fixed_allowance_gbp += c.get('fixedAllowanceGbp', 0.0)
         sum_special_allowance_gbp += c.get('specialAllowanceGbp', 0.0)
         sum_epf12_gbp += c.get('epf12Gbp', 0.0)
         sum_etf3_gbp += c.get('etf3Gbp', 0.0)
         sum_total_gbp += c.get('totalGbp', 0.0)
         sum_lkr_gross += c.get('lkrGross', 0.0)
+        sum_total_gross_lkr += c.get('totalGrossLkr', 0.0)
         sum_fixed_allowance_lkr += c.get('fixedAllowance', 0.0)
         sum_special_allowance_lkr += c.get('specialAllowance', 0.0)
         sum_epf8_lkr += c.get('epf8Lkr', 0.0)
@@ -1275,13 +1284,15 @@ def enrich_payroll_period(period):
         'totalEmployees': len(computed_emps),
         'sumGbpSalary': round(sum_gbp_salary, 2),
         'sumEarnedGbp': round(sum_earned_gbp, 2),
+        'sumTotalEarnedGbp': round(sum_total_earned_gbp, 2),
         'sumFixedAllowanceGbp': round(sum_fixed_allowance_gbp, 2),
         'sumSpecialAllowanceGbp': round(sum_special_allowance_gbp, 2),
         'sumEpf12Gbp': round(sum_epf12_gbp, 2),
         'sumEtf3Gbp': round(sum_etf3_gbp, 2),
         'sumTotalGbp': round(sum_total_gbp, 2),
         'sumLkrGross': round(sum_lkr_gross, 2),
-        'sumGrossSalaryLkr': round(sum_lkr_gross, 2),
+        'sumTotalGrossLkr': round(sum_total_gross_lkr, 2),
+        'sumGrossSalaryLkr': round(sum_total_gross_lkr, 2),
         'sumFixedAllowanceLkr': round(sum_fixed_allowance_lkr, 2),
         'sumSpecialAllowanceLkr': round(sum_special_allowance_lkr, 2),
         'sumEpf8Lkr': round(sum_epf8_lkr, 2),
@@ -1348,28 +1359,28 @@ def generate_payroll_csv(enriched_period, company_info=None):
     lines = []
     if currency_mode == "dual":
         lines.append(f'SALARY SHEET (IN {base_curr}) - {month.upper()}')
-        lines.append(f'No,Employee Name,POSITION,{base_curr} Salary,Fixed Allowance ({base_curr}),Special Allowance ({base_curr}),Working Days,Earned Base ({base_curr}),EPF (12%),ETF (3%),Total Employer Cost ({base_curr}),BANK ACCOUNT NO,TIN NO,IDNO,Date Joined')
+        lines.append(f'No,Employee Name,POSITION,{base_curr} Salary,Fixed Allowance ({base_curr}),Special Allowance ({base_curr}),Working Days,Earned Salary ({base_curr}),EPF (12%),ETF (3%),Total Employer Cost ({base_curr}),BANK ACCOUNT NO,TIN NO,IDNO,Date Joined')
         for e in employees:
             bank_str = f"{e.get('bankAccountNo','')}({e.get('bankCode','')})" if e.get('bankCode') else str(e.get('bankAccountNo',''))
-            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{e.get("gbpSalary",0)},{e.get("fixedAllowanceGbp",0)},{e.get("specialAllowanceGbp",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("epf12Gbp",0)},{e.get("etf3Gbp",0)},{e.get("totalGbp",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
-        lines.append(f',,,{totals.get("sumGbpSalary",0)},{totals.get("sumFixedAllowanceGbp",0)},{totals.get("sumSpecialAllowanceGbp",0)},,{totals.get("sumEarnedGbp",0)},{totals.get("sumEpf12Gbp",0)},{totals.get("sumEtf3Gbp",0)},{totals.get("sumTotalGbp",0)},,,,')
+            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{e.get("gbpSalary",0)},{e.get("fixedAllowanceGbp",0)},{e.get("specialAllowanceGbp",0)},"{e.get("workDays","")}",{e.get("totalEarnedGbp", e.get("earnedGbp",0))},{e.get("epf12Gbp",0)},{e.get("etf3Gbp",0)},{e.get("totalGbp",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
+        lines.append(f',,,{totals.get("sumGbpSalary",0)},{totals.get("sumFixedAllowanceGbp",0)},{totals.get("sumSpecialAllowanceGbp",0)},,{totals.get("sumTotalEarnedGbp", totals.get("sumEarnedGbp",0))},{totals.get("sumEpf12Gbp",0)},{totals.get("sumEtf3Gbp",0)},{totals.get("sumTotalGbp",0)},,,,')
         lines.append('')
         lines.append(f'Checked by: {enriched_period.get("checkedBy","")},{enriched_period.get("checkedTitle","Accountant")},,,Authorized by: {enriched_period.get("authorizedSignatory","")},{enriched_period.get("authorizedCompany","")}')
         lines.append('')
         rate_disp = int(rate) if rate == int(rate) else rate
         lines.append(f'SALARY SHEET (IN LKR) - {month.upper()} @ {rate_disp}')
-        lines.append(f'No,Employee Name,POSITION,{base_curr} Salary,Working Days,Earned Base ({base_curr}),Basic Salary (LKR),Fixed Allowance (LKR),Special Allowance (LKR),EPF 8%,EPF12%,ETF 3%,APIT,Other Deductions,Net Remittance (LKR)')
+        lines.append(f'No,Employee Name,POSITION,{base_curr} Salary,Working Days,Earned Base ({base_curr}),Basic Salary (LKR),Fixed Allowance (LKR),Special Allowance (LKR),Earned Salary (LKR),EPF 8%,EPF12%,ETF 3%,APIT,Other Deductions,Net Remittance (LKR)')
         for e in employees:
-            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("lkrGross",0)},{e.get("fixedAllowance",0)},{e.get("specialAllowance",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},{e.get("otherDeductions",0)},{e.get("netSalaryLkr",0)}')
-        lines.append(f',,,{totals.get("sumGbpSalary",0)},,{totals.get("sumEarnedGbp",0)},{totals.get("sumLkrGross",0)},{totals.get("sumFixedAllowanceLkr",0)},{totals.get("sumSpecialAllowanceLkr",0)},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},{totals.get("sumOtherDeductionsLkr",0)},{totals.get("sumNetSalaryLkr",0)}')
+            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("lkrGross",0)},{e.get("fixedAllowance",0)},{e.get("specialAllowance",0)},{e.get("totalGrossLkr", e.get("lkrGross",0))},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},{e.get("otherDeductions",0)},{e.get("netSalaryLkr",0)}')
+        lines.append(f',,,{totals.get("sumGbpSalary",0)},,{totals.get("sumEarnedGbp",0)},{totals.get("sumLkrGross",0)},{totals.get("sumFixedAllowanceLkr",0)},{totals.get("sumSpecialAllowanceLkr",0)},{totals.get("sumTotalGrossLkr", totals.get("sumLkrGross",0))},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},{totals.get("sumOtherDeductionsLkr",0)},{totals.get("sumNetSalaryLkr",0)}')
     else:
         lines.append(f'SALARY SHEET (IN LKR) - {month.upper()}')
-        lines.append('No,Employee Name,POSITION,Basic Salary (LKR),Fixed Allowance (LKR),Special Allowance (LKR),Working Days,Earned Base (LKR),EPF 8%,EPF 12%,ETF 3%,APIT,Other Deductions,Net Remittance (LKR),BANK ACCOUNT NO,TIN NO,IDNO,Date Joined')
+        lines.append('No,Employee Name,POSITION,Basic Salary (LKR),Fixed Allowance (LKR),Special Allowance (LKR),Working Days,Earned Salary (LKR),EPF 8%,EPF 12%,ETF 3%,APIT,Other Deductions,Net Remittance (LKR),BANK ACCOUNT NO,TIN NO,IDNO,Date Joined')
         for e in employees:
             bank_str = f"{e.get('bankAccountNo','')}({e.get('bankCode','')})" if e.get('bankCode') else str(e.get('bankAccountNo',''))
             base_sal = e.get("lkrSalary") or e.get("baseSalaryLkr") or e.get("lkrGross", 0)
-            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{base_sal},{e.get("fixedAllowance",0)},{e.get("specialAllowance",0)},"{e.get("workDays","")}",{e.get("lkrGross",0)},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},{e.get("otherDeductions",0)},{e.get("netSalaryLkr",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
-        lines.append(f',,,{totals.get("sumLkrGross",0)},{totals.get("sumFixedAllowanceLkr",0)},{totals.get("sumSpecialAllowanceLkr",0)},,{totals.get("sumLkrGross",0)},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},{totals.get("sumOtherDeductionsLkr",0)},{totals.get("sumNetSalaryLkr",0)},,,,')
+            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{base_sal},{e.get("fixedAllowance",0)},{e.get("specialAllowance",0)},"{e.get("workDays","")}",{e.get("totalGrossLkr", e.get("lkrGross",0))},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},{e.get("otherDeductions",0)},{e.get("netSalaryLkr",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
+        lines.append(f',,,{totals.get("sumLkrGross",0)},{totals.get("sumFixedAllowanceLkr",0)},{totals.get("sumSpecialAllowanceLkr",0)},,{totals.get("sumTotalGrossLkr", totals.get("sumLkrGross",0))},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},{totals.get("sumOtherDeductionsLkr",0)},{totals.get("sumNetSalaryLkr",0)},,,,')
         lines.append('')
         lines.append(f'Checked by: {enriched_period.get("checkedBy","")},{enriched_period.get("checkedTitle","Accountant")},,,Authorized by: {enriched_period.get("authorizedSignatory","")},{enriched_period.get("authorizedCompany","")}')
     return '\n'.join(lines)
