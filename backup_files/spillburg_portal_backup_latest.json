@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-06T07:49:21Z",
+  "exportTimestamp": "2026-11-06T07:51:35Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1161,7 +1161,7 @@
       "status": "Pending",
       "priority": "Medium",
       "estimatedCost": "",
-      "notes": "need to create only after creation of logos"
+      "notes": "Create and publish Welcome and Featured posts for spillburg corporate and logistics socials\nNotes - Need to create only after creation of logos"
     },
     {
       "id": "ops_51d7fb",
