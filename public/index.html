@@ -141,10 +141,12 @@
       <div onclick="switchView('dashboard')"
         class="flex items-center gap-3 cursor-pointer select-none group hover:opacity-90 transition active:scale-[0.99]"
         title="Return to Executive Dashboard">
-        <img src="/public/logo.png" alt="Spillburg Logo" class="h-9 md:h-10 object-contain group-hover:scale-105 transition-transform duration-200">
+        <img src="/public/logo.png" alt="Spillburg Logo"
+          class="h-9 md:h-10 object-contain group-hover:scale-105 transition-transform duration-200">
         <div>
           <div class="flex items-center gap-2">
-            <span class="font-display font-bold text-base md:text-lg tracking-tight text-slate-900 group-hover:text-emerald-700 transition-colors">SPILLBURG</span>
+            <span
+              class="font-display font-bold text-base md:text-lg tracking-tight text-slate-900 group-hover:text-emerald-700 transition-colors">SPILLBURG</span>
             <span
               class="text-[10px] uppercase font-semibold tracking-wider text-[#059669] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Portal</span>
           </div>
@@ -159,11 +161,12 @@
         class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-purple-50 text-slate-600 hover:text-purple-700 border border-slate-200 hover:border-purple-300 text-xs font-medium transition shadow-2xs cursor-pointer">
         <i data-lucide="search" class="w-3.5 h-3.5 text-purple-600"></i>
         <span>Search or ask AI...</span>
-        <kbd class="px-1.5 py-0.5 rounded bg-white border border-slate-300 text-[10px] font-mono font-semibold text-slate-500 shadow-2xs">Ctrl K</kbd>
+        <kbd
+          class="px-1.5 py-0.5 rounded bg-white border border-slate-300 text-[10px] font-mono font-semibold text-slate-500 shadow-2xs">Ctrl
+          K</kbd>
       </button>
 
-      <button onclick="openGlobalCommandPalette()"
-        title="Open SpillburgAI Search Palette"
+      <button onclick="openGlobalCommandPalette()" title="Open SpillburgAI Search Palette"
         class="sm:hidden p-2 rounded-xl bg-slate-100 hover:bg-purple-50 text-purple-700 border border-slate-200 transition cursor-pointer">
         <i data-lucide="search" class="w-4 h-4"></i>
       </button>
@@ -373,34 +376,39 @@
     class="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[60] hidden flex items-center justify-center p-4">
     <div
       class="w-full max-w-md bg-white rounded-2xl border border-slate-200/90 shadow-2xl p-6 md:p-7 space-y-5 fade-in">
-      
+
       <!-- Brand & Lock Icon Header -->
       <div class="text-center space-y-2">
-        <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto shadow-xs">
+        <div
+          class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto shadow-xs">
           <i data-lucide="lock" class="w-6 h-6"></i>
         </div>
         <div>
           <h3 class="font-display font-bold text-lg text-slate-900">Session Quick Unlock</h3>
-          <p class="text-xs text-slate-500 mt-0.5">Your session timed out. Enter password to resume seamlessly without losing open edits.</p>
+          <p class="text-xs text-slate-500 mt-0.5">Your session timed out. Enter password to resume seamlessly without
+            losing open edits.</p>
         </div>
       </div>
 
       <!-- Current User Profile Card -->
       <div class="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-        <div id="reauthAvatar" class="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 flex items-center justify-center font-bold text-sm flex-shrink-0">
+        <div id="reauthAvatar"
+          class="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 flex items-center justify-center font-bold text-sm flex-shrink-0">
           U
         </div>
         <div class="min-w-0 flex-1">
           <div id="reauthFullName" class="font-semibold text-xs text-slate-900 truncate">Executive User</div>
           <div class="flex items-center gap-2 mt-0.5">
             <span id="reauthUsername" class="text-[11px] text-slate-500 font-mono">@director</span>
-            <span id="reauthRoleBadge" class="text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">DIRECTOR</span>
+            <span id="reauthRoleBadge"
+              class="text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 uppercase">DIRECTOR</span>
           </div>
         </div>
       </div>
 
       <!-- Reauth Error Notification -->
-      <div id="reauthErrorBox" class="hidden p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600 font-medium flex items-center gap-2">
+      <div id="reauthErrorBox"
+        class="hidden p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600 font-medium flex items-center gap-2">
         <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
         <span id="reauthErrorMsg">Invalid password</span>
       </div>
