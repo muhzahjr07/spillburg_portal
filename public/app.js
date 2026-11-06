@@ -4360,14 +4360,22 @@ function openAddOperationModal() {
         </div>
 
         <div>
-          <div class="flex items-center justify-between mb-1">
+          <div class="flex flex-wrap items-center justify-between gap-1.5 mb-1">
             <label class="block font-semibold text-slate-700">Notes / Action Details</label>
-            <button type="button" id="btnGenOpsNotes" onclick="generateTaskNotes('mOpsTitle', 'mOpsNotes', 'mOpsWorkstream', 'mOpsRequestedBy', 'btnGenOpsNotes')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-[11px] flex items-center gap-1 transition shadow-2xs cursor-pointer" title="Auto-generate detailed action notes based on task title and workstream">
-              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-600"></i>
-              <span>⚡ Generate Notes</span>
-            </button>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="btnUndoOpsNotes" onclick="undoGeneratedTaskNotes('mOpsNotes', 'btnUndoOpsNotes')" class="hidden px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 font-semibold text-[11px] flex items-center gap-1 transition cursor-pointer" title="Restore previous notes">
+                <span>↩ Undo</span>
+              </button>
+              <button type="button" onclick="appendTaskUpdatePrefix('mOpsNotes')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-semibold text-[11px] flex items-center gap-1 transition cursor-pointer" title="Insert 'Update - ' or 'Notes - ' line">
+                <span>+ Update Line</span>
+              </button>
+              <button type="button" id="btnGenOpsNotes" onclick="generateTaskNotes('mOpsTitle', 'mOpsNotes', 'mOpsWorkstream', 'mOpsRequestedBy', 'btnGenOpsNotes', 'btnUndoOpsNotes')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-[11px] flex items-center gap-1 transition shadow-2xs cursor-pointer" title="Generate or polish notes in Zaharan's concise tracker style">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-600"></i>
+                <span>⚡ Generate Notes</span>
+              </button>
+            </div>
           </div>
-          <textarea id="mOpsNotes" rows="3" placeholder="Add specific procurement details, vendor contact, or completion requirements..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500"></textarea>
+          <textarea id="mOpsNotes" rows="3" placeholder="Write rough keywords or click ⚡ Generate Notes..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500"></textarea>
         </div>
 
         <div class="pt-3 flex justify-end gap-2 border-t border-slate-100">
@@ -4610,12 +4618,20 @@ function openEditOperationModal(taskId) {
         </div>
 
         <div>
-          <div class="flex items-center justify-between mb-1">
+          <div class="flex flex-wrap items-center justify-between gap-1.5 mb-1">
             <label class="block font-semibold text-slate-700">Notes / Action Details</label>
-            <button type="button" id="btnEditGenOpsNotes" onclick="generateTaskNotes('mEditOpsTitle', 'mEditOpsNotes', 'mEditOpsWorkstream', 'mEditOpsReq', 'btnEditGenOpsNotes')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-[11px] flex items-center gap-1 transition shadow-2xs cursor-pointer" title="Auto-generate detailed action notes based on task title and workstream">
-              <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-600"></i>
-              <span>⚡ Generate Notes</span>
-            </button>
+            <div class="flex items-center gap-1.5">
+              <button type="button" id="btnUndoEditOpsNotes" onclick="undoGeneratedTaskNotes('mEditOpsNotes', 'btnUndoEditOpsNotes')" class="hidden px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-300 font-semibold text-[11px] flex items-center gap-1 transition cursor-pointer" title="Restore previous notes">
+                <span>↩ Undo</span>
+              </button>
+              <button type="button" onclick="appendTaskUpdatePrefix('mEditOpsNotes')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-semibold text-[11px] flex items-center gap-1 transition cursor-pointer" title="Insert 'Update - ' or 'Notes - ' line">
+                <span>+ Update Line</span>
+              </button>
+              <button type="button" id="btnEditGenOpsNotes" onclick="generateTaskNotes('mEditOpsTitle', 'mEditOpsNotes', 'mEditOpsWorkstream', 'mEditOpsReq', 'btnEditGenOpsNotes', 'btnUndoEditOpsNotes')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-[11px] flex items-center gap-1 transition shadow-2xs cursor-pointer" title="Generate or polish notes in Zaharan's concise tracker style">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-600"></i>
+                <span>⚡ Generate Notes</span>
+              </button>
+            </div>
           </div>
           <textarea id="mEditOpsNotes" rows="3" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">${task.notes || ''}</textarea>
         </div>
@@ -8330,7 +8346,12 @@ function renderAiTaskProposalCard(cardId) {
             </div>
 
             <div>
-              <label class="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">Detailed Notes / Follow-up Context</label>
+              <div class="flex items-center justify-between mb-0.5">
+                <label class="block text-[10px] font-bold uppercase text-slate-500">Detailed Notes / Follow-up Context</label>
+                <button type="button" id="aiTaskGenBtn_${cardId}_${idx}" onclick="generateTaskNotes('aiTaskTitle_${cardId}_${idx}', 'aiTaskNotes_${cardId}_${idx}', 'aiTaskWs_${cardId}_${idx}', 'aiTaskReq_${cardId}_${idx}', 'aiTaskGenBtn_${cardId}_${idx}')" class="px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-[10px] flex items-center gap-1 transition cursor-pointer" title="Generate notes in Zaharan's style">
+                  <span>⚡ Generate Notes</span>
+                </button>
+              </div>
               <textarea id="aiTaskNotes_${cardId}_${idx}" rows="2" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 focus:bg-white focus:border-purple-500 focus:outline-none">${escapeHtml(t.notes)}</textarea>
             </div>
           </div>
@@ -15933,11 +15954,38 @@ function exportEtfFormR4Csv() {
 }
 
 
-// Auto-generate detailed action notes from task title using Gemini / Corporate AI
-async function generateTaskNotes(titleInputId, notesTextareaId, workstreamSelectId, requesterSelectId, btnId) {
+function appendTaskUpdatePrefix(notesTextareaId) {
+  const notesEl = document.getElementById(notesTextareaId);
+  if (!notesEl) return;
+  const val = notesEl.value.trimEnd();
+  if (!val) {
+    notesEl.value = 'Notes - ';
+  } else {
+    notesEl.value = val + '\nUpdate - ';
+  }
+  notesEl.focus();
+  notesEl.setSelectionRange(notesEl.value.length, notesEl.value.length);
+}
+
+function undoGeneratedTaskNotes(notesTextareaId, undoBtnId) {
+  const notesEl = document.getElementById(notesTextareaId);
+  const undoBtn = undoBtnId ? document.getElementById(undoBtnId) : null;
+  if (notesEl && typeof notesEl.dataset.prevNotes === 'string') {
+    notesEl.value = notesEl.dataset.prevNotes;
+    delete notesEl.dataset.prevNotes;
+    notesEl.focus();
+  }
+  if (undoBtn) {
+    undoBtn.classList.add('hidden');
+  }
+}
+
+// Auto-generate detailed action notes from task title in Zaharan's tracker style
+async function generateTaskNotes(titleInputId, notesTextareaId, workstreamSelectId, requesterSelectId, btnId, undoBtnId, mode = 'auto') {
   const titleEl = document.getElementById(titleInputId);
   const notesEl = document.getElementById(notesTextareaId);
   const btnEl = document.getElementById(btnId);
+  const undoBtn = undoBtnId ? document.getElementById(undoBtnId) : null;
 
   const title = (titleEl ? titleEl.value : '').trim();
   if (!title) {
@@ -15947,8 +15995,9 @@ async function generateTaskNotes(titleInputId, notesTextareaId, workstreamSelect
   }
 
   let workstream = '';
+  let wsEl = null;
   if (workstreamSelectId) {
-    const wsEl = document.getElementById(workstreamSelectId);
+    wsEl = document.getElementById(workstreamSelectId);
     if (wsEl) {
       workstream = wsEl.value === '__CREATE_NEW__' ? (document.getElementById(workstreamSelectId + 'Custom')?.value || '') : wsEl.value;
     }
@@ -15961,6 +16010,8 @@ async function generateTaskNotes(titleInputId, notesTextareaId, workstreamSelect
       requestedBy = reqEl.value === '__CREATE_NEW__' ? (document.getElementById(requesterSelectId + 'Custom')?.value || '') : reqEl.value;
     }
   }
+
+  const existingNotes = notesEl ? notesEl.value.trim() : '';
 
   const originalBtnHtml = btnEl ? btnEl.innerHTML : '';
   if (btnEl) {
@@ -15982,14 +16033,29 @@ async function generateTaskNotes(titleInputId, notesTextareaId, workstreamSelect
       body: JSON.stringify({
         title: title,
         workstream: workstream || 'Office Operations',
-        requestedBy: requestedBy || (currentUser ? currentUser.fullName : 'Management')
+        requestedBy: requestedBy || (currentUser ? currentUser.fullName : 'Mr. Shameel'),
+        existingNotes: existingNotes,
+        mode: mode
       })
     });
     const data = await res.json();
     if (data.success && data.notes) {
       if (notesEl) {
+        if (notesEl.value.trim() && notesEl.value.trim() !== data.notes.trim()) {
+          notesEl.dataset.prevNotes = notesEl.value;
+          if (undoBtn) undoBtn.classList.remove('hidden');
+        }
         notesEl.value = data.notes;
         notesEl.focus();
+      }
+      // Auto-select suggested workstream if the dropdown is currently on default
+      if (wsEl && data.suggestedWorkstream && ['Office Operations', 'Operational Task', ''].includes(workstream)) {
+        if (wsEl.tagName === 'SELECT') {
+          const matchingOpt = Array.from(wsEl.options).find(o => o.value.toLowerCase() === data.suggestedWorkstream.toLowerCase());
+          if (matchingOpt) wsEl.value = matchingOpt.value;
+        } else if (wsEl.tagName === 'INPUT') {
+          wsEl.value = data.suggestedWorkstream;
+        }
       }
       if (btnEl) {
         btnEl.innerHTML = `

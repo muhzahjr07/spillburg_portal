@@ -3193,10 +3193,14 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Director or Administrator privileges required"}, 403)
                 return
             api_key = (body.get("geminiApiKey") or "").strip()
-            cfg_path = os.path.join(BASE_DIR, "data", "ai_config.json")
-            os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
-            with open(cfg_path, "w", encoding="utf-8") as f:
-                json.dump({"geminiApiKey": api_key, "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, f, indent=2)
+            cfg_payload = {"geminiApiKey": api_key, "updatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+            for target_dir in {os.path.join(BASE_DIR, "data"), DATA_DIR}:
+                try:
+                    os.makedirs(target_dir, exist_ok=True)
+                    with open(os.path.join(target_dir, "ai_config.json"), "w", encoding="utf-8") as f:
+                        json.dump(cfg_payload, f, indent=2)
+                except Exception:
+                    pass
             self.send_json({"success": True, "geminiConfigured": bool(api_key)})
             return
 
@@ -3208,14 +3212,28 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             title = (body.get("title") or "").strip()
             workstream = (body.get("workstream") or "").strip()
             requested_by = (body.get("requestedBy") or "").strip()
+            existing_notes = (body.get("existingNotes") or "").strip()
+            mode = (body.get("mode") or "auto").strip()
             if not title:
                 self.send_json({"error": "Task title is required to generate notes"}, 400)
                 return
-            notes = spillburg_ai.generate_task_action_notes(title, workstream=workstream, requestedBy=requested_by, user=user)
+            notes = spillburg_ai.generate_task_action_notes(
+                title,
+                workstream=workstream,
+                requestedBy=requested_by,
+                existingNotes=existing_notes,
+                mode=mode,
+                user=user,
+                operations=OPERATIONS,
+                customer_records=CUSTOMER_RECORDS,
+                financial_records=FINANCIAL_RECORDS
+            )
+            suggested_ws = spillburg_ai.infer_zaharan_workstream(title, workstream)
             self.send_json({
                 "success": True,
                 "title": title,
-                "notes": notes
+                "notes": notes,
+                "suggestedWorkstream": suggested_ws
             })
             return
 

@@ -107,18 +107,25 @@ def get_user_access_summary(user):
 
 
 def get_gemini_api_key():
-    """Returns configured Gemini API key from environment or data/ai_config.json."""
+    """Returns configured Gemini API key from environment or persistent/local ai_config.json."""
     env_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if env_key and env_key.strip():
         return env_key.strip()
     try:
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        cfg_path = os.path.join(base_dir, "data", "ai_config.json")
-        if os.path.exists(cfg_path):
-            with open(cfg_path, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-                if cfg.get("geminiApiKey"):
-                    return str(cfg["geminiApiKey"]).strip()
+        candidate_dirs = []
+        if os.environ.get("PORTAL_DATA_DIR"):
+            candidate_dirs.append(os.path.abspath(os.environ.get("PORTAL_DATA_DIR")))
+        if os.path.exists("/var/data") and os.path.isdir("/var/data"):
+            candidate_dirs.append("/var/data")
+        candidate_dirs.append(os.path.join(base_dir, "data"))
+        for d in candidate_dirs:
+            cfg_path = os.path.join(d, "ai_config.json")
+            if os.path.exists(cfg_path):
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                    if cfg.get("geminiApiKey"):
+                        return str(cfg["geminiApiKey"]).strip()
     except Exception:
         pass
     return ""
@@ -1827,32 +1834,377 @@ def process_spillburg_ai_message(user, message, history, users, operations, cust
     }, 200
 
 
-def generate_task_action_notes(title, workstream="", requestedBy="", user=None):
+# Curated baseline of Muhammad Zaharan's real task Title -> Notes examples across workstreams
+ZAHARAN_STYLE_EXAMPLES = [
+    ("Corporate Website Audit Report", "Operational Task", "Compare with reference websites and prepare a report with shortcomings and suggestions"),
+    ("Destination Consultancy Website Review", "Operational Task", "Review the new website and find out shortcomings and suggestions"),
+    ("Sri Lanka France Business Council Website Report", "Digital Marketing", "Review the website and find out shortcomings and suggestions"),
+    ("Investor Presentation Redesign & Updates", "Designing & Editing", "Complete visual overhaul & financial metrics deck redesign"),
+    ("Sri Lanka Export Products Portfolio", "Designing & Editing", "Design and develop a presentation deck for Sri Lanka export products"),
+    ("France Council Presentation", "Designing & Editing", "Preparation of bilateral trade council presentation deck"),
+    ("Proposal Infographic for Attanagala", "Designing & Editing", "Design an infographic for brochure for Attanagala project"),
+    ("Company Profile For Corporate Services", "Digital Marketing", "Create a company profile for Spillburg Corporate Services"),
+    ("Company Profile For Spillburg Logistics 1", "Designing & Editing", "Create a unique Company Profile for Spillburg Logistics 1"),
+    ("Design business card for Maneesha Kannangara - destination", "Designing & Editing", "Design business card for Maneesha Kannangara - Destination Consultancy"),
+    ("Updated Chamber Events Slideshow", "Designing & Editing", "Create a slideshow video for Spillburg Holdings, based on Mr. Shameel and Mr. Hameez LinkedIn Profiles"),
+    ("Ad Video based on Instagram Ad", "Digital Marketing", "Create an Ad video based on Overseas Company Ad Video on Instagram\nLocalization - French and German\nAdd QR Code, mail, and contact numbers"),
+    ("LinkedIn and Facebook Page for SLJapanBC", "Digital Marketing", "Create a LinkedIn and FB page for Sri Lanka Japan Business Council, Info Needed"),
+    ("Facebook and LinkedIn Page for Spillburg Corporate Services", "Digital Marketing", "Create a Facebook and LinkedIn Page for Spillburg Corporate Services and send link to spytLabs"),
+    ("Website for SLFBC", "Designing & Editing", "Coordinate with Anisa and create a website for SLFBC\nNotes - SL FR - Localization, check reference council websites"),
+    ("Transfer of All Domains & Hosting", "Operational Task", "Transfer all domains and hostings from Firzan to company email.\nUpdate - all except vacations hosting transferred"),
+    ("Corporate Services Website Deployment", "Operational Task", "Purchase a domain and deploy corporate services website"),
+    ("Destination Consultancy Website Deployment", "Operational Task", "Get access for destination domain nameserver and transfer website"),
+    ("Renew Spillburg Vacation Domain", "Procurement", "Renew Spillburg Vacation Domain from onlydomains.com"),
+    ("Purchase Hosting for Domain Sites", "Office Operations", "Find suitable hosting providers and purchase hosting for domain sites"),
+    ("Create new 3 emails for Zaharan, Bilal, Insaaf", "Office Operations", "Coordinate with Haritha to create new 3 emails, bilal@spillburg.com, insaaf@spillburg.com, zaharan@spillburg.com"),
+    ("MSI Monitor Stand", "Procurement", "Quote and purchase a monitor stand for MSI Monitor"),
+    ("Purchase Work Laptop for Director", "Procurement", "Quote and purchase a work laptop for director"),
+    ("Quote Canon Pixma G3010 Printer for Director", "Procurement", "Quote and purchase a Canon printer for director"),
+    ("Canon PG-47 Black Cartridge for Canon E470 Printer", "Procurement", "Purchase or refill Canon PG-47 Black Cartridge for Canon E470 Printer"),
+    ("HP HS04 Laptop Battery Replacement", "Procurement", "Replacement battery unit for HP laptop (HS04 4-cell)"),
+    ("WiFi adapter", "Procurement", "High-gain dual-band USB WiFi network adapter (Quote pending)"),
+    ("Top Legal & Secretarial Services Firms in Sri Lanka", "R&D", "Research and create a list of top 50 firms in legal and secretarial"),
+    ("Research for Diploma Course in Arbitration", "R&D", "Research for Diploma Course in Arbitration in BASL, ICLP, details, accreditation comparison"),
+    ("Sri Lanka To Singapore Exporter Master Directory", "R&D", "On the EDB database check companies dealing with Singapore market and compile details"),
+    ("Investor-Business Chamber Contact Details Sheet in Middle East Countries", "Office Operations", "Create a sheet on Business Chambers and Investors to visit by delegation who will setup on Port City. Saudi, Qatar, Kuwait, Oman, Bahrain"),
+    ("Potential Fashion Industry & Event Sponsors Directory", "Operational Task", "Compile categorized directory of fashion industry & event sponsors with contact details, partnership roles, and status tracking"),
+    ("Director & Corporate Leadership Programme Application", "Office Operations", "Apply for Director & Corporate Leadership Programme with CA\nNotes - Registered, payment to be made"),
+    ("Workshop on Recent Changes to Taxation on 23rd October 2026 Application", "Office Operations", "Apply to Workshop on Recent Changes to Taxation and send a Google Calendar invite"),
+    ("Request course materials, session recording, certification and future programmes from CSM Business Solutions", "Office Operations", "Contact CSM Business Solutions via email to request complete course materials, session recording, and final certificate for Mr. Shaameel. Additionally, request their upcoming programmes."),
+    ("Prepare Staff Appraisal File", "Office Operations", "Prepare Staff Appraisal File based on staff performance"),
+    ("Company Laptops Audit & Review", "Office Operations", "Review and audit 3 company laptops and prepare to send off-company"),
+    ("Attanagala Waste Management Report", "Designing & Editing", "Create a report on Attanagala Waste Management based on images and raw data"),
+]
+
+
+def infer_zaharan_workstream(title, current_workstream=""):
+    """Suggests the best workstream matching Zaharan's tracker conventions."""
+    t_low = (title or "").lower()
+    if any(w in t_low for w in ["quote", "purchase", "buy", "procure", "cartridge", "refill", "battery", "adapter", "stand", "cable", "hose", "printer", "monitor", "renew domain"]):
+        return "Procurement"
+    if any(w in t_low for w in ["design", "logo", "infographic", "brochure", "business card", "visiting card", "presentation", "slideshow", "deck", "company profile", "personal profile", "redesign", "banner"]):
+        return "Designing & Editing"
+    if any(w in t_low for w in ["facebook", "linkedin", "instagram", "social", "post", "ad video", "seo", "campaign", "vacancy in linkedin", "marketing"]):
+        return "Digital Marketing"
+    if any(w in t_low for w in ["research", "study", "find options", "top 50", "top legal", "diploma", "course in", "gazette", "beneficial ownership", "beneficary ownership", "edb database"]):
+        return "R&D"
+    return current_workstream or "Office Operations"
+
+
+def _find_similar_zaharan_tasks(title, operations=None, limit=6):
+    """Finds the closest historical tasks written by Zaharan based on word overlap."""
+    t_words = set(re.findall(r"[a-z0-9]{3,}", (title or "").lower())) - {"the", "and", "for", "with", "from", "into", "new"}
+    pool = []
+    seen_titles = set()
+
+    if operations:
+        for op in operations:
+            if (op.get("ownerUsername") or "").lower() == "zaharan":
+                op_t = (op.get("title") or "").strip()
+                op_n = (op.get("notes") or "").strip()
+                op_ws = (op.get("workstream") or "").strip()
+                if not op_t or not op_n:
+                    continue
+                # Skip old robotic AI fallback sentences so they don't pollute Zaharan's style
+                if any(bad in op_n.lower() for bad in ["execute deliverables for", "verify public responsiveness", "report completion status to management", "hand over vendor bill/receipt"]):
+                    continue
+                if op_t.lower() not in seen_titles:
+                    seen_titles.add(op_t.lower())
+                    pool.append((op_t, op_ws, op_n))
+
+    for ex_t, ex_ws, ex_n in ZAHARAN_STYLE_EXAMPLES:
+        if ex_t.lower() not in seen_titles:
+            seen_titles.add(ex_t.lower())
+            pool.append((ex_t, ex_ws, ex_n))
+
+    scored = []
+    for item_t, item_ws, item_n in pool:
+        item_words = set(re.findall(r"[a-z0-9]{3,}", (item_t + " " + item_n).lower()))
+        overlap = len(t_words & item_words)
+        scored.append((overlap, item_t, item_ws, item_n))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    selected = [x[1:] for x in scored[:limit] if x[0] > 0]
+    if len(selected) < limit:
+        for _, item_t, item_ws, item_n in scored:
+            if (item_t, item_ws, item_n) not in selected:
+                selected.append((item_t, item_ws, item_n))
+            if len(selected) >= limit:
+                break
+    return selected
+
+
+def _lookup_entity_context_for_notes(title, existing_notes="", customer_records=None, financial_records=None):
+    """Finds any matching company/client in Customer DB or Financial DB mentioned in the title."""
+    combined = f"{title or ''} {existing_notes or ''}".lower()
+    tokens = [w for w in re.findall(r"[a-z0-9]{3,}", combined) if w not in {
+        "the", "and", "for", "with", "from", "new", "create", "update", "review", "website", "report",
+        "company", "profile", "corporate", "services", "sri", "lanka", "pvt", "ltd", "private", "limited",
+        "business", "council", "design", "purchase", "quote", "follow", "check", "file", "files", "portal",
+        "spillburg", "holdings", "vacation", "logistics", "office", "task", "bank", "tax", "roc", "ird"
+    }]
+    if not tokens:
+        return ""
+
+    hints = []
+    if customer_records:
+        for c in customer_records:
+            cname = (c.get("companyName") or "").strip()
+            if not cname:
+                continue
+            cname_low = cname.lower()
+            if any(tok in cname_low for tok in tokens if len(tok) >= 4):
+                reg = c.get("registrationNo") or ""
+                loc = f"{c.get('cupboardNo') or ''} / {c.get('boxNo') or ''}".strip(" /")
+                hints.append(f"Customer DB Match: {cname} (Reg: {reg}, Archive: {loc})")
+                break
+
+    if financial_records:
+        for f in financial_records:
+            ename = (f.get("entityName") or "").strip()
+            if not ename:
+                continue
+            ename_low = ename.lower()
+            if any(tok in ename_low for tok in tokens if len(tok) >= 4):
+                tin = f.get("tinNo") or ""
+                status = f.get("filingStatus") or ""
+                hints.append(f"Financial DB Match: {ename} (TIN: {tin}, Status: {status})")
+                break
+
+    return " | ".join(hints)
+
+
+def _synthesize_zaharan_style_note(clean_title, workstream="", requestedBy="", existing_notes="", mode="auto"):
     """
-    Generates detailed, professional action notes for a task based on its title,
-    workstream, and requester, adhering to real Spillburg Operations Tracker conventions.
-    Uses Gemini 3.5 Flash when configured, with a smart rule-based corporate synthesizer fallback.
+    Deterministic Zaharan-style note generator modeled directly on Muhammad Zaharan's 75+ real tasks.
+    Produces crisp, natural, practical 1-line notes (and optional Update - / Notes - lines) without robotic filler.
+    """
+    t = clean_title.strip()
+    t_low = t.lower()
+    req = (requestedBy or "").strip()
+    draft = (existing_notes or "").strip()
+
+    # If mode is 'append' and there are existing notes, append an 'Update - ' line in Zaharan's exact format
+    if mode == "append" and draft:
+        if "update -" not in draft.lower() and "notes -" not in draft.lower():
+            return f"{draft}\nUpdate - In progress, pending final review and completion"
+        return f"{draft}\nUpdate - Followed up and updated status"
+
+    # If the user already typed rough shorthand notes (that aren't just a copy of the title or old AI boilerplate),
+    # polish and incorporate their draft notes in Zaharan's style
+    is_boilerplate = any(b in draft.lower() for b in [
+        "execute deliverables for", "verify public responsiveness", "report completion status to management",
+        "hand over vendor bill/receipt", "coordinate with relevant team members, and document final completion"
+    ])
+    if draft and not is_boilerplate and draft.lower() != t_low and mode != "replace":
+        # Clean up shorthand into Zaharan's format (Main line + Notes - / Update - if multi-part)
+        lines = [ln.strip() for ln in draft.splitlines() if ln.strip()]
+        if len(lines) == 1 and len(draft) < 90:
+            # Combine title intent + user's specific detail naturally
+            first_char = draft[0].upper() + draft[1:] if draft else ""
+            if any(draft.lower().startswith(v) for v in ["create", "review", "quote", "purchase", "design", "research", "coordinate", "cordinate", "contact", "apply", "prepare", "setup", "get ", "check ", "compare ", "transfer ", "renew ", "update "]):
+                return first_char
+            base = _synthesize_zaharan_style_note(clean_title, workstream=workstream, requestedBy=requestedBy, existing_notes="", mode="replace")
+            return f"{base}\nNotes - {first_char}"
+
+    # 1. Website / Company Profile / Portfolio Audit or Review
+    if any(w in t_low for w in ["website report", "website review", "website audit", "audit report", "profile review"]):
+        if "compare" in t_low or "audit" in t_low:
+            return f"Compare {t.replace('Report', '').replace('Audit', '').strip()} with reference websites and prepare a report with shortcomings and suggestions"
+        if "personal profile" in t_low or "profile review" in t_low:
+            subject = re.sub(r"(?i)\s*review\s*&?\s*update\s*", "", t).strip()
+            return f"Review & update {subject} with the details provided"
+        return "Review the website and find out shortcomings and suggestions"
+
+    # 2. Website Deployment / Domain / Hosting / Email Setup or Transfer
+    if any(w in t_low for w in ["domain", "hosting", "nameserver", "website deployment", "mail domain", "emails for", "create new", "email setup"]):
+        if "renew" in t_low:
+            return f"{t} and verify DNS/hosting renewal status"
+        if "transfer" in t_low and "domain" in t_low:
+            return f"Get access for domain nameserver and transfer {t.replace('Transfer', '').strip()}"
+        if "deployment" in t_low:
+            return f"Configure domain/hosting and deploy {t.replace('Deployment', '').strip()}"
+        if "hosting" in t_low and ("purchase" in t_low or "buy" in t_low):
+            return "Find suitable hosting providers and purchase hosting for domain sites"
+        if "email" in t_low or "mail" in t_low:
+            return f"Coordinate and set up email accounts / domain access for {t}"
+
+    # 3. Website Creation / Development
+    if "website" in t_low and not any(w in t_low for w in ["report", "review", "audit", "deployment"]):
+        if "update" in t_low or "news" in t_low or "content" in t_low:
+            return "Corporate website content updates, SEO & landing pages"
+        if "eroc" in t_low:
+            return "Electronic Registrar of Companies (eROC) filing & submission study"
+        target = re.sub(r"(?i)^(create\s+a?\s*)?website\s+(for\s+)?", "", t).strip()
+        if target and target.lower() != t_low:
+            return f"Design and develop the website for {target}"
+        return f"Design and develop website for {t.replace('Website', '').strip()}"
+
+    # 4. Social Media Pages, Banners, Posts, Ads, Vacancies
+    if any(w in t_low for w in ["facebook", "linkedin", "instagram", "socials", "social media", "anniversary post", "featured post", "welcome post", "ad video", "vacancy"]):
+        if "vacancy" in t_low or "hiring" in t_low:
+            clean_vac = re.sub(r"(?i)^(post|publish|create)\s+", "", t).strip()
+            return f"Prepare job post creative and publish {clean_vac}"
+        if "banner" in t_low:
+            if "qr" in t_low:
+                return f"{t} with brand styling and contact details"
+            return f"Design social media banner creative for {t.replace('Design', '').strip()}"
+        if "ad video" in t_low or "video" in t_low:
+            return f"Create {t} with localization, QR code, email, and contact numbers"
+        if "post" in t_low:
+            clean_post = re.sub(r"(?i)^(create|design|publish|post)\s+(an?\s+)?", "", t).strip()
+            return f"Create and publish {clean_post}"
+        if "page" in t_low:
+            target = re.sub(r"(?i)^(create\s+a?\s*)?(linkedin\s+and\s+facebook|facebook\s+and\s+linkedin)\s+page\s+for\s+", "", t).strip()
+            return f"Create a Facebook and LinkedIn page for {target} and update brand details"
+        if "profile" in t_low or "portfolio" in t_low:
+            return "Corporate profile management, content updates & outreach"
+
+    # 5. Company Profile / Strategic Business Plan / Proposal / Brochure / Presentation Deck / Slideshow
+    if any(w in t_low for w in ["company profile", "business plan", "strategic", "presentation", "portfolio", "infographic", "brochure", "slideshow", "logo", "business card", "visiting card"]):
+        if "business plan" in t_low or "strategic" in t_low:
+            return f"Prepare and structure the {t} with market research, financial projections, and growth roadmap"
+        if "company profile" in t_low:
+            if "review" in t_low:
+                return "Review the company profile and find out shortcomings and suggestions"
+            target = re.sub(r"(?i)^(create\s+a?\s*)?(unique\s+)?company\s+profile\s+(for\s+)?", "", t).strip()
+            return f"Create a Company Profile for {target or t}"
+        if "presentation" in t_low or "portfolio" in t_low:
+            if "redesign" in t_low or "update" in t_low:
+                return f"Complete visual overhaul & deck redesign for {t.replace('Redesign', '').replace('& Updates', '').strip()}"
+            return f"Design and develop a presentation deck for {t.replace('Presentation', '').strip()}"
+        if "infographic" in t_low or "brochure" in t_low:
+            return f"Design an infographic / brochure layout for {t.replace('Proposal Infographic for', '').strip()}"
+        if "slideshow" in t_low:
+            return f"Create a slideshow video for {t.replace('Updated', '').replace('Slideshow', '').strip()}"
+        if "logo" in t_low:
+            target = re.sub(r"(?i)^create\s+logos?\s+for\s+", "", t).strip()
+            return f"Create logo for {target or t}"
+        if "business card" in t_low or "visiting card" in t_low:
+            target = re.sub(r"(?i)^design\s+(business|visiting)\s+cards?\s+for\s+", "", t).strip()
+            return f"Design business card for {target or t}"
+
+    # 6. Procurement / Cartridges / Hardware / Laptops / Printers / Accessories
+    if any(w in t_low for w in ["quote", "purchase", "buy", "cartridge", "printer", "laptop", "battery", "keyboard", "monitor", "stand", "adapter", "hose", "cable"]) or (workstream or "").lower() == "procurement":
+        if "audit" in t_low or "review" in t_low:
+            return f"Review and audit {t.replace('Audit & Review', '').strip()} and prepare status summary"
+        if "cartridge" in t_low or "ink" in t_low or "toner" in t_low:
+            clean_cart = re.sub(r"(?i)^(quote\s+and\s+purchase|quote|purchase|refill|buy)\s+", "", t).strip()
+            return f"Purchase or refill {clean_cart}"
+        if t_low.startswith("quote ") or t_low.startswith("purchase "):
+            item = re.sub(r"(?i)^(quote\s+and\s+purchase|quote|purchase)\s+", "", t).strip()
+            return f"Quote and purchase {item}"
+        if "replacement" in t_low or "battery" in t_low or "keyboard" in t_low:
+            return f"Quote and purchase replacement {t.replace('Replacement', '').strip()}"
+        return f"Quote and purchase {t}"
+
+    # 7. Research / Directories / Master Sheets / Lists / Courses / Gazette
+    if any(w in t_low for w in ["research", "directory", "sheet", "master", "top ", "firms", "diploma", "arbitration", "beneficial ownership", "beneficary ownership", "options", "exporter"]) or (workstream or "").lower() == "r&d":
+        if "directory" in t_low or "sheet" in t_low or "exporter" in t_low:
+            return f"Research and compile structured contact & details sheet for {t}"
+        if "diploma" in t_low or "course" in t_low and "request" not in t_low:
+            return f"Research {t.replace('Research for', '').strip()}, course details, fees & accreditation comparison"
+        if "options" in t_low:
+            return f"Find options and pricing for {t.replace('Options', '').strip()}"
+        if "top " in t_low or "firms" in t_low:
+            return f"Research and create a list of {t}"
+        if t_low.startswith("research"):
+            return f"{t} and compile key findings & comparison"
+        return f"Research on {t} and prepare summary notes"
+
+    # 8. Course Materials / Workshop Applications / Calendar Invites / Emails
+    if any(w in t_low for w in ["request ", "workshop", "programme", "application", "calendar", "appraisal", "indemnity"]):
+        if t_low.startswith("request "):
+            return f"Send email / follow up to {t[0].lower() + t[1:]}"
+        if "workshop" in t_low or "application" in t_low or "programme" in t_low:
+            clean_prog = re.sub(r"(?i)\s*application$", "", t).strip()
+            return f"Register and apply for {clean_prog} and send Google Calendar invite"
+        if "calendar" in t_low:
+            return f"{t} to schedule events and appointments"
+        if "appraisal" in t_low:
+            return f"{t} based on staff performance"
+        if "indemnity" in t_low:
+            return "Prepare and fill the indemnity form documents for clients"
+
+    # 9. Portal / Database / System Integration
+    if any(w in t_low for w in ["portal", "database", "db", "payroll system", "tracker", "spillburgai", "ai integration", "integrate", "intergrate"]):
+        if t_low.startswith(("add ", "create ", "integrate ", "intergrate ", "update ")):
+            return f"{t} and verify functionality across the portal"
+        return f"Develop and integrate {t} in the Spillburg Company Portal"
+
+    # 10. ROC / IRD / EPF / ETF / Bank / Statutory (when logging general office/staff tasks)
+    if any(w in t_low for w in ["roc", "form 1", "form 13", "form 15", "form 20", "level 2", "level 3", "incorporat"]):
+        return f"Follow up with ROC on {t} and check approval status"
+    if any(w in t_low for w in ["epf", "etf", "labour dept", "narahenpita"]):
+        return f"Coordinate EPF/ETF compliance and documentation for {t}"
+    if any(w in t_low for w in ["ird", "tin", "ramis", "tax"]):
+        return f"Coordinate with IRD and update tax/TIN records for {t}"
+    if any(w in t_low for w in ["bank", "cheque", "deposit", "ntb", "commercial bank", "chamber of commerce"]):
+        return f"Coordinate banking / payment transaction for {t}"
+
+    # Default Zaharan-style concise note (never uses 'Execute deliverables for...')
+    if any(t_low.startswith(v) for v in ["create ", "design ", "prepare ", "review ", "update ", "post ", "setup ", "add ", "compile ", "check ", "follow up ", "contact "]):
+        if req and req.lower() not in ["self", "management", "muhammad zaharan"] and req.lower() not in t_low:
+            return f"{t} as requested by {req}"
+        return f"{t} with the details provided"
+    if "report" in t_low:
+        return f"Prepare and compile {t} based on data provided"
+    return f"Prepare and complete {t}" + (f" ({workstream})" if workstream and workstream not in ["Office Operations", "Operational Task"] else "")
+
+
+def generate_task_action_notes(title, workstream="", requestedBy="", existingNotes="", mode="auto", user=None, operations=None, customer_records=None, financial_records=None):
+    """
+    Generates concise, natural task notes modeled directly on Muhammad Zaharan's real task writing style
+    in the Spillburg Operations Tracker.
+    - Learns from Zaharan's historical tasks (few-shot similarity matching).
+    - Injects matched Customer DB / Financial DB context if a specific client is named.
+    - Supports polishing draft shorthand ('auto'/'polish'), replacing ('replace'), or appending an 'Update - ' line ('append').
+    - Returns a dict with {'notes': str, 'suggestedWorkstream': str} or plain str for backward compatibility.
     """
     clean_title = (title or "").strip()
+    suggested_ws = infer_zaharan_workstream(clean_title, workstream)
     if not clean_title:
-        return "Task deliverable details to be completed as instructed by management."
+        return "Prepare and complete task with the details provided"
+
+    draft = (existingNotes or "").strip()
+    if mode == "append" and draft:
+        # Use Gemini or deterministic rule to append an 'Update - ...' line in Zaharan's style
+        pass
+
+    similar_examples = _find_similar_zaharan_tasks(clean_title, operations=operations, limit=7)
+    entity_hint = _lookup_entity_context_for_notes(clean_title, existing_notes=draft, customer_records=customer_records, financial_records=financial_records)
 
     api_key = get_gemini_api_key()
     if api_key:
-        models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+        models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        examples_block = "\n".join([f"- Title: \"{ex_t}\" [{ex_ws}] -> Notes: \"{ex_n}\"" for ex_t, ex_ws, ex_n in similar_examples])
         sys_prompt = (
-            "You are SpillburgAI, the corporate operations assistant for Spillburg Holdings (Pvt) Ltd, Colombo, Sri Lanka.\n"
-            "Your task is to generate 1 to 2 concise, professional action details / notes for an operations task based on its title.\n"
-            "STYLE GUIDELINES (Match Spillburg operations records):\n"
-            "- Direct, professional, actionable tone.\n"
-            "- Explicitly specify the operational action steps, government authorities or departments involved (e.g. ROC, IRD, Department of Immigration, Commercial Bank), deliverable outcome, and follow-up.\n"
-            "- Do NOT write introductory filler like 'Here are the notes:' or bullet points. Output ONLY the plain text notes (1 to 2 sentences max)."
+            "You write task notes for Muhammad Zaharan in the Spillburg Holdings Operations Tracker.\n"
+            "CRITICAL STYLE RULES — Match Muhammad Zaharan's exact personal writing style from his earlier tasks:\n"
+            "1. Keep it SHORT, DIRECT, and NATURAL (typically 1 concise sentence, 7 to 20 words).\n"
+            "2. Start directly with an action verb or clear noun phrase (e.g. 'Review the website and find out shortcomings and suggestions', 'Quote and purchase a...', 'Create a company profile for...', 'Design social media banner with QR code for...', 'Research and compile...').\n"
+            "3. NEVER use stiff, robotic corporate AI phrases like 'Execute deliverables for...', 'Execute technical deliverables and content updates for...', 'verify public responsiveness, and report completion status to management', or 'document final completion in the operations tracker'.\n"
+            "4. If the user already typed rough draft notes or extra details, keep every specific detail (names, countries, emails, dates, QR codes, languages) and format secondary remarks on a new line starting with 'Notes - ' or 'Update - ' just like Zaharan does.\n"
+            "5. Output ONLY the raw note text—no quotes, no markdown bolding, no intro text.\n\n"
+            f"EXAMPLES OF MUHAMMAD ZAHARAN'S REAL EARLIER TASKS:\n{examples_block}"
         )
-        user_prompt = f"Task Title: {clean_title}\nWorkstream: {workstream or 'Office Operations'}\nRequested By: {requestedBy or 'Management'}"
+        user_prompt_lines = [
+            f"Task Title: {clean_title}",
+            f"Workstream: {suggested_ws or workstream or 'Office Operations'}",
+            f"Requested By: {requestedBy or 'Mr. Shameel'}",
+        ]
+        if entity_hint:
+            user_prompt_lines.append(f"Matched Company Context (include Reg No/TIN/Archive only if relevant): {entity_hint}")
+        if draft and mode != "replace":
+            if mode == "append":
+                user_prompt_lines.append(f"Existing Notes:\n{draft}\nInstruction: Keep the existing notes exactly as they are and append a new line starting with 'Update - ' summarizing the next step or progress.")
+            else:
+                user_prompt_lines.append(f"User's Rough Draft Notes to Polish/Expand in Zaharan's Style:\n{draft}")
+
         payload = {
             "systemInstruction": {"parts": [{"text": sys_prompt}]},
-            "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 200}
+            "contents": [{"role": "user", "parts": [{"text": "\n".join(user_prompt_lines)}]}],
+            "generationConfig": {"temperature": 0.25, "maxOutputTokens": 160}
         }
         encoded = json.dumps(payload).encode("utf-8")
         for m in models_to_try:
@@ -1870,21 +2222,14 @@ def generate_task_action_notes(title, workstream="", requestedBy="", user=None):
             except Exception:
                 continue
 
-    # Built-in Corporate Synthesizer Fallback
-    t_lower = clean_title.lower()
-    if any(k in t_lower for k in ["roc", "registrar of companies", "form 1", "form 13", "form 15", "form 20", "incorporat", "level 2", "level 3"]):
-        return f"Liaise with Registrar of Companies (ROC) to submit documents for {clean_title}, follow up approval progression through Assistant Registrar, address system queries, and collect certified copies / seal."
-    elif any(k in t_lower for k in ["bank", "cheque", "fund transfer", "petty cash", "cash", "deposit", "account", "commercial bank", "sampath", "ntb"]):
-        return f"Visit bank branch to submit instructions for {clean_title}, process transaction/cheque clearance, obtain deposit slips, and reconcile vouchers with accounts."
-    elif any(k in t_lower for k in ["tin", "ird", "tax", "ramis", "vat", "sscl", "inland revenue", "pin", "ssid"]):
-        return f"Coordinate with Inland Revenue Department (IRD) regarding {clean_title}, verify tax registration status, update PIN/TIN credentials, and ensure compliance filings."
-    elif any(k in t_lower for k in ["embassy", "visa", "consul", "passport", "sltda", "tourist board", "attestation", "legaliz"]):
-        return f"Coordinate submission and consular follow-up for {clean_title}, verify supporting client documentation, and obtain required attestations/endorsements."
-    elif any(k in t_lower for k in ["file", "cabinet", "cupboard", "box", "customer file"]):
-        return f"Retrieve, review, and file original corporate documents for {clean_title} in the archive cupboard, ensuring record numbering and register updates are aligned."
-    elif any(k in t_lower for k in ["buy", "purchase", "procure", "stapler", "pins", "paper", "printer", "cartridge", "stand", "monitor"]):
-        return f"Obtain quotations, verify pricing & availability for {clean_title}, procure requested office items, and hand over vendor bill/receipt to accounts for reimbursement."
-    elif any(k in t_lower for k in ["website", "social", "facebook", "linkedin", "seo", "domain", "email", "portal", "marketing"]):
-        return f"Execute technical deliverables and content updates for {clean_title}, verify public responsiveness, and report completion status to management."
-    else:
-        return f"Execute deliverables for {clean_title} as instructed by {requestedBy or 'Management'}, coordinate with relevant team members, and document final completion in the operations tracker."
+    # Built-in Zaharan-Style Synthesizer (works 100% offline or without API key)
+    base_note = _synthesize_zaharan_style_note(
+        clean_title,
+        workstream=suggested_ws or workstream,
+        requestedBy=requestedBy,
+        existing_notes=draft,
+        mode=mode
+    )
+    if entity_hint and entity_hint not in base_note and any(k in clean_title.lower() for k in ["file", "roc", "tin", "ird", "tax", "epf", "etf", "form "]):
+        base_note = f"{base_note}\nNotes - {entity_hint}"
+    return base_note
