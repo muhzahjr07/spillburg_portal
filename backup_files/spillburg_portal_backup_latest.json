@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-06T10:17:33Z",
+  "exportTimestamp": "2026-11-06T10:17:44Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6396,7 +6396,7 @@
             "tinNo": "123494520",
             "idNo": "198485700230",
             "dateJoined": "15.04.2026",
-            "specialAllowance": 22000.0,
+            "specialAllowance": 0.0,
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
