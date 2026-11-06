@@ -387,7 +387,7 @@ def call_gemini_enhancement(user, message, history, deterministic_reply, access_
     if not api_key:
         return None
 
-    models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+    models_to_try = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash"]
     sys_prompt = (
         "You are SpillburgAI, the official corporate intelligence assistant for Spillburg Holdings (Pvt) Ltd "
         "and Spillburg Vacation (Pvt) Ltd in Colombo, Sri Lanka.\n"
@@ -420,7 +420,7 @@ def call_gemini_enhancement(user, message, history, deterministic_reply, access_
     payload = {
         "systemInstruction": {"parts": [{"text": sys_prompt}]},
         "contents": contents,
-        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1200}
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 2048, "thinkingConfig": {"thinkingBudget": 0}}
     }
     encoded_payload = json.dumps(payload).encode("utf-8")
 
@@ -2176,7 +2176,7 @@ def generate_task_action_notes(title, workstream="", requestedBy="", existingNot
 
     api_key = get_gemini_api_key()
     if api_key:
-        models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        models_to_try = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash"]
         examples_block = "\n".join([f"- Title: \"{ex_t}\" [{ex_ws}] -> Notes: \"{ex_n}\"" for ex_t, ex_ws, ex_n in similar_examples])
         sys_prompt = (
             "You write task notes for Muhammad Zaharan in the Spillburg Holdings Operations Tracker.\n"
@@ -2184,8 +2184,9 @@ def generate_task_action_notes(title, workstream="", requestedBy="", existingNot
             "1. Keep it SHORT, DIRECT, and NATURAL (typically 1 concise sentence, 7 to 20 words).\n"
             "2. Start directly with an action verb or clear noun phrase (e.g. 'Review the website and find out shortcomings and suggestions', 'Quote and purchase a...', 'Create a company profile for...', 'Design social media banner with QR code for...', 'Research and compile...').\n"
             "3. NEVER use stiff, robotic corporate AI phrases like 'Execute deliverables for...', 'Execute technical deliverables and content updates for...', 'verify public responsiveness, and report completion status to management', or 'document final completion in the operations tracker'.\n"
-            "4. If the user already typed rough draft notes or extra details, keep every specific detail (names, countries, emails, dates, QR codes, languages) and format secondary remarks on a new line starting with 'Notes - ' or 'Update - ' just like Zaharan does.\n"
-            "5. Output ONLY the raw note text—no quotes, no markdown bolding, no intro text.\n\n"
+            "4. Do NOT repeat 'as requested by ...' or 'Notes - Requested by ...' since Requested By is already a separate column in the table.\n"
+            "5. If the user already typed rough draft notes or extra details, keep every specific detail (names, countries, emails, dates, QR codes, languages) and format secondary remarks on a new line starting with 'Notes - ' or 'Update - ' just like Zaharan does.\n"
+            "6. Output ONLY the raw note text—no quotes, no markdown bolding, no intro text.\n\n"
             f"EXAMPLES OF MUHAMMAD ZAHARAN'S REAL EARLIER TASKS:\n{examples_block}"
         )
         user_prompt_lines = [
@@ -2204,7 +2205,7 @@ def generate_task_action_notes(title, workstream="", requestedBy="", existingNot
         payload = {
             "systemInstruction": {"parts": [{"text": sys_prompt}]},
             "contents": [{"role": "user", "parts": [{"text": "\n".join(user_prompt_lines)}]}],
-            "generationConfig": {"temperature": 0.25, "maxOutputTokens": 160}
+            "generationConfig": {"temperature": 0.25, "maxOutputTokens": 800, "thinkingConfig": {"thinkingBudget": 0}}
         }
         encoded = json.dumps(payload).encode("utf-8")
         for m in models_to_try:
