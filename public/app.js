@@ -9792,14 +9792,24 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
-                  <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
+                  <td style="text-align: center; padding: 2px 4px;">
+                    <input type="text"
+                      value="${escapeHtml(e.workDays || '')}"
+                      placeholder="-"
+                      title="Working Days - Directly editable. Press Enter to save."
+                      class="text-center text-amber-700 font-semibold bg-transparent hover:bg-amber-50 focus:bg-white focus:ring-1 focus:ring-amber-400 border border-transparent hover:border-amber-200 rounded px-1 py-0.5 transition"
+                      style="width: 64px;"
+                      onchange="updateEmployeeWorkDaysInline('${e.id}', this.value)"
+                      onkeydown="if(event.key==='Enter'){this.blur();}"
+                    />
+                  </td>
                   <td style="text-align: right; font-weight: 600;">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || e.earnedLkr || e.lkrSalary || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.epf8Lkr, 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.epf12Lkr, 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.etf3Lkr, 2)}</td>
                   <td style="text-align: right; padding: 2px 4px;">
-                    <input type="number" step="1" min="0"
-                      value="${Math.round(e.apit || 0)}"
+                    <input type="number" step="0.01" min="0"
+                      value="${Number(e.apit || 0) ? Number(e.apit) : 0}"
                       title="APIT Tax (LKR) - Editable. Press Enter to recalculate."
                       class="font-mono text-right text-red-600 font-semibold bg-transparent hover:bg-red-50 focus:bg-white focus:ring-1 focus:ring-red-400 border border-transparent hover:border-red-200 rounded px-1 py-0.5 transition"
                       style="width: 82px;"
@@ -9808,8 +9818,8 @@ function renderPayrollSheet(container) {
                     />
                   </td>
                   <td style="text-align: right; padding: 2px 4px;">
-                    <input type="number" step="1" min="0"
-                      value="${Math.round(e.otherDeductions || 0) || ''}"
+                    <input type="number" step="0.01" min="0"
+                      value="${Number(e.otherDeductions || 0) ? Number(e.otherDeductions) : ''}"
                       placeholder="0"
                       title="Other Deductions (LKR) - Directly editable. Press Enter to recalculate."
                       class="font-mono text-right text-amber-700 font-semibold bg-transparent hover:bg-amber-50 focus:bg-white focus:ring-1 focus:ring-amber-400 border border-transparent hover:border-amber-200 rounded px-1 py-0.5 transition"
@@ -9917,7 +9927,17 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
-                  <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
+                  <td style="text-align: center; padding: 2px 4px;">
+                    <input type="text"
+                      value="${escapeHtml(e.workDays || '')}"
+                      placeholder="-"
+                      title="Working Days - Directly editable. Press Enter to save."
+                      class="text-center text-amber-700 font-semibold bg-transparent hover:bg-amber-50 focus:bg-white focus:ring-1 focus:ring-amber-400 border border-transparent hover:border-amber-200 rounded px-1 py-0.5 transition"
+                      style="width: 64px;"
+                      onchange="updateEmployeeWorkDaysInline('${e.id}', this.value)"
+                      onkeydown="if(event.key==='Enter'){this.blur();}"
+                    />
+                  </td>
                   <td style="text-align: right; font-weight: 600;">${formatMoney(e.totalEarnedGbp ?? (Number(e.earnedGbp || 0) + Number(e.fixedAllowanceGbp || 0) + Number(e.specialAllowanceGbp || 0)), 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.epf12Gbp, 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.etf3Gbp, 2)}</td>
@@ -9996,7 +10016,17 @@ function renderPayrollSheet(container) {
                   <td style="font-weight: 600; text-align: left;">${escapeHtml((e.name || '').toUpperCase())}</td>
                   <td style="text-align: left; color: #475569;">${escapeHtml(e.position)}</td>
                   <td style="text-align: right;">${formatMoney(e.gbpSalary, 2)}</td>
-                  <td style="text-align: center; color: #b45309; font-weight: 600;">${escapeHtml(e.workDays || '')}</td>
+                  <td style="text-align: center; padding: 2px 4px;">
+                    <input type="text"
+                      value="${escapeHtml(e.workDays || '')}"
+                      placeholder="-"
+                      title="Working Days - Directly editable. Press Enter to save."
+                      class="text-center text-amber-700 font-semibold bg-transparent hover:bg-amber-50 focus:bg-white focus:ring-1 focus:ring-amber-400 border border-transparent hover:border-amber-200 rounded px-1 py-0.5 transition"
+                      style="width: 64px;"
+                      onchange="updateEmployeeWorkDaysInline('${e.id}', this.value)"
+                      onkeydown="if(event.key==='Enter'){this.blur();}"
+                    />
+                  </td>
                   <td style="text-align: right;">${formatMoney(e.earnedGbp, 2)}</td>
                   <td style="text-align: right; font-weight: 600;">${formatMoney(e.lkrGross, 0)}</td>
                   <td style="text-align: right; padding: 2px 4px;">
@@ -10026,8 +10056,8 @@ function renderPayrollSheet(container) {
                   <td style="text-align: right;">${formatMoney(e.epf12Lkr, 2)}</td>
                   <td style="text-align: right;">${formatMoney(e.etf3Lkr, 2)}</td>
                   <td style="text-align: right; padding: 2px 4px;">
-                    <input type="number" step="1" min="0"
-                      value="${Math.round(e.apit || 0)}"
+                    <input type="number" step="0.01" min="0"
+                      value="${Number(e.apit || 0) ? Number(e.apit) : 0}"
                       title="APIT Tax (LKR) - Editable. Press Enter to recalculate."
                       class="font-mono text-right text-red-600 font-semibold bg-transparent hover:bg-red-50 focus:bg-white focus:ring-1 focus:ring-red-400 border border-transparent hover:border-red-200 rounded px-1 py-0.5 transition"
                       style="width: 82px;"
@@ -10036,8 +10066,8 @@ function renderPayrollSheet(container) {
                     />
                   </td>
                   <td style="text-align: right; padding: 2px 4px;">
-                    <input type="number" step="1" min="0"
-                      value="${Math.round(e.otherDeductions || 0) || ''}"
+                    <input type="number" step="0.01" min="0"
+                      value="${Number(e.otherDeductions || 0) ? Number(e.otherDeductions) : ''}"
                       placeholder="0"
                       title="Other Deductions (LKR) - Directly editable. Press Enter to recalculate."
                       class="font-mono text-right text-amber-700 font-semibold bg-transparent hover:bg-amber-50 focus:bg-white focus:ring-1 focus:ring-amber-400 border border-transparent hover:border-amber-200 rounded px-1 py-0.5 transition"
@@ -10343,20 +10373,19 @@ function renderStaffCostSummary(container) {
   });
 
   if (isSingleLkr) {
-    if (totals.sumLkrGross) sumBasic = Number(totals.sumLkrGross);
-    else if (totals.sumGrossSalaryLkr) sumBasic = Number(totals.sumGrossSalaryLkr);
+    if (totals.sumLkrGross !== undefined) sumBasic = Number(totals.sumLkrGross);
     if (totals.sumFixedAllowanceLkr !== undefined) sumFixedAllow = Number(totals.sumFixedAllowanceLkr);
     if (totals.sumSpecialAllowanceLkr !== undefined) sumSpecialAllow = Number(totals.sumSpecialAllowanceLkr);
-    if (totals.sumEpf12Lkr) sumEpf12 = Number(totals.sumEpf12Lkr);
-    if (totals.sumEtf3Lkr) sumEtf3 = Number(totals.sumEtf3Lkr);
+    if (totals.sumEpf12Lkr !== undefined) sumEpf12 = Number(totals.sumEpf12Lkr);
+    if (totals.sumEtf3Lkr !== undefined) sumEtf3 = Number(totals.sumEtf3Lkr);
     sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3) * 100) / 100;
   } else {
-    if (totals.sumEarnedGbp) sumBasic = Number(totals.sumEarnedGbp);
-    else if (totals.sumGbpSalary) sumBasic = Number(totals.sumGbpSalary);
+    if (totals.sumEarnedGbp !== undefined) sumBasic = Number(totals.sumEarnedGbp);
+    else if (totals.sumGbpSalary !== undefined) sumBasic = Number(totals.sumGbpSalary);
     if (totals.sumFixedAllowanceGbp !== undefined) sumFixedAllow = Number(totals.sumFixedAllowanceGbp);
     if (totals.sumSpecialAllowanceGbp !== undefined) sumSpecialAllow = Number(totals.sumSpecialAllowanceGbp);
-    if (totals.sumEpf12Gbp) sumEpf12 = Number(totals.sumEpf12Gbp);
-    if (totals.sumEtf3Gbp) sumEtf3 = Number(totals.sumEtf3Gbp);
+    if (totals.sumEpf12Gbp !== undefined) sumEpf12 = Number(totals.sumEpf12Gbp);
+    if (totals.sumEtf3Gbp !== undefined) sumEtf3 = Number(totals.sumEtf3Gbp);
     sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3) * 100) / 100;
   }
 
@@ -11609,6 +11638,10 @@ function renderIndividualPayslips(container) {
   }
 
   const selectedEmp = emps.find(e => e.id === activePayslipEmployeeId) || emps[0];
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || { currencyMode: 'dual', foreignCurrency: 'GBP' };
+  const isSingle = (currentComp.currencyMode === 'single') || (p.currencyMode === 'single');
+  const foreignCurr = currentComp.foreignCurrency || 'GBP';
+  const currPrefix = isSingle ? 'Rs ' : (foreignCurr === 'GBP' ? '&pound;' : `${escapeHtml(foreignCurr)} `);
 
   container.innerHTML = `
     <div class="space-y-4 fade-in">
@@ -11621,7 +11654,7 @@ function renderIndividualPayslips(container) {
             class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500">
             ${emps.map(e => `
               <option value="${e.id}" ${e.id === selectedEmp.id ? 'selected' : ''}>
-                ${e.no}. ${escapeHtml((e.name || '').toUpperCase())} (&pound;${formatMoney(e.gbpSalary, 2)})
+                ${e.no}. ${escapeHtml((e.name || '').toUpperCase())} (${currPrefix}${formatMoney(isSingle ? (e.totalGrossLkr || e.lkrGross || e.lkrSalary || 0) : (e.totalEarnedGbp || e.earnedGbp || e.gbpSalary || 0), 2)})
               </option>
             `).join('')}
           </select>
@@ -11767,20 +11800,8 @@ function generatePayslipHtml(emp, period) {
           <td style="text-align: right;">${emp.specialAllowance ? formatMoney(emp.specialAllowance, 2) : '-'}</td>
         </tr>
         <tr style="font-weight: bold; background: #f8fafc;">
-          <td>Total (Gross)</td>
+          <td>Earned Salary (Gross)</td>
           <td style="text-align: right;">${formatMoney(emp.totalGrossLkr, 2)}</td>
-        </tr>
-        <tr>
-          <td>(-) No Pay/Late</td>
-          <td style="text-align: right;">${emp.noPayLate ? formatMoney(emp.noPayLate, 2) : '-'}</td>
-        </tr>
-        <tr style="font-weight: 600;">
-          <td>Net total</td>
-          <td style="text-align: right;">${formatMoney(emp.netTotalGross, 2)}</td>
-        </tr>
-        <tr style="font-weight: 600;">
-          <td>Gross Pay</td>
-          <td style="text-align: right;">${formatMoney(emp.netTotalGross, 2)}</td>
         </tr>
         <tr>
           <td>(-) EPF 8%</td>
@@ -11871,8 +11892,10 @@ function renderPayrollStaffManager(container) {
               <th class="p-3">Staff Member</th>
               <th class="p-3">Position</th>
               <th class="p-3 text-right">${isSingle ? 'Basic Salary (LKR)' : `${escapeHtml(foreignCurr)} Base`}</th>
+              <th class="p-3 text-center">Working Days</th>
               <th class="p-3 text-right">Fixed Allow. (LKR)</th>
               <th class="p-3 text-right">Special Allow. (LKR)</th>
+              <th class="p-3 text-right">Earned Salary (LKR)</th>
               <th class="p-3 text-right">APIT Tax (LKR)</th>
               <th class="p-3 text-right">Other Deductions (LKR)</th>
               <th class="p-3">Bank Remittance Account</th>
@@ -11891,17 +11914,21 @@ function renderPayrollStaffManager(container) {
                 </td>
                 <td class="p-3 font-medium text-slate-700">${escapeHtml(e.position)}</td>
                 <td class="p-3 text-right font-bold text-slate-900">${isSingle ? `Rs ${formatMoney(e.lkrSalary || e.lkrGross || 0, 2)}` : `${foreignCurr === 'GBP' ? '&pound;' : foreignCurr} ${formatMoney(e.gbpSalary, 2)}`}</td>
+                <td class="p-3 text-center font-semibold text-amber-700">${escapeHtml(e.workDays || '-')}</td>
                 <td class="p-3 text-right font-mono font-semibold text-teal-700">
                   ${e.fixedAllowance ? `Rs ${formatMoney(e.fixedAllowance, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
                 </td>
                 <td class="p-3 text-right font-mono font-semibold text-teal-700">
                   ${e.specialAllowance ? `Rs ${formatMoney(e.specialAllowance, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
                 </td>
+                <td class="p-3 text-right font-mono font-bold text-slate-800">
+                  Rs ${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || e.lkrSalary || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}
+                </td>
                 <td class="p-3 text-right font-mono font-semibold text-red-600">
-                  ${e.apit !== null && e.apit !== undefined ? `Rs ${formatMoney(e.apit, 0)}` : '<span class="text-slate-400 italic font-sans text-[11px]">Auto</span>'}
+                  ${Number(e.apit || 0) ? `Rs ${formatMoney(e.apit, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">0</span>'}
                 </td>
                 <td class="p-3 text-right font-mono font-semibold text-amber-700">
-                  ${e.otherDeductions ? `Rs ${formatMoney(e.otherDeductions, 0)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
+                  ${e.otherDeductions ? `Rs ${formatMoney(e.otherDeductions, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
                 </td>
                 <td class="p-3">
                   <div class="font-mono font-medium text-slate-800">${escapeHtml(e.bankAccountNo)}</div>
@@ -13919,26 +13946,21 @@ function openEmployeeModal(emp) {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-${isSingle ? '2' : '3'} gap-3">
           <div>
-            <label class="block font-semibold text-slate-700 mb-1">Working Days (Col 1)</label>
+            <label class="block font-semibold text-slate-700 mb-1">Working Days</label>
             <input type="text" id="empWorkDaysInput" value="${isEdit ? escapeHtml(emp.workDays || '') : ''}"
-              placeholder="e.g. 17 D or blank"
+              placeholder="e.g. 22 or 17 D"
               class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
           </div>
+          ${isSingle ? '' : `
           <div>
-            ${isSingle ? `
-              <label class="block font-semibold text-slate-700 mb-1">Earned Basic (LKR)</label>
-              <input type="number" id="empEarnedLkrInput" step="0.01" min="0" value="${isEdit && emp.earnedLkr ? emp.earnedLkr : ''}"
-                placeholder="Blank = Full Basic"
-                class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-            ` : `
-              <label class="block font-semibold text-slate-700 mb-1">Earned Base (${foreignCurr})</label>
-              <input type="number" id="empEarnedGbpInput" step="0.01" min="0" value="${isEdit && emp.earnedGbp ? emp.earnedGbp : ''}"
-                placeholder="Blank = Full Base"
-                class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
-            `}
+            <label class="block font-semibold text-slate-700 mb-1">Pro-Rated Base (${foreignCurr}) <span class="text-[10px] font-normal text-slate-400">(Optional)</span></label>
+            <input type="number" id="empEarnedGbpInput" step="0.01" min="0" value="${isEdit && emp.earnedGbp && Number(emp.earnedGbp) !== Number(emp.gbpSalary) ? emp.earnedGbp : ''}"
+              placeholder="Blank = Full Contract Base"
+              class="w-full px-3 py-1.5 border border-slate-200 rounded-lg">
           </div>
+          `}
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Date Joined</label>
             <input type="text" id="empDateJoinedInput" value="${isEdit ? escapeHtml(emp.dateJoined || '') : ''}"
@@ -14011,11 +14033,11 @@ function openEmployeeModal(emp) {
               <span>APIT Tax (LKR)</span>
               <span class="text-[9px] text-red-600 font-bold uppercase">IRD Tax</span>
             </label>
-            <input type="number" id="empApitInput" step="1" min="0"
-              value="${isEdit && emp.apit !== undefined && emp.apit !== null ? Math.round(emp.apit) : ''}"
-              placeholder="Blank = auto tax"
+            <input type="number" id="empApitInput" step="0.01" min="0"
+              value="${isEdit && emp.apit !== undefined && emp.apit !== null ? Number(emp.apit) : 0}"
+              placeholder="0"
               class="w-full px-3 py-1.5 border border-red-200 focus:border-red-500 rounded-lg font-mono font-bold text-red-700 bg-white">
-            <p class="text-[10px] text-slate-500 mt-1">Manual IRD value, or blank for auto tax brackets.</p>
+            <p class="text-[10px] text-slate-500 mt-1">Editable in table &amp; settings (subtracts from net remittance).</p>
           </div>
           <div>
             <label class="block font-semibold text-slate-800 mb-1 flex items-center justify-between">
@@ -14057,11 +14079,13 @@ async function submitEmployee(e, empId) {
 
   if (isSingle) {
     lkrSalary = parseFloat(document.getElementById('empLkrSalaryInput').value) || 0;
-    const earnedInput = document.getElementById('empEarnedLkrInput').value.trim();
+    const earnedEl = document.getElementById('empEarnedLkrInput');
+    const earnedInput = earnedEl ? earnedEl.value.trim() : '';
     earnedLkr = earnedInput ? parseFloat(earnedInput) : lkrSalary;
   } else {
     gbpSalary = parseFloat(document.getElementById('empGbpSalaryInput').value) || 0;
-    const earnedInput = document.getElementById('empEarnedGbpInput').value.trim();
+    const earnedEl = document.getElementById('empEarnedGbpInput');
+    const earnedInput = earnedEl ? earnedEl.value.trim() : '';
     earnedGbp = earnedInput ? parseFloat(earnedInput) : gbpSalary;
   }
 
@@ -14196,6 +14220,31 @@ async function updateEmployeeAllowanceInline(empId, field, val, currMode = 'lkr'
     } else {
       const err = await res.json();
       alert('Error updating allowance: ' + (err.error || 'Server error'));
+    }
+  } catch (err) {
+    alert('Connection error: ' + err.message);
+  }
+}
+
+async function updateEmployeeWorkDaysInline(empId, val) {
+  try {
+    const res = await fetch('/api/payroll/employee', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        periodId: activePayrollPeriod.id,
+        id: empId,
+        workDays: (val || '').trim()
+      })
+    });
+    if (res.ok) {
+      await refreshPayrollData();
+    } else {
+      const err = await res.json();
+      alert('Error updating Working Days: ' + (err.error || 'Server error'));
     }
   } catch (err) {
     alert('Connection error: ' + err.message);
@@ -15267,20 +15316,19 @@ function printStaffCostSummary() {
   });
 
   if (isSingleLkr) {
-    if (totals.sumLkrGross) sumBasic = Number(totals.sumLkrGross);
-    else if (totals.sumGrossSalaryLkr) sumBasic = Number(totals.sumGrossSalaryLkr);
+    if (totals.sumLkrGross !== undefined) sumBasic = Number(totals.sumLkrGross);
     if (totals.sumFixedAllowanceLkr !== undefined) sumFixedAllow = Number(totals.sumFixedAllowanceLkr);
     if (totals.sumSpecialAllowanceLkr !== undefined) sumSpecialAllow = Number(totals.sumSpecialAllowanceLkr);
-    if (totals.sumEpf12Lkr) sumEpf12 = Number(totals.sumEpf12Lkr);
-    if (totals.sumEtf3Lkr) sumEtf3 = Number(totals.sumEtf3Lkr);
+    if (totals.sumEpf12Lkr !== undefined) sumEpf12 = Number(totals.sumEpf12Lkr);
+    if (totals.sumEtf3Lkr !== undefined) sumEtf3 = Number(totals.sumEtf3Lkr);
     sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3) * 100) / 100;
   } else {
-    if (totals.sumEarnedGbp) sumBasic = Number(totals.sumEarnedGbp);
-    else if (totals.sumGbpSalary) sumBasic = Number(totals.sumGbpSalary);
+    if (totals.sumEarnedGbp !== undefined) sumBasic = Number(totals.sumEarnedGbp);
+    else if (totals.sumGbpSalary !== undefined) sumBasic = Number(totals.sumGbpSalary);
     if (totals.sumFixedAllowanceGbp !== undefined) sumFixedAllow = Number(totals.sumFixedAllowanceGbp);
     if (totals.sumSpecialAllowanceGbp !== undefined) sumSpecialAllow = Number(totals.sumSpecialAllowanceGbp);
-    if (totals.sumEpf12Gbp) sumEpf12 = Number(totals.sumEpf12Gbp);
-    if (totals.sumEtf3Gbp) sumEtf3 = Number(totals.sumEtf3Gbp);
+    if (totals.sumEpf12Gbp !== undefined) sumEpf12 = Number(totals.sumEpf12Gbp);
+    if (totals.sumEtf3Gbp !== undefined) sumEtf3 = Number(totals.sumEtf3Gbp);
     sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3) * 100) / 100;
   }
 

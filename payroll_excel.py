@@ -596,32 +596,13 @@ def generate_payslips_xlsx(enriched_period, company_info=None, single_emp_id=Non
                 (col_val, 5 if sa > 0 else 8, 'num' if sa > 0 else 'inlineStr', sa if sa > 0 else '-')
             ], False))
 
-            # 9. Total (Gross)
+            # 9. Earned Salary (Gross)
             v_rows.append(('row', 26, [
-                (col_lbl, 4, 'inlineStr', 'Total (Gross)'),
+                (col_lbl, 4, 'inlineStr', 'Earned Salary (Gross)'),
                 (col_val, 7, 'num', float(emp.get('totalGrossLkr', 0.0) or 0.0))
             ], False))
 
-            # 10. (-) No Pay/Late
-            np = float(emp.get('noPayLate', 0.0) or 0.0)
-            v_rows.append(('row', 24, [
-                (col_lbl, 1, 'inlineStr', '(-) No Pay/Late'),
-                (col_val, 5 if np > 0 else 8, 'num' if np > 0 else 'inlineStr', np if np > 0 else '-')
-            ], False))
-
-            # 11. Net total
-            v_rows.append(('row', 24, [
-                (col_lbl, 2, 'inlineStr', 'Net total'),
-                (col_val, 6, 'num', float(emp.get('netTotalGross', 0.0) or 0.0))
-            ], False))
-
-            # 12. Gross Pay
-            v_rows.append(('row', 24, [
-                (col_lbl, 2, 'inlineStr', 'Gross Pay'),
-                (col_val, 6, 'num', float(emp.get('netTotalGross', 0.0) or 0.0))
-            ], False))
-
-            # 13. (-) EPF 8%
+            # 10. (-) EPF 8%
             v_rows.append(('row', 24, [
                 (col_lbl, 1, 'inlineStr', '(-) EPF 8%'),
                 (col_val, 5, 'num', float(emp.get('epf8Lkr', 0.0) or 0.0))

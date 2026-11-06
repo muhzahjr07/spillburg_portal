@@ -1081,15 +1081,15 @@ def calculate_apit_tax(gross_lkr):
 
 def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
     if currency_mode == 'single':
-        lkr_salary = float(emp.get('lkrSalary') or emp.get('baseSalaryLkr') or emp.get('lkrGross') or emp.get('gbpSalary') or 0.0)
-        earned_lkr = float(emp.get('earnedLkr') if emp.get('earnedLkr') is not None else lkr_salary)
-        lkr_gross = round(earned_lkr, 2)
+        lkr_salary = float(emp.get('lkrSalary') or emp.get('baseSalaryLkr') or emp.get('lkrGross') or emp.get('earnedLkr') or emp.get('gbpSalary') or 0.0)
+        earned_lkr = lkr_salary
+        lkr_gross = round(lkr_salary, 2)
         fixed_allowance = float(emp.get('fixedAllowance') or 0.0)
         special_allowance = float(emp.get('specialAllowance') or 0.0)
         total_gross_lkr = round(lkr_gross + fixed_allowance + special_allowance, 2)
         
-        no_pay_late = float(emp.get('noPayLate') or 0.0)
-        net_total_gross = round(total_gross_lkr - no_pay_late, 2)
+        no_pay_late = 0.0
+        net_total_gross = total_gross_lkr
         
         # EPF & ETF are calculated strictly on Basic Salary (lkr_gross), excluding Fixed & Special Allowances
         epf8_lkr = round(lkr_gross * 0.08)
@@ -1099,7 +1099,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
         if emp.get('apit') is not None and str(emp.get('apit')).strip() != '':
             apit = float(emp.get('apit'))
         else:
-            apit = float(calculate_apit_tax(lkr_gross))
+            apit = 0.0
             
         advance = float(emp.get('advance') or 0.0)
         loan = float(emp.get('loan') or 0.0)
@@ -1110,7 +1110,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
         
         total_deductions = round(epf8_lkr + apit + other_deductions, 2)
         net_salary_lkr = round(net_total_gross - total_deductions, 2)
-        total_employer_lkr = round(lkr_gross + fixed_allowance + special_allowance + epf12_lkr + etf3_lkr, 2)
+        total_employer_lkr = round(total_gross_lkr + epf12_lkr + etf3_lkr, 2)
         
         return {
             **emp,
@@ -1144,7 +1144,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
         }
     else:
         gbp_salary = float(emp.get('gbpSalary') or 0.0)
-        earned_gbp = float(emp.get('earnedGbp') if emp.get('earnedGbp') is not None else gbp_salary)
+        earned_gbp = float(emp.get('earnedGbp') if (emp.get('earnedGbp') is not None and str(emp.get('earnedGbp')).strip() != '') else gbp_salary)
         rate = float(exchange_rate or 440.0)
         
         fixed_allowance = float(emp.get('fixedAllowance') or 0.0)
@@ -1161,8 +1161,8 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
         lkr_gross = round(earned_gbp * rate)
         total_gross_lkr = round(lkr_gross + fixed_allowance + special_allowance, 2)
         
-        no_pay_late = float(emp.get('noPayLate') or 0.0)
-        net_total_gross = round(total_gross_lkr - no_pay_late, 2)
+        no_pay_late = 0.0
+        net_total_gross = total_gross_lkr
         
         epf8_lkr = round(lkr_gross * 0.08)
         epf12_lkr = round(lkr_gross * 0.12)
@@ -1171,7 +1171,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
         if emp.get('apit') is not None and str(emp.get('apit')).strip() != '':
             apit = float(emp.get('apit'))
         else:
-            apit = float(calculate_apit_tax(lkr_gross))
+            apit = 0.0
             
         advance = float(emp.get('advance') or 0.0)
         loan = float(emp.get('loan') or 0.0)
@@ -1182,7 +1182,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
         
         total_deductions = round(epf8_lkr + apit + other_deductions, 2)
         net_salary_lkr = round(net_total_gross - total_deductions, 2)
-        total_employer_lkr = round(lkr_gross + fixed_allowance + special_allowance + epf12_lkr + etf3_lkr, 2)
+        total_employer_lkr = round(total_gross_lkr + epf12_lkr + etf3_lkr, 2)
         
         return {
             **emp,
@@ -3810,6 +3810,11 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                         target_emp["shortName"] = raw_s.title() if raw_s.isupper() else raw_s
                     else:
                         target_emp[k] = body[k]
+
+            if "lkrSalary" in body and ("earnedLkr" not in body or body.get("earnedLkr") is None or str(body.get("earnedLkr")).strip() == ''):
+                target_emp["earnedLkr"] = target_emp.get("lkrSalary", 0.0)
+            if "gbpSalary" in body and ("earnedGbp" not in body or body.get("earnedGbp") is None or str(body.get("earnedGbp")).strip() == ''):
+                target_emp["earnedGbp"] = target_emp.get("gbpSalary", 0.0)
 
             save_payroll_records()
             enriched_p = enrich_payroll_period(target_period)
