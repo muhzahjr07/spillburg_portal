@@ -10155,6 +10155,14 @@ function getEmployeeCalculatedFields(e, exchangeRate = 440) {
     ? Number(e.specialAllowanceGbp)
     : (rate > 1 ? Math.round((specialAllowanceLkr / rate) * 100) / 100 : 0);
 
+  // Other Deductions (subtracted from Net Remittance & Staff Cost Summary Total Employer Cost)
+  let otherDeductionsLkr = (e.otherDeductions !== undefined && e.otherDeductions !== null && e.otherDeductions !== '')
+    ? Number(e.otherDeductions)
+    : Number((e.advance || 0) + (e.loan || 0));
+  let otherDeductionsGbp = (e.otherDeductionsGbp !== undefined && e.otherDeductionsGbp !== null && e.otherDeductionsGbp !== '')
+    ? Number(e.otherDeductionsGbp)
+    : (rate > 1 ? Math.round((otherDeductionsLkr / rate) * 100) / 100 : 0);
+
   // EPF 12% in GBP (strictly on Basic Salary)
   let epf12Gbp = 0;
   if (e.epf12Gbp !== undefined && e.epf12Gbp !== null && e.epf12Gbp !== '') {
@@ -10171,27 +10179,29 @@ function getEmployeeCalculatedFields(e, exchangeRate = 440) {
     etf3Gbp = Math.round(basicGbp * 0.03);
   }
 
-  // Total Employer Cost in GBP (Basic + Fixed Allowance + Special Allowance + EPF 12% + ETF 3%)
-  let totalEmployerGbp = Math.round((basicGbp + fixedAllowanceGbp + specialAllowanceGbp + epf12Gbp + etf3Gbp) * 100) / 100;
+  // Total Employer Cost in GBP (Basic + Fixed Allowance + Special Allowance + EPF 12% + ETF 3% - Other Deductions)
+  let totalEmployerGbp = Math.round((basicGbp + fixedAllowanceGbp + specialAllowanceGbp + epf12Gbp + etf3Gbp - otherDeductionsGbp) * 100) / 100;
 
   let epf8Lkr = (e.epf8Lkr !== undefined && e.epf8Lkr !== null && e.epf8Lkr !== '') ? Number(e.epf8Lkr) : Math.round(lkrGross * 0.08);
   let epf12Lkr = (e.epf12Lkr !== undefined && e.epf12Lkr !== null && e.epf12Lkr !== '') ? Number(e.epf12Lkr) : Math.round(lkrGross * 0.12);
   let epf20Lkr = (e.epf20Lkr !== undefined && e.epf20Lkr !== null && e.epf20Lkr !== '') ? Number(e.epf20Lkr) : (epf8Lkr + epf12Lkr);
   let etf3Lkr = (e.etf3Lkr !== undefined && e.etf3Lkr !== null && e.etf3Lkr !== '') ? Number(e.etf3Lkr) : Math.round(lkrGross * 0.03);
 
-  // Total Employer Cost in LKR (Basic + Fixed Allowance + Special Allowance + EPF 12% + ETF 3%)
-  let totalEmployerLkr = Math.round((lkrGross + fixedAllowanceLkr + specialAllowanceLkr + epf12Lkr + etf3Lkr) * 100) / 100;
+  // Total Employer Cost in LKR (Basic + Fixed Allowance + Special Allowance + EPF 12% + ETF 3% - Other Deductions)
+  let totalEmployerLkr = Math.round((lkrGross + fixedAllowanceLkr + specialAllowanceLkr + epf12Lkr + etf3Lkr - otherDeductionsLkr) * 100) / 100;
 
   return {
     basicGbp,
     fixedAllowanceGbp,
     specialAllowanceGbp,
+    otherDeductionsGbp,
     epf12Gbp,
     etf3Gbp,
     totalEmployerGbp,
     lkrGross,
     fixedAllowanceLkr,
     specialAllowanceLkr,
+    otherDeductionsLkr,
     epf8Lkr,
     epf12Lkr,
     epf20Lkr,
@@ -10336,6 +10346,7 @@ function renderStaffCostSummary(container) {
   let sumBasic = 0;
   let sumFixedAllow = 0;
   let sumSpecialAllow = 0;
+  let sumOtherDed = 0;
   let sumEpf12 = 0;
   let sumEtf3 = 0;
   let sumTotalCost = 0;
@@ -10346,12 +10357,14 @@ function renderStaffCostSummary(container) {
     const empBasic = isSingleLkr ? calc.lkrGross : calc.basicGbp;
     const empFixed = isSingleLkr ? calc.fixedAllowanceLkr : calc.fixedAllowanceGbp;
     const empSpecial = isSingleLkr ? calc.specialAllowanceLkr : calc.specialAllowanceGbp;
+    const empOtherDed = isSingleLkr ? calc.otherDeductionsLkr : calc.otherDeductionsGbp;
     const empEpf12 = isSingleLkr ? calc.epf12Lkr : calc.epf12Gbp;
     const empEtf3 = isSingleLkr ? calc.etf3Lkr : calc.etf3Gbp;
 
     sumBasic += empBasic;
     sumFixedAllow += empFixed;
     sumSpecialAllow += empSpecial;
+    sumOtherDed += empOtherDed;
     sumEpf12 += empEpf12;
     sumEtf3 += empEtf3;
     sumTotalCost += empCost;
@@ -10366,6 +10379,7 @@ function renderStaffCostSummary(container) {
       cost: empBasic,
       fixedAllowance: empFixed,
       specialAllowance: empSpecial,
+      otherDeductions: empOtherDed,
       epf12: empEpf12,
       etf3: empEtf3,
       totalEmployerCost: empCost
@@ -10376,17 +10390,19 @@ function renderStaffCostSummary(container) {
     if (totals.sumLkrGross !== undefined) sumBasic = Number(totals.sumLkrGross);
     if (totals.sumFixedAllowanceLkr !== undefined) sumFixedAllow = Number(totals.sumFixedAllowanceLkr);
     if (totals.sumSpecialAllowanceLkr !== undefined) sumSpecialAllow = Number(totals.sumSpecialAllowanceLkr);
+    if (totals.sumOtherDeductionsLkr !== undefined) sumOtherDed = Number(totals.sumOtherDeductionsLkr);
     if (totals.sumEpf12Lkr !== undefined) sumEpf12 = Number(totals.sumEpf12Lkr);
     if (totals.sumEtf3Lkr !== undefined) sumEtf3 = Number(totals.sumEtf3Lkr);
-    sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3) * 100) / 100;
+    sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3 - sumOtherDed) * 100) / 100;
   } else {
     if (totals.sumEarnedGbp !== undefined) sumBasic = Number(totals.sumEarnedGbp);
     else if (totals.sumGbpSalary !== undefined) sumBasic = Number(totals.sumGbpSalary);
     if (totals.sumFixedAllowanceGbp !== undefined) sumFixedAllow = Number(totals.sumFixedAllowanceGbp);
     if (totals.sumSpecialAllowanceGbp !== undefined) sumSpecialAllow = Number(totals.sumSpecialAllowanceGbp);
+    if (totals.sumOtherDeductionsGbp !== undefined) sumOtherDed = Number(totals.sumOtherDeductionsGbp);
     if (totals.sumEpf12Gbp !== undefined) sumEpf12 = Number(totals.sumEpf12Gbp);
     if (totals.sumEtf3Gbp !== undefined) sumEtf3 = Number(totals.sumEtf3Gbp);
-    sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3) * 100) / 100;
+    sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3 - sumOtherDed) * 100) / 100;
   }
 
   const defaultBankCharges = isSingleLkr ? 0.00 : 50.00;
@@ -10527,10 +10543,16 @@ function renderStaffCostSummary(container) {
                   <td style="padding: 2px 6px;">Employer EPF (12%)</td>
                   <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEpf12, 2)}</td>
                 </tr>
-                <tr style="border-bottom: 1px solid #000;">
+                <tr style="${sumOtherDed > 0 ? '' : 'border-bottom: 1px solid #000;'}">
                   <td style="padding: 2px 6px;">Employer ETF (3%)</td>
                   <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEtf3, 2)}</td>
                 </tr>
+                ${sumOtherDed > 0 ? `
+                <tr style="border-bottom: 1px solid #000;">
+                  <td style="padding: 2px 6px;">Less: Other Deductions</td>
+                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">(${formatMoney(sumOtherDed, 2)})</td>
+                </tr>
+                ` : ''}
                 <tr style="border-bottom: 2px solid #000; font-weight: 400;">
                   <td style="padding: 3px 6px;">Total Employer Cost</td>
                   <td style="padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
@@ -15287,7 +15309,7 @@ function printStaffCostSummary() {
   const currSign = isSingleLkr ? 'Rs.' : (foreignCurr === 'GBP' ? '\u00A3' : (foreignCurr === 'USD' ? '$' : (foreignCurr === 'EUR' ? '\u20AC' : foreignCurr + ' ')));
   const rate = Number(p.exchangeRate) || (isSingleLkr ? 1 : 440);
 
-  let sumBasic = 0, sumFixedAllow = 0, sumSpecialAllow = 0, sumEpf12 = 0, sumEtf3 = 0, sumTotalCost = 0;
+  let sumBasic = 0, sumFixedAllow = 0, sumSpecialAllow = 0, sumOtherDed = 0, sumEpf12 = 0, sumEtf3 = 0, sumTotalCost = 0;
 
   const empRows = emps.map((e, idx) => {
     const calc = getEmployeeCalculatedFields(e, rate);
@@ -15295,12 +15317,14 @@ function printStaffCostSummary() {
     const empBasic = isSingleLkr ? calc.lkrGross : calc.basicGbp;
     const empFixed = isSingleLkr ? calc.fixedAllowanceLkr : calc.fixedAllowanceGbp;
     const empSpecial = isSingleLkr ? calc.specialAllowanceLkr : calc.specialAllowanceGbp;
+    const empOtherDed = isSingleLkr ? calc.otherDeductionsLkr : calc.otherDeductionsGbp;
     const empEpf12 = isSingleLkr ? calc.epf12Lkr : calc.epf12Gbp;
     const empEtf3 = isSingleLkr ? calc.etf3Lkr : calc.etf3Gbp;
 
     sumBasic += empBasic;
     sumFixedAllow += empFixed;
     sumSpecialAllow += empSpecial;
+    sumOtherDed += empOtherDed;
     sumEpf12 += empEpf12;
     sumEtf3 += empEtf3;
     sumTotalCost += empCost;
@@ -15319,17 +15343,19 @@ function printStaffCostSummary() {
     if (totals.sumLkrGross !== undefined) sumBasic = Number(totals.sumLkrGross);
     if (totals.sumFixedAllowanceLkr !== undefined) sumFixedAllow = Number(totals.sumFixedAllowanceLkr);
     if (totals.sumSpecialAllowanceLkr !== undefined) sumSpecialAllow = Number(totals.sumSpecialAllowanceLkr);
+    if (totals.sumOtherDeductionsLkr !== undefined) sumOtherDed = Number(totals.sumOtherDeductionsLkr);
     if (totals.sumEpf12Lkr !== undefined) sumEpf12 = Number(totals.sumEpf12Lkr);
     if (totals.sumEtf3Lkr !== undefined) sumEtf3 = Number(totals.sumEtf3Lkr);
-    sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3) * 100) / 100;
+    sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3 - sumOtherDed) * 100) / 100;
   } else {
     if (totals.sumEarnedGbp !== undefined) sumBasic = Number(totals.sumEarnedGbp);
     else if (totals.sumGbpSalary !== undefined) sumBasic = Number(totals.sumGbpSalary);
     if (totals.sumFixedAllowanceGbp !== undefined) sumFixedAllow = Number(totals.sumFixedAllowanceGbp);
     if (totals.sumSpecialAllowanceGbp !== undefined) sumSpecialAllow = Number(totals.sumSpecialAllowanceGbp);
+    if (totals.sumOtherDeductionsGbp !== undefined) sumOtherDed = Number(totals.sumOtherDeductionsGbp);
     if (totals.sumEpf12Gbp !== undefined) sumEpf12 = Number(totals.sumEpf12Gbp);
     if (totals.sumEtf3Gbp !== undefined) sumEtf3 = Number(totals.sumEtf3Gbp);
-    sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3) * 100) / 100;
+    sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3 - sumOtherDed) * 100) / 100;
   }
 
   const defaultBankCharges = isSingleLkr ? 0.00 : 50.00;
@@ -15494,10 +15520,16 @@ function printStaffCostSummary() {
                 <td style="padding: 1.4px 4px;">Employer EPF (12%)</td>
                 <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEpf12, 2)}</td>
               </tr>
-              <tr style="border-bottom: 1px solid #000;">
+              <tr style="${sumOtherDed > 0 ? '' : 'border-bottom: 1px solid #000;'}">
                 <td style="padding: 1.4px 4px;">Employer ETF (3%)</td>
                 <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEtf3, 2)}</td>
               </tr>
+              ${sumOtherDed > 0 ? `
+              <tr style="border-bottom: 1px solid #000;">
+                <td style="padding: 1.4px 4px;">Less: Other Deductions</td>
+                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">(${formatMoney(sumOtherDed, 2)})</td>
+              </tr>
+              ` : ''}
               <tr style="border-bottom: 1.5px solid #000; font-weight: bold;">
                 <td style="padding: 2px 4px;">Total Employer Cost</td>
                 <td style="padding: 2px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>

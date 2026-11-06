@@ -1110,7 +1110,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
         
         total_deductions = round(epf8_lkr + apit + other_deductions, 2)
         net_salary_lkr = round(net_total_gross - total_deductions, 2)
-        total_employer_lkr = round(total_gross_lkr + epf12_lkr + etf3_lkr, 2)
+        total_employer_lkr = round(total_gross_lkr + epf12_lkr + etf3_lkr - other_deductions, 2)
         
         return {
             **emp,
@@ -1122,6 +1122,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             'totalEarnedGbp': 0.0,
             'fixedAllowanceGbp': 0.0,
             'specialAllowanceGbp': 0.0,
+            'otherDeductionsGbp': 0.0,
             'epf12Gbp': 0.0,
             'etf3Gbp': 0.0,
             'totalGbp': 0.0,
@@ -1156,7 +1157,6 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
         # EPF & ETF are calculated strictly on Basic Salary (earned_gbp / lkr_gross), excluding Fixed & Special Allowances
         epf12_gbp = round(earned_gbp * 0.12)
         etf3_gbp = round(earned_gbp * 0.03)
-        total_gbp = round(total_earned_gbp + epf12_gbp + etf3_gbp, 2)
         
         lkr_gross = round(earned_gbp * rate)
         total_gross_lkr = round(lkr_gross + fixed_allowance + special_allowance, 2)
@@ -1180,9 +1180,12 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
         else:
             other_deductions = float(advance + loan)
         
+        other_deductions_gbp = round(other_deductions / rate, 2) if rate else 0.0
+        total_gbp = round(total_earned_gbp + epf12_gbp + etf3_gbp - other_deductions_gbp, 2)
+        
         total_deductions = round(epf8_lkr + apit + other_deductions, 2)
         net_salary_lkr = round(net_total_gross - total_deductions, 2)
-        total_employer_lkr = round(total_gross_lkr + epf12_lkr + etf3_lkr, 2)
+        total_employer_lkr = round(total_gross_lkr + epf12_lkr + etf3_lkr - other_deductions, 2)
         
         return {
             **emp,
@@ -1191,6 +1194,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             'totalEarnedGbp': total_earned_gbp,
             'fixedAllowanceGbp': fixed_allowance_gbp,
             'specialAllowanceGbp': special_allowance_gbp,
+            'otherDeductionsGbp': other_deductions_gbp,
             'epf12Gbp': epf12_gbp,
             'etf3Gbp': etf3_gbp,
             'totalGbp': total_gbp,
@@ -1244,6 +1248,7 @@ def enrich_payroll_period(period):
     sum_deductions_lkr = 0.0
     sum_net_salary_lkr = 0.0
     sum_other_deductions_lkr = 0.0
+    sum_other_deductions_gbp = 0.0
     
     for emp in employees:
         c = compute_employee_payroll(emp, rate, currency_mode)
@@ -1253,6 +1258,7 @@ def enrich_payroll_period(period):
         sum_total_earned_gbp += c.get('totalEarnedGbp', 0.0)
         sum_fixed_allowance_gbp += c.get('fixedAllowanceGbp', 0.0)
         sum_special_allowance_gbp += c.get('specialAllowanceGbp', 0.0)
+        sum_other_deductions_gbp += c.get('otherDeductionsGbp', 0.0)
         sum_epf12_gbp += c.get('epf12Gbp', 0.0)
         sum_etf3_gbp += c.get('etf3Gbp', 0.0)
         sum_total_gbp += c.get('totalGbp', 0.0)
@@ -1287,6 +1293,7 @@ def enrich_payroll_period(period):
         'sumTotalEarnedGbp': round(sum_total_earned_gbp, 2),
         'sumFixedAllowanceGbp': round(sum_fixed_allowance_gbp, 2),
         'sumSpecialAllowanceGbp': round(sum_special_allowance_gbp, 2),
+        'sumOtherDeductionsGbp': round(sum_other_deductions_gbp, 2),
         'sumEpf12Gbp': round(sum_epf12_gbp, 2),
         'sumEtf3Gbp': round(sum_etf3_gbp, 2),
         'sumTotalGbp': round(sum_total_gbp, 2),
@@ -1298,7 +1305,7 @@ def enrich_payroll_period(period):
         'sumEpf8Lkr': round(sum_epf8_lkr, 2),
         'sumEpf12Lkr': round(sum_epf12_lkr, 2),
         'sumEtf3Lkr': round(sum_etf3_lkr, 2),
-        'sumTotalEmployerLkr': round(sum_lkr_gross + sum_fixed_allowance_lkr + sum_special_allowance_lkr + sum_epf12_lkr + sum_etf3_lkr, 2),
+        'sumTotalEmployerLkr': round(sum_lkr_gross + sum_fixed_allowance_lkr + sum_special_allowance_lkr + sum_epf12_lkr + sum_etf3_lkr - sum_other_deductions_lkr, 2),
         'sumApitLkr': round(sum_apit_lkr, 2),
         'sumOtherDeductionsLkr': round(sum_other_deductions_lkr, 2),
         'sumDeductionsLkr': round(sum_deductions_lkr, 2),
