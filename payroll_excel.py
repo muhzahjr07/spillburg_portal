@@ -31,7 +31,7 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
 
     sheet_rows = []
     current_row_idx = 1
-    col_letters = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q"]
+    col_letters = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S"]
 
     if currency_mode == "dual":
         # ==========================================
@@ -46,6 +46,8 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
             ("Employee Name", 8),
             ("POSITION", 8),
             (f"{base_curr} Salary", 9),
+            (f"Fixed Allowance ({base_curr})", 9),
+            (f"Special Allowance ({base_curr})", 9),
             ("Working Days", 7),
             (f"Earned Base ({base_curr})", 9),
             ("EPF (12% )", 9),
@@ -69,15 +71,17 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
                 ("B", 10, "inlineStr", str(e.get("name", "")).upper()),
                 ("C", 10, "inlineStr", e.get("position", "")),
                 ("D", 13, "num", e.get("gbpSalary", 0)),
-                ("E", 11, "inlineStr", e.get("workDays", "")),
-                ("F", 13, "num", e.get("earnedGbp", 0)),
-                ("G", 13, "num", e.get("epf12Gbp", 0)),
-                ("H", 13, "num", e.get("etf3Gbp", 0)),
-                ("I", 14, "num", e.get("totalGbp", 0)),
-                ("J", 10, "inlineStr", bank_str),
-                ("K", 11, "inlineStr", e.get("tinNo", "")),
-                ("L", 11, "inlineStr", e.get("idNo", "")),
-                ("M", 11, "inlineStr", e.get("dateJoined", ""))
+                ("E", 13, "num", e.get("fixedAllowanceGbp", 0)),
+                ("F", 13, "num", e.get("specialAllowanceGbp", 0)),
+                ("G", 11, "inlineStr", e.get("workDays", "")),
+                ("H", 13, "num", e.get("earnedGbp", 0)),
+                ("I", 13, "num", e.get("epf12Gbp", 0)),
+                ("J", 13, "num", e.get("etf3Gbp", 0)),
+                ("K", 14, "num", e.get("totalGbp", 0)),
+                ("L", 10, "inlineStr", bank_str),
+                ("M", 11, "inlineStr", e.get("tinNo", "")),
+                ("N", 11, "inlineStr", e.get("idNo", "")),
+                ("O", 11, "inlineStr", e.get("dateJoined", ""))
             ]
             sheet_rows.append((current_row_idx, row_cells))
             current_row_idx += 1
@@ -88,15 +92,17 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
             ("B", 15, "inlineStr", ""),
             ("C", 15, "inlineStr", ""),
             ("D", 17, "num", totals.get("sumGbpSalary", 0)),
-            ("E", 15, "inlineStr", ""),
-            ("F", 17, "num", totals.get("sumEarnedGbp", 0)),
-            ("G", 17, "num", totals.get("sumEpf12Gbp", 0)),
-            ("H", 17, "num", totals.get("sumEtf3Gbp", 0)),
-            ("I", 17, "num", totals.get("sumTotalGbp", 0)),
-            ("J", 15, "inlineStr", ""),
-            ("K", 15, "inlineStr", ""),
+            ("E", 17, "num", totals.get("sumFixedAllowanceGbp", 0)),
+            ("F", 17, "num", totals.get("sumSpecialAllowanceGbp", 0)),
+            ("G", 15, "inlineStr", ""),
+            ("H", 17, "num", totals.get("sumEarnedGbp", 0)),
+            ("I", 17, "num", totals.get("sumEpf12Gbp", 0)),
+            ("J", 17, "num", totals.get("sumEtf3Gbp", 0)),
+            ("K", 17, "num", totals.get("sumTotalGbp", 0)),
             ("L", 15, "inlineStr", ""),
-            ("M", 15, "inlineStr", "")
+            ("M", 15, "inlineStr", ""),
+            ("N", 15, "inlineStr", ""),
+            ("O", 15, "inlineStr", "")
         ]
         sheet_rows.append((current_row_idx, row_cells))
         current_row_idx += 1
@@ -125,7 +131,9 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
             (f"{base_curr} Salary", 9),
             ("Working Days", 7),
             (f"Earned Base ({base_curr})", 9),
-            ("LKR", 9),
+            ("Basic Salary (LKR)", 9),
+            ("Fixed Allowance (LKR)", 9),
+            ("Special Allowance (LKR)", 9),
             ("EPF 8%", 9),
             ("EPF12%", 9),
             ("ETF 3%", 9),
@@ -148,12 +156,14 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
                 ("E", 11, "inlineStr", e.get("workDays", "")),
                 ("F", 13, "num", e.get("earnedGbp", 0)),
                 ("G", 13, "num", e.get("lkrGross", 0)),
-                ("H", 13, "num", e.get("epf8Lkr", 0)),
-                ("I", 13, "num", e.get("epf12Lkr", 0)),
-                ("J", 13, "num", e.get("etf3Lkr", 0)),
-                ("K", 13, "num", e.get("apit", 0)),
-                ("L", 13, "num", e.get("otherDeductions", 0)),
-                ("M", 14, "num", e.get("netSalaryLkr", 0))
+                ("H", 13, "num", e.get("fixedAllowance", 0)),
+                ("I", 13, "num", e.get("specialAllowance", 0)),
+                ("J", 13, "num", e.get("epf8Lkr", 0)),
+                ("K", 13, "num", e.get("epf12Lkr", 0)),
+                ("L", 13, "num", e.get("etf3Lkr", 0)),
+                ("M", 13, "num", e.get("apit", 0)),
+                ("N", 13, "num", e.get("otherDeductions", 0)),
+                ("O", 14, "num", e.get("netSalaryLkr", 0))
             ]
             sheet_rows.append((current_row_idx, row_cells))
             current_row_idx += 1
@@ -166,12 +176,14 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
             ("E", 15, "inlineStr", ""),
             ("F", 17, "num", totals.get("sumEarnedGbp", 0)),
             ("G", 17, "num", totals.get("sumLkrGross", 0)),
-            ("H", 17, "num", totals.get("sumEpf8Lkr", 0)),
-            ("I", 17, "num", totals.get("sumEpf12Lkr", 0)),
-            ("J", 17, "num", totals.get("sumEtf3Lkr", 0)),
-            ("K", 17, "num", totals.get("sumApitLkr", 0)),
-            ("L", 17, "num", totals.get("sumOtherDeductionsLkr", 0)),
-            ("M", 17, "num", totals.get("sumNetSalaryLkr", 0))
+            ("H", 17, "num", totals.get("sumFixedAllowanceLkr", 0)),
+            ("I", 17, "num", totals.get("sumSpecialAllowanceLkr", 0)),
+            ("J", 17, "num", totals.get("sumEpf8Lkr", 0)),
+            ("K", 17, "num", totals.get("sumEpf12Lkr", 0)),
+            ("L", 17, "num", totals.get("sumEtf3Lkr", 0)),
+            ("M", 17, "num", totals.get("sumApitLkr", 0)),
+            ("N", 17, "num", totals.get("sumOtherDeductionsLkr", 0)),
+            ("O", 17, "num", totals.get("sumNetSalaryLkr", 0))
         ]
         sheet_rows.append((current_row_idx, row_cells))
         current_row_idx += 1
@@ -189,6 +201,8 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
             ("Employee Name", 8),
             ("POSITION", 8),
             ("Basic Salary (LKR)", 9),
+            ("Fixed Allowance (LKR)", 9),
+            ("Special Allowance (LKR)", 9),
             ("Working Days", 7),
             ("Earned Base (LKR)", 9),
             ("EPF 8%", 9),
@@ -216,18 +230,20 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
                 ("B", 10, "inlineStr", str(e.get("name", "")).upper()),
                 ("C", 10, "inlineStr", e.get("position", "")),
                 ("D", 13, "num", base_sal),
-                ("E", 11, "inlineStr", e.get("workDays", "")),
-                ("F", 13, "num", e.get("lkrGross", 0)),
-                ("G", 13, "num", e.get("epf8Lkr", 0)),
-                ("H", 13, "num", e.get("epf12Lkr", 0)),
-                ("I", 13, "num", e.get("etf3Lkr", 0)),
-                ("J", 13, "num", e.get("apit", 0)),
-                ("K", 13, "num", e.get("otherDeductions", 0)),
-                ("L", 14, "num", e.get("netSalaryLkr", 0)),
-                ("M", 10, "inlineStr", bank_str),
-                ("N", 11, "inlineStr", e.get("tinNo", "")),
-                ("O", 11, "inlineStr", e.get("idNo", "")),
-                ("P", 11, "inlineStr", e.get("dateJoined", ""))
+                ("E", 13, "num", e.get("fixedAllowance", 0)),
+                ("F", 13, "num", e.get("specialAllowance", 0)),
+                ("G", 11, "inlineStr", e.get("workDays", "")),
+                ("H", 13, "num", e.get("lkrGross", 0)),
+                ("I", 13, "num", e.get("epf8Lkr", 0)),
+                ("J", 13, "num", e.get("epf12Lkr", 0)),
+                ("K", 13, "num", e.get("etf3Lkr", 0)),
+                ("L", 13, "num", e.get("apit", 0)),
+                ("M", 13, "num", e.get("otherDeductions", 0)),
+                ("N", 14, "num", e.get("netSalaryLkr", 0)),
+                ("O", 10, "inlineStr", bank_str),
+                ("P", 11, "inlineStr", e.get("tinNo", "")),
+                ("Q", 11, "inlineStr", e.get("idNo", "")),
+                ("R", 11, "inlineStr", e.get("dateJoined", ""))
             ]
             sheet_rows.append((current_row_idx, row_cells))
             current_row_idx += 1
@@ -238,18 +254,20 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
             ("B", 15, "inlineStr", ""),
             ("C", 15, "inlineStr", ""),
             ("D", 17, "num", totals.get("sumLkrGross", 0)),
-            ("E", 15, "inlineStr", ""),
-            ("F", 17, "num", totals.get("sumLkrGross", 0)),
-            ("G", 17, "num", totals.get("sumEpf8Lkr", 0)),
-            ("H", 17, "num", totals.get("sumEpf12Lkr", 0)),
-            ("I", 17, "num", totals.get("sumEtf3Lkr", 0)),
-            ("J", 17, "num", totals.get("sumApitLkr", 0)),
-            ("K", 17, "num", totals.get("sumOtherDeductionsLkr", 0)),
-            ("L", 17, "num", totals.get("sumNetSalaryLkr", 0)),
-            ("M", 15, "inlineStr", ""),
-            ("N", 15, "inlineStr", ""),
+            ("E", 17, "num", totals.get("sumFixedAllowanceLkr", 0)),
+            ("F", 17, "num", totals.get("sumSpecialAllowanceLkr", 0)),
+            ("G", 15, "inlineStr", ""),
+            ("H", 17, "num", totals.get("sumLkrGross", 0)),
+            ("I", 17, "num", totals.get("sumEpf8Lkr", 0)),
+            ("J", 17, "num", totals.get("sumEpf12Lkr", 0)),
+            ("K", 17, "num", totals.get("sumEtf3Lkr", 0)),
+            ("L", 17, "num", totals.get("sumApitLkr", 0)),
+            ("M", 17, "num", totals.get("sumOtherDeductionsLkr", 0)),
+            ("N", 17, "num", totals.get("sumNetSalaryLkr", 0)),
             ("O", 15, "inlineStr", ""),
-            ("P", 15, "inlineStr", "")
+            ("P", 15, "inlineStr", ""),
+            ("Q", 15, "inlineStr", ""),
+            ("R", 15, "inlineStr", "")
         ]
         sheet_rows.append((current_row_idx, row_cells))
         current_row_idx += 1
@@ -561,7 +579,14 @@ def generate_payslips_xlsx(enriched_period, company_info=None, single_emp_id=Non
                 (col_val, 5, 'num', float(emp.get('lkrGross', 0.0) or 0.0))
             ], False))
 
-            # 8. Special Allowance
+            # 8. Fixed Allowance
+            fa = float(emp.get('fixedAllowance', 0.0) or 0.0)
+            v_rows.append(('row', 24, [
+                (col_lbl, 1, 'inlineStr', 'Fixed Allowance'),
+                (col_val, 5 if fa > 0 else 8, 'num' if fa > 0 else 'inlineStr', fa if fa > 0 else '-')
+            ], False))
+
+            # 9. Special Allowance
             sa = float(emp.get('specialAllowance', 0.0) or 0.0)
             v_rows.append(('row', 24, [
                 (col_lbl, 1, 'inlineStr', 'Special Allowance'),
