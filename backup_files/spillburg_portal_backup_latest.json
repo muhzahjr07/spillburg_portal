@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-06T10:24:27Z",
+  "exportTimestamp": "2026-11-06T10:24:37Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6804,7 +6804,7 @@
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "otherDeductions": 5086.0,
+            "otherDeductions": 5081.0,
             "apit": 0.0,
             "fixedAllowance": 15000.0
           },
