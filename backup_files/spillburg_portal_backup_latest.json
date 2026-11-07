@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-06T11:58:50Z",
+  "exportTimestamp": "2026-11-07T02:38:49Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -1191,8 +1191,8 @@
       "workstream": "Office Operations",
       "type": "Operational Task",
       "taskedDate": "22-Oct-2026",
-      "completedDate": "",
-      "status": "In Progress",
+      "completedDate": "06-Nov-2026",
+      "status": "Completed",
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Apply for Director & Corporate Leadership Programme with CA\nNotes - Registered, payment to be made after 29th of October"
@@ -5578,7 +5578,7 @@
       "type": "Operational Task",
       "taskedDate": "04-Nov-2026",
       "completedDate": "",
-      "status": "Pending",
+      "status": "In Progress",
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Create a sheet on Business Chambers and Investors to visit by delegation who will setup on port city. Saudi, Qatar, Kuwait, Oman, Bahrain"
@@ -6859,8 +6859,8 @@
         "etfChequeNo": "DIRECT DEBIT / SLIPS",
         "checkedBy": "Hemanthi Basnayake",
         "checkedTitle": null,
-        "authorizedSignatory": "Shaameel Mohideen",
-        "authorizedCompany": null,
+        "authorizedSignatory": "......................................................................",
+        "authorizedCompany": "",
         "bankName": "Commercial Bank of Ceylon PLC",
         "bankBranch": "Keyzer Street Branch",
         "bankAddress": "Commercial Bank of Ceylon PLC, Keyzer Street Branch, 32, Keyzer Street, Colombo - 11",
@@ -6922,7 +6922,8 @@
         ],
         "epfRegNo": "A - 55322",
         "etfRegNo": "A - 55322",
-        "letterheadUrl": "/public/spillburg_vacation_letterhead.jpg"
+        "letterheadUrl": "/public/spillburg_vacation_letterhead.jpg",
+        "authorizedTitle": "Director"
       }
     ]
   },
