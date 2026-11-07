@@ -10857,25 +10857,184 @@ function setupEpfDraggables() {
 function getCompanyStatutoryDefault(comp, p, field) {
   const isApadmi = (comp?.id === 'comp_apadmi' || p?.companyId === 'comp_apadmi');
   if (field === 'epfRegNo') {
-    if (p?.epfRegNo !== undefined && p?.epfRegNo !== null && String(p.epfRegNo).trim() !== '') return String(p.epfRegNo).trim();
+    if (p?.epfRegNo !== undefined && p?.epfRegNo !== null) return String(p.epfRegNo).trim();
     if (comp?.epfRegNo !== undefined && comp?.epfRegNo !== null && String(comp.epfRegNo).trim() !== '') return String(comp.epfRegNo).trim();
     return isApadmi ? '8483/C' : '';
   }
   if (field === 'etfRegNo') {
-    if (p?.etfRegNo !== undefined && p?.etfRegNo !== null && String(p.etfRegNo).trim() !== '') return String(p.etfRegNo).trim();
+    if (p?.etfRegNo !== undefined && p?.etfRegNo !== null) return String(p.etfRegNo).trim();
     if (comp?.etfRegNo !== undefined && comp?.etfRegNo !== null && String(comp.etfRegNo).trim() !== '') return String(comp.etfRegNo).trim();
     return isApadmi ? 'ETF-66291' : '';
   }
   return '';
 }
 
+function getEpfEligibleStaff(p, rate) {
+  const emps = p?.employees || [];
+  return emps.filter(e => {
+    const calc = getEmployeeCalculatedFields(e, rate);
+    return calc.epf20Lkr > 0;
+  });
+}
+
+function buildEpfFormState(p, currentComp) {
+  const rate = Number(p?.exchangeRate) || 440;
+  const eligibleStaff = getEpfEligibleStaff(p, rate);
+  const staffOverrides = p?.epfStaffOverrides || {};
+  const extraMembers = Array.isArray(p?.epfExtraMembers)
+    ? p.epfExtraMembers
+    : (Array.isArray(currentComp?.epfExtraMembers) ? currentComp.epfExtraMembers : []);
+  const headerOverrides = p?.epfHeaderOverrides || {};
+
+  const rows = [];
+  let sumGross = 0;
+  let sumEpf12 = 0;
+  let sumEpf8 = 0;
+  let sumEpf20 = 0;
+
+  eligibleStaff.forEach((e, idx) => {
+    const calc = getEmployeeCalculatedFields(e, rate);
+    const ov = staffOverrides[e.id] || {};
+    const defaultName = (e.name || '').toUpperCase();
+    const defaultIdNo = e.idNo || e.tinNo || '';
+    const defaultMemNo = e.epfNo || String(idx + 1).padStart(2, '0');
+    const defaultEarn = formatMoney(calc.lkrGross, 2);
+    const defaultTot = formatMoney(calc.epf20Lkr, 2);
+    const defaultEr = formatMoney(calc.epf12Lkr, 2);
+    const defaultEe = formatMoney(calc.epf8Lkr, 2);
+
+    const name = ov.name !== undefined ? String(ov.name) : defaultName;
+    const idNo = ov.idNo !== undefined ? String(ov.idNo) : defaultIdNo;
+    const memberNo = ov.memberNo !== undefined ? String(ov.memberNo) : defaultMemNo;
+    const totalEarnings = ov.totalEarnings !== undefined ? String(ov.totalEarnings) : defaultEarn;
+    const epf20 = ov.epf20 !== undefined ? String(ov.epf20) : defaultTot;
+    const epf12 = ov.epf12 !== undefined ? String(ov.epf12) : defaultEr;
+    const epf8 = ov.epf8 !== undefined ? String(ov.epf8) : defaultEe;
+
+    sumGross += parseFloat(String(totalEarnings).replace(/,/g, '')) || 0;
+    sumEpf20 += parseFloat(String(epf20).replace(/,/g, '')) || 0;
+    sumEpf12 += parseFloat(String(epf12).replace(/,/g, '')) || 0;
+    sumEpf8 += parseFloat(String(epf8).replace(/,/g, '')) || 0;
+
+    rows.push({
+      isStaff: true,
+      empId: e.id,
+      name,
+      idNo,
+      memberNo,
+      totalEarnings,
+      epf20,
+      epf12,
+      epf8
+    });
+  });
+
+  extraMembers.forEach((m) => {
+    if (!m) return;
+    const name = m.name !== undefined ? String(m.name) : '';
+    const idNo = m.idNo !== undefined ? String(m.idNo) : '';
+    const memberNo = m.memberNo !== undefined ? String(m.memberNo) : '';
+    const totalEarnings = m.totalEarnings !== undefined ? String(m.totalEarnings) : '';
+    const epf20 = m.epf20 !== undefined ? String(m.epf20) : '';
+    const epf12 = m.epf12 !== undefined ? String(m.epf12) : '';
+    const epf8 = m.epf8 !== undefined ? String(m.epf8) : '';
+    if (!name && !idNo && !memberNo && !totalEarnings && !epf20 && !epf12 && !epf8) return;
+
+    sumGross += parseFloat(String(totalEarnings).replace(/,/g, '')) || 0;
+    sumEpf20 += parseFloat(String(epf20).replace(/,/g, '')) || 0;
+    sumEpf12 += parseFloat(String(epf12).replace(/,/g, '')) || 0;
+    sumEpf8 += parseFloat(String(epf8).replace(/,/g, '')) || 0;
+
+    rows.push({
+      isStaff: false,
+      name,
+      idNo,
+      memberNo,
+      totalEarnings,
+      epf20,
+      epf12,
+      epf8
+    });
+  });
+
+  const defaultEmployerText = (p.epfEmployerCustom !== undefined && p.epfEmployerCustom !== null)
+    ? String(p.epfEmployerCustom)
+    : [
+        (currentComp.name || '').toUpperCase(),
+        currentComp.addressLine1 || currentComp.address || '',
+        currentComp.addressLine2 || ''
+      ].filter(Boolean).join('\n');
+
+  const epfRegNo = getCompanyStatutoryDefault(currentComp, p, 'epfRegNo');
+  const monthStr = headerOverrides.monthYear !== undefined
+    ? String(headerOverrides.monthYear)
+    : (p.month || 'October 2026').toUpperCase();
+  const epfChequeNo = (p.epfChequeNo !== undefined && p.epfChequeNo !== null)
+    ? String(p.epfChequeNo)
+    : 'DIRECT DEBIT / SLIPS';
+  const epfSurchargesStr = (p.epfSurcharges !== undefined && p.epfSurcharges !== null)
+    ? String(p.epfSurcharges)
+    : formatMoney(0, 2);
+  const epfSurchargesNum = parseFloat(String(epfSurchargesStr).replace(/,/g, '')) || 0;
+  const bankName = p.bankName || currentComp.bankName || 'Nations Trust Bank PLC';
+  const bankBranch = p.bankBranch || currentComp.bankBranch || 'Borella Branch';
+  const defaultBankBranchText = (p.epfBankBranchCustom !== undefined && p.epfBankBranchCustom !== null)
+    ? String(p.epfBankBranchCustom)
+    : `${bankName}\n${bankBranch}`;
+  const phoneStr = headerOverrides.phone !== undefined
+    ? String(headerOverrides.phone)
+    : ((p.phone !== undefined && p.phone !== null) ? String(p.phone) : (currentComp.phone || '+94 11 233 6116'));
+  const remittanceDate = headerOverrides.date !== undefined
+    ? String(headerOverrides.date)
+    : ((p.letterDate !== undefined && p.letterDate !== null) ? String(p.letterDate) : (p.date || '31.10.2026'));
+
+  const totalContribStr = headerOverrides.totalContrib !== undefined
+    ? String(headerOverrides.totalContrib)
+    : formatMoney(sumEpf20, 2);
+  const totalRemittanceStr = headerOverrides.totalRemittance !== undefined
+    ? String(headerOverrides.totalRemittance)
+    : formatMoney(sumEpf20 + epfSurchargesNum, 2);
+  const totalTotStr = headerOverrides.totalTot !== undefined
+    ? String(headerOverrides.totalTot)
+    : formatMoney(sumEpf20, 2);
+  const totalErStr = headerOverrides.totalEr !== undefined
+    ? String(headerOverrides.totalEr)
+    : formatMoney(sumEpf12, 2);
+  const totalEeStr = headerOverrides.totalEe !== undefined
+    ? String(headerOverrides.totalEe)
+    : formatMoney(sumEpf8, 2);
+
+  return {
+    eligibleStaff,
+    rows,
+    sumGross,
+    sumEpf20,
+    sumEpf12,
+    sumEpf8,
+    employerText: defaultEmployerText,
+    epfRegNo,
+    monthStr,
+    epfChequeNo,
+    epfSurchargesStr,
+    epfSurchargesNum,
+    bankBranchText: defaultBankBranchText,
+    phoneStr,
+    remittanceDate,
+    totalContribStr,
+    totalRemittanceStr,
+    totalTotStr,
+    totalErStr,
+    totalEeStr
+  };
+}
+
 function exportEpfFormCCsv() {
   const p = activePayrollPeriod;
   if (!p) return;
-  const emps = p.employees || [];
-  const rate = Number(p.exchangeRate) || 440;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
-  const epfRegNo = document.getElementById('epf_c_reg_no')?.value?.trim() || getCompanyStatutoryDefault(currentComp, p, 'epfRegNo');
+  const state = buildEpfFormState(p, currentComp);
+  const regNoEl = document.getElementById('epf_c_reg_no');
+  const epfRegNo = regNoEl ? regNoEl.value.trim() : state.epfRegNo;
 
   let csv = 'CENTRAL BANK OF SRI LANKA - EPF FORM C\n';
   csv += `Employer Registration No,${epfRegNo}\n`;
@@ -10885,15 +11044,37 @@ function exportEpfFormCCsv() {
   csv += 'No,Member No,NIC / Passport No,Employee Name,Total Earnings (LKR),Total Contribution (20%),Employer (12%),Employee (8%)\n';
 
   let sumGross = 0, sumTot = 0, sumEr = 0, sumEe = 0;
-  emps.forEach((e, idx) => {
-    const calc = getEmployeeCalculatedFields(e, rate);
-    sumGross += calc.lkrGross;
-    sumTot += calc.epf20Lkr;
-    sumEr += calc.epf12Lkr;
-    sumEe += calc.epf8Lkr;
-    const memNo = e.epfNo || String(idx + 1).padStart(2, '0');
-    csv += `"${idx + 1}","${memNo}","${e.idNo || ''}","${(e.name || '').toUpperCase().replace(/"/g, '""')}","${calc.lkrGross.toFixed(2)}","${calc.epf20Lkr.toFixed(2)}","${calc.epf12Lkr.toFixed(2)}","${calc.epf8Lkr.toFixed(2)}"\n`;
-  });
+  let rowCount = 0;
+  for (let i = 0; i < 35; i++) {
+    const r = state.rows[i];
+    const nameEl = document.getElementById(`epf_c_name_${i}`);
+    const nicEl = document.getElementById(`epf_c_nic_${i}`);
+    const memEl = document.getElementById(`epf_c_mem_${i}`);
+    const earnEl = document.getElementById(`epf_c_earn_${i}`);
+    const totEl = document.getElementById(`epf_c_tot_${i}`);
+    const erEl = document.getElementById(`epf_c_er_${i}`);
+    const eeEl = document.getElementById(`epf_c_ee_${i}`);
+
+    const name = (nameEl ? nameEl.value : (r ? r.name : '')).trim();
+    const idNo = (nicEl ? nicEl.value : (r ? r.idNo : '')).trim();
+    const memNo = (memEl ? memEl.value : (r ? r.memberNo : '')).trim();
+    const earnStr = (earnEl ? earnEl.value : (r ? r.totalEarnings : '')).trim();
+    const totStr = (totEl ? totEl.value : (r ? r.epf20 : '')).trim();
+    const erStr = (erEl ? erEl.value : (r ? r.epf12 : '')).trim();
+    const eeStr = (eeEl ? eeEl.value : (r ? r.epf8 : '')).trim();
+
+    if (!name && !idNo && !memNo && !earnStr && !totStr && !erStr && !eeStr) continue;
+    rowCount++;
+    const earnVal = parseFloat(earnStr.replace(/,/g, '')) || 0;
+    const totVal = parseFloat(totStr.replace(/,/g, '')) || 0;
+    const erVal = parseFloat(erStr.replace(/,/g, '')) || 0;
+    const eeVal = parseFloat(eeStr.replace(/,/g, '')) || 0;
+    sumGross += earnVal;
+    sumTot += totVal;
+    sumEr += erVal;
+    sumEe += eeVal;
+    csv += `"${rowCount}","${memNo}","${idNo}","${name.toUpperCase().replace(/"/g, '""')}","${earnVal.toFixed(2)}","${totVal.toFixed(2)}","${erVal.toFixed(2)}","${eeVal.toFixed(2)}"\n`;
+  }
 
   csv += `"Total","","","","${sumGross.toFixed(2)}","${sumTot.toFixed(2)}","${sumEr.toFixed(2)}","${sumEe.toFixed(2)}"\n`;
 
@@ -10914,47 +11095,9 @@ function renderEpfFormC(container) {
     container.innerHTML = '<div class="p-8 text-center text-slate-500">No active payroll period selected.</div>';
     return;
   }
-  const emps = p.employees || [];
-  const totals = p.totals || {};
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
-  const rate = Number(p.exchangeRate) || 440;
-
-  const epfRegNo = getCompanyStatutoryDefault(currentComp, p, 'epfRegNo');
-  const epfChequeNo = p.epfChequeNo || 'DIRECT DEBIT / SLIPS';
-  const epfSurcharges = parseFloat(String(p.epfSurcharges || '0').replace(/,/g, '')) || 0;
-  const remittanceDate = p.letterDate || p.date || '31.10.2026';
-  const monthStr = (p.month || 'October 2026').toUpperCase();
-  const bankName = p.bankName || currentComp.bankName || 'Nations Trust Bank PLC';
-  const bankBranch = p.bankBranch || currentComp.bankBranch || 'Borella Branch';
-  const defaultBankBranchText = p.epfBankBranchCustom || `${bankName}\n${bankBranch}`;
-
-  let sumGross = 0;
-  let sumEpf12 = 0;
-  let sumEpf8 = 0;
-  let sumEpf20 = 0;
-
-  const empRows = emps.map((e, idx) => {
-    const calc = getEmployeeCalculatedFields(e, rate);
-    sumGross += calc.lkrGross;
-    sumEpf12 += calc.epf12Lkr;
-    sumEpf8 += calc.epf8Lkr;
-    sumEpf20 += calc.epf20Lkr;
-
-    return {
-      name: (e.name || '').toUpperCase(),
-      idNo: e.idNo || '',
-      memberNo: e.epfNo || String(idx + 1).padStart(2, '0'),
-      totalEarnings: calc.lkrGross,
-      epf20: calc.epf20Lkr,
-      epf12: calc.epf12Lkr,
-      epf8: calc.epf8Lkr
-    };
-  });
-
-  if (totals.sumLkrGross) sumGross = Number(totals.sumLkrGross);
-  if (totals.sumEpf12Lkr) sumEpf12 = Number(totals.sumEpf12Lkr);
-  if (totals.sumEpf8Lkr) sumEpf8 = Number(totals.sumEpf8Lkr);
-  sumEpf20 = sumEpf12 + sumEpf8;
+  const state = buildEpfFormState(p, currentComp);
+  const empRows = state.rows;
 
   // Build rows up to 35 matching the exact statutory columns of Central Bank Form C
   const maxRows = 35;
@@ -10970,23 +11113,18 @@ function renderEpfFormC(container) {
     const pEarn = getEpfFieldPos(`epf_c_earn_${i}`);
 
     rowInputsHtml += `
-      <input type="text" class="form-overlay-input" id="epf_c_name_${i}" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 8px; font-weight: 700; padding-left: 3px;" value="${emp ? escapeHtml((emp.name || '').toUpperCase()) : ''}" title="Employee Name">
-      <input type="text" class="form-overlay-input" id="epf_c_nic_${i}" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; font-size: 8px; text-align: center;" value="${emp ? escapeHtml(emp.idNo) : ''}" title="National Idt. No. / Passport">
-      <input type="text" class="form-overlay-input" id="epf_c_mem_${i}" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; text-align: center; font-size: 8px;" value="${emp ? escapeHtml(emp.memberNo) : ''}" title="Member No">
-      <input type="text" class="form-overlay-input" id="epf_c_tot_${i}" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; text-align: right; padding-right: 3px; font-size: 8px; font-weight: 700;" value="${emp ? formatMoney(emp.epf20, 2) : ''}" title="Total Contribution 20% (Rs.)">
-      <input type="text" class="form-overlay-input" id="epf_c_er_${i}" style="left: ${pEr.left}; top: ${pEr.top}; width: ${pEr.width}; height: ${pEr.height}; text-align: right; padding-right: 3px; font-size: 8px;" value="${emp ? formatMoney(emp.epf12, 2) : ''}" title="Employer 12% (Rs.)">
-      <input type="text" class="form-overlay-input" id="epf_c_ee_${i}" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; text-align: right; padding-right: 3px; font-size: 8px;" value="${emp ? formatMoney(emp.epf8, 2) : ''}" title="Member 8% (Rs.)">
-      <input type="text" class="form-overlay-input" id="epf_c_earn_${i}" style="left: ${pEarn.left}; top: ${pEarn.top}; width: ${pEarn.width}; height: ${pEarn.height}; text-align: right; padding-right: 3px; font-size: 8px;" value="${emp ? formatMoney(emp.totalEarnings, 2) : ''}" title="Total Earnings (Rs.)">
+      <input type="text" class="form-overlay-input" id="epf_c_name_${i}" onchange="handleEpfRowInputChange(${i}, 'name')" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 8px; font-weight: 700; padding-left: 3px;" value="${emp ? escapeHtml(emp.name) : ''}" title="Employee / Director Name">
+      <input type="text" class="form-overlay-input" id="epf_c_nic_${i}" onchange="handleEpfRowInputChange(${i}, 'nic')" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; font-size: 8px; text-align: center;" value="${emp ? escapeHtml(emp.idNo) : ''}" title="National Idt. No. / Passport">
+      <input type="text" class="form-overlay-input" id="epf_c_mem_${i}" onchange="handleEpfRowInputChange(${i}, 'mem')" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; text-align: center; font-size: 8px;" value="${emp ? escapeHtml(emp.memberNo) : ''}" title="Member No">
+      <input type="text" class="form-overlay-input" id="epf_c_tot_${i}" onchange="handleEpfRowInputChange(${i}, 'tot')" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; text-align: right; padding-right: 3px; font-size: 8px; font-weight: 700;" value="${emp ? escapeHtml(emp.epf20) : ''}" title="Total Contribution 20% (Rs.)">
+      <input type="text" class="form-overlay-input" id="epf_c_er_${i}" onchange="handleEpfRowInputChange(${i}, 'er')" style="left: ${pEr.left}; top: ${pEr.top}; width: ${pEr.width}; height: ${pEr.height}; text-align: right; padding-right: 3px; font-size: 8px;" value="${emp ? escapeHtml(emp.epf12) : ''}" title="Employer 12% (Rs.)">
+      <input type="text" class="form-overlay-input" id="epf_c_ee_${i}" onchange="handleEpfRowInputChange(${i}, 'ee')" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; text-align: right; padding-right: 3px; font-size: 8px;" value="${emp ? escapeHtml(emp.epf8) : ''}" title="Member 8% (Rs.)">
+      <input type="text" class="form-overlay-input" id="epf_c_earn_${i}" onchange="handleEpfRowInputChange(${i}, 'earn')" style="left: ${pEarn.left}; top: ${pEarn.top}; width: ${pEarn.width}; height: ${pEarn.height}; text-align: right; padding-right: 3px; font-size: 8px;" value="${emp ? escapeHtml(emp.totalEarnings) : ''}" title="Total Earnings (Rs.)">
     `;
   }
 
   // Header & Summary Field positions
   const pEmployer = getEpfFieldPos('epf_c_employer');
-  const defaultEmployerText = p.epfEmployerCustom || [
-    (currentComp.name || '').toUpperCase(),
-    currentComp.addressLine1 || currentComp.address || '',
-    currentComp.addressLine2 || ''
-  ].filter(Boolean).join('\n');
   const pReg = getEpfFieldPos('epf_c_reg_no');
   const pMonth = getEpfFieldPos('epf_c_month_year');
   const pContrib = getEpfFieldPos('epf_c_total_contrib');
@@ -11008,10 +11146,10 @@ function renderEpfFormC(container) {
           <div>
             <div class="flex items-center gap-2">
               <h3 class="text-xs font-bold text-slate-800">Central Bank of Sri Lanka &bull; EPF Form "C" (Portrait)</h3>
-              <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">Reg: ${escapeHtml(epfRegNo || 'Not Set')}</span>
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">Reg: ${escapeHtml(state.epfRegNo || 'Not Set')}</span>
               <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">${escapeHtml(currentComp.code || currentComp.name || 'Company')}</span>
             </div>
-            <p class="text-[11px] text-slate-500">Official Tri-lingual Legal Form C &bull; Click any box or <b>Edit EPF Details</b> to customize &bull; Use Reposition Boxes to drag &amp; align</p>
+            <p class="text-[11px] text-slate-500">Official Tri-lingual Legal Form C &bull; Type non-staff/directors in empty rows to save to company memory &bull; Cleared boxes print blank</p>
           </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -11072,34 +11210,34 @@ function renderEpfFormC(container) {
         <div class="form-c-portrait-sheet ${epfDragModeActive ? 'epf-drag-active' : ''}" id="epfFormCSheet">
           
           <!-- Top Left Employer Name & Address Box (Postal M-13 Window Box) -->
-          <textarea id="epf_c_employer" onchange="saveEpfOverlayEdits()" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; font-weight: 400; line-height: 1.35; overflow: hidden; resize: none; background: rgba(255, 255, 255, 0.9);" title="Employer Name & Address (M-13 Box)">${escapeHtml(defaultEmployerText)}</textarea>
+          <textarea id="epf_c_employer" onchange="saveEpfOverlayEdits('employer')" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; font-weight: 400; line-height: 1.35; overflow: hidden; resize: none; background: rgba(255, 255, 255, 0.9);" title="Employer Name & Address (M-13 Box)">${escapeHtml(state.employerText)}</textarea>
 
           <!-- EPF Reg No (Right cell of Row 1) -->
-          <input type="text" id="epf_c_reg_no" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(epfRegNo)}" placeholder="EPF Reg No" title="Employer Registration Number">
+          <input type="text" id="epf_c_reg_no" onchange="saveEpfOverlayEdits('regNo')" class="form-overlay-input" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(state.epfRegNo)}" placeholder="EPF Reg No" title="Employer Registration Number">
 
           <!-- Contribution Month/Year (Right cell of Row 2) -->
-          <input type="text" id="epf_c_month_year" class="form-overlay-input" style="left: ${pMonth.left}; top: ${pMonth.top}; width: ${pMonth.width}; height: ${pMonth.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(monthStr)}" title="Contribution Month and Year">
+          <input type="text" id="epf_c_month_year" onchange="saveEpfOverlayEdits('monthYear')" class="form-overlay-input" style="left: ${pMonth.left}; top: ${pMonth.top}; width: ${pMonth.width}; height: ${pMonth.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(state.monthStr)}" title="Contribution Month and Year">
 
           <!-- Remittance Box (Contributions, Surcharges, Total) in amount cell from 74.0% to 89.2% -->
-          <input type="text" id="epf_c_total_contrib" class="form-overlay-input" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; text-align: right; padding-right: 6px; font-size: 9.5px; font-weight: 700;" value="${formatMoney(sumEpf20, 2)}" title="Total Contributions (20%)">
-          <input type="text" id="epf_c_surcharges" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pSurch.left}; top: ${pSurch.top}; width: ${pSurch.width}; height: ${pSurch.height}; text-align: right; padding-right: 6px; font-size: 9.5px;" value="${formatMoney(epfSurcharges, 2)}" title="Surcharges">
-          <input type="text" id="epf_c_total_remittance" class="form-overlay-input" style="left: ${pRemit.left}; top: ${pRemit.top}; width: ${pRemit.width}; height: ${pRemit.height}; text-align: right; padding-right: 6px; font-size: 10px; font-weight: 400;" value="${formatMoney(sumEpf20 + epfSurcharges, 2)}" title="Total Remittance">
+          <input type="text" id="epf_c_total_contrib" onchange="saveEpfOverlayEdits('totalContrib')" class="form-overlay-input" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; text-align: right; padding-right: 6px; font-size: 9.5px; font-weight: 700;" value="${escapeHtml(state.totalContribStr)}" title="Total Contributions (20%)">
+          <input type="text" id="epf_c_surcharges" onchange="saveEpfOverlayEdits('surcharges')" class="form-overlay-input" style="left: ${pSurch.left}; top: ${pSurch.top}; width: ${pSurch.width}; height: ${pSurch.height}; text-align: right; padding-right: 6px; font-size: 9.5px;" value="${escapeHtml(state.epfSurchargesStr)}" title="Surcharges">
+          <input type="text" id="epf_c_total_remittance" onchange="saveEpfOverlayEdits('totalRemittance')" class="form-overlay-input" style="left: ${pRemit.left}; top: ${pRemit.top}; width: ${pRemit.width}; height: ${pRemit.height}; text-align: right; padding-right: 6px; font-size: 10px; font-weight: 400;" value="${escapeHtml(state.totalRemittanceStr)}" title="Total Remittance">
 
           <!-- Cheque & Bank (Placed squarely on the dotted lines, bank and branch as two lines) -->
-          <input type="text" id="epf_c_cheque_no" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 9px; font-weight: 700;" value="${escapeHtml(epfChequeNo)}" title="Cheque / Money Order No">
-          <textarea id="epf_c_bank_branch" onchange="saveEpfOverlayEdits()" class="form-overlay-textarea" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; font-size: 9px; font-weight: 600; line-height: 1.25; overflow: hidden; resize: none;" title="Bank Name and Branch Name (Two lines)">${escapeHtml(defaultBankBranchText)}</textarea>
+          <input type="text" id="epf_c_cheque_no" onchange="saveEpfOverlayEdits('chequeNo')" class="form-overlay-input" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 9px; font-weight: 700;" value="${escapeHtml(state.epfChequeNo)}" title="Cheque / Money Order No">
+          <textarea id="epf_c_bank_branch" onchange="saveEpfOverlayEdits('bankBranch')" class="form-overlay-textarea" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; font-size: 9px; font-weight: 600; line-height: 1.25; overflow: hidden; resize: none;" title="Bank Name and Branch Name (Two lines)">${escapeHtml(state.bankBranchText)}</textarea>
 
           <!-- 35 Employee Table Rows -->
           ${rowInputsHtml}
 
           <!-- Total Row at top: 85.3% (Total Earnings cumulative total removed as there is no statutory box for it) -->
-          <input type="text" id="epf_c_total_tot" class="form-overlay-input" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; text-align: right; padding-right: 3px; font-weight: 400; font-size: 9px;" value="${formatMoney(sumEpf20, 2)}" title="Total 20%">
-          <input type="text" id="epf_c_total_er" class="form-overlay-input" style="left: ${pEr.left}; top: ${pEr.top}; width: ${pEr.width}; height: ${pEr.height}; text-align: right; padding-right: 3px; font-weight: 400; font-size: 9px;" value="${formatMoney(sumEpf12, 2)}" title="Total Employer 12%">
-          <input type="text" id="epf_c_total_ee" class="form-overlay-input" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; text-align: right; padding-right: 3px; font-weight: 400; font-size: 9px;" value="${formatMoney(sumEpf8, 2)}" title="Total Member 8%">
+          <input type="text" id="epf_c_total_tot" onchange="saveEpfOverlayEdits('totalTot')" class="form-overlay-input" style="left: ${pTot.left}; top: ${pTot.top}; width: ${pTot.width}; height: ${pTot.height}; text-align: right; padding-right: 3px; font-weight: 400; font-size: 9px;" value="${escapeHtml(state.totalTotStr)}" title="Total 20%">
+          <input type="text" id="epf_c_total_er" onchange="saveEpfOverlayEdits('totalEr')" class="form-overlay-input" style="left: ${pEr.left}; top: ${pEr.top}; width: ${pEr.width}; height: ${pEr.height}; text-align: right; padding-right: 3px; font-weight: 400; font-size: 9px;" value="${escapeHtml(state.totalErStr)}" title="Total Employer 12%">
+          <input type="text" id="epf_c_total_ee" onchange="saveEpfOverlayEdits('totalEe')" class="form-overlay-input" style="left: ${pEe.left}; top: ${pEe.top}; width: ${pEe.width}; height: ${pEe.height}; text-align: right; padding-right: 3px; font-weight: 400; font-size: 9px;" value="${escapeHtml(state.totalEeStr)}" title="Total Member 8%">
 
           <!-- Bottom Contact & Date (Expanded width so phone number is never cut off) -->
-          <input type="text" id="epf_c_phone" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(p.phone || currentComp.phone || '+94 11 233 6116')}" title="Employer Telephone No">
-          <input type="text" id="epf_c_date" onchange="saveEpfOverlayEdits()" class="form-overlay-input" style="left: ${pDate.left}; top: ${pDate.top}; width: ${pDate.width}; height: ${pDate.height}; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(remittanceDate)}" title="Declaration Date">
+          <input type="text" id="epf_c_phone" onchange="saveEpfOverlayEdits('phone')" class="form-overlay-input" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(state.phoneStr)}" title="Employer Telephone No">
+          <input type="text" id="epf_c_date" onchange="saveEpfOverlayEdits('date')" class="form-overlay-input" style="left: ${pDate.left}; top: ${pDate.top}; width: ${pDate.width}; height: ${pDate.height}; font-size: 8.5px; font-weight: 600;" value="${escapeHtml(state.remittanceDate)}" title="Declaration Date">
 
         </div>
       </div>
@@ -11327,52 +11465,176 @@ function setupEtfDraggables() {
   sheet.addEventListener('pointercancel', endDrag);
 }
 
+function getEtfEligibleStaff(p, rate) {
+  const emps = p?.employees || [];
+  return emps.filter(e => {
+    const calc = getEmployeeCalculatedFields(e, rate);
+    return calc.etf3Lkr > 0;
+  });
+}
+
+function buildEtfFormState(p, currentComp) {
+  const rate = Number(p?.exchangeRate) || 440;
+  const eligibleStaff = getEtfEligibleStaff(p, rate);
+  const staffOverrides = p?.etfStaffOverrides || {};
+  const extraMembers = Array.isArray(p?.etfExtraMembers)
+    ? p.etfExtraMembers
+    : (Array.isArray(currentComp?.etfExtraMembers) ? currentComp.etfExtraMembers : []);
+  const headerOverrides = p?.etfHeaderOverrides || {};
+
+  const rows = [];
+  let sumEtf3 = 0;
+
+  eligibleStaff.forEach((e, idx) => {
+    const calc = getEmployeeCalculatedFields(e, rate);
+    const ov = staffOverrides[e.id] || {};
+    const defaultName = (e.name || '').toUpperCase();
+    const defaultNic = e.idNo || e.tinNo || '';
+    const defaultMemNo = e.epfNo || String(idx + 1).padStart(2, '0');
+    const rsNum = Math.floor(calc.etf3Lkr);
+    const ctsNum = Math.round((calc.etf3Lkr - rsNum) * 100);
+    const defaultRs = formatMoney(rsNum, 0);
+    const defaultCts = String(ctsNum).padStart(2, '0');
+
+    const name = ov.name !== undefined ? String(ov.name) : defaultName;
+    const nic = ov.nic !== undefined ? String(ov.nic) : defaultNic;
+    const memberNo = ov.memberNo !== undefined ? String(ov.memberNo) : defaultMemNo;
+    const rs = ov.rs !== undefined ? String(ov.rs) : defaultRs;
+    const cts = ov.cts !== undefined ? String(ov.cts) : defaultCts;
+
+    const rowRsVal = parseFloat(String(rs).replace(/,/g, '')) || 0;
+    const rowCtsVal = (parseFloat(String(cts).replace(/,/g, '')) || 0) / 100;
+    sumEtf3 += rowRsVal + rowCtsVal;
+
+    rows.push({
+      isStaff: true,
+      empId: e.id,
+      name,
+      nic,
+      memberNo,
+      rs,
+      cts
+    });
+  });
+
+  extraMembers.forEach((m) => {
+    if (!m) return;
+    const name = m.name !== undefined ? String(m.name) : '';
+    const nic = m.nic !== undefined ? String(m.nic) : '';
+    const memberNo = m.memberNo !== undefined ? String(m.memberNo) : '';
+    const rs = m.rs !== undefined ? String(m.rs) : '';
+    const cts = m.cts !== undefined ? String(m.cts) : '';
+    if (!name && !nic && !memberNo && !rs && !cts) return;
+
+    const rowRsVal = parseFloat(String(rs).replace(/,/g, '')) || 0;
+    const rowCtsVal = (parseFloat(String(cts).replace(/,/g, '')) || 0) / 100;
+    sumEtf3 += rowRsVal + rowCtsVal;
+
+    rows.push({
+      isStaff: false,
+      name,
+      nic,
+      memberNo,
+      rs,
+      cts
+    });
+  });
+
+  const activeRowsCount = rows.filter(r => r.name || r.nic || r.memberNo || r.rs || r.cts).length;
+  const totalRs = Math.floor(sumEtf3);
+  const totalCts = Math.round((sumEtf3 - totalRs) * 100);
+
+  const defaultEmployerText = (p.etfEmployerCustom !== undefined && p.etfEmployerCustom !== null)
+    ? String(p.etfEmployerCustom)
+    : `${currentComp.name || 'APADMI SL (PRIVATE) LIMITED'}\n${(currentComp.address || 'Office 14, Basement Level, Cinnamon Lakeside Hotel, #115, Sir Chittampalam A Gardiner Mw, Colombo 02, Sri Lanka.').replace(/\n/g, ' ')}`;
+
+  const etfRegNo = getCompanyStatutoryDefault(currentComp, p, 'etfRegNo');
+  const monthStr = headerOverrides.monthYear !== undefined
+    ? String(headerOverrides.monthYear)
+    : (p.month || 'October 2026').toUpperCase();
+  const empCountStr = headerOverrides.empCount !== undefined
+    ? String(headerOverrides.empCount)
+    : String(activeRowsCount);
+  const etfChequeNo = (p.etfChequeNo !== undefined && p.etfChequeNo !== null)
+    ? String(p.etfChequeNo)
+    : 'DIRECT DEBIT / SLIPS';
+  const etfSurchargeStr = (p.etfSurcharge !== undefined && p.etfSurcharge !== null)
+    ? String(p.etfSurcharge)
+    : formatMoney(0, 2);
+  const etfBankChargesStr = (p.etfBankCharges !== undefined && p.etfBankCharges !== null)
+    ? String(p.etfBankCharges)
+    : formatMoney(0, 2);
+  const etfSurchargeNum = parseFloat(String(etfSurchargeStr).replace(/,/g, '')) || 0;
+  const etfBankChargesNum = parseFloat(String(etfBankChargesStr).replace(/,/g, '')) || 0;
+
+  const bankName = p.bankName || currentComp.bankName || 'Nations Trust Bank PLC';
+  const bankBranch = p.bankBranch || currentComp.bankBranch || 'Borella Branch';
+  const defaultBankBranchText = (p.etfBankBranchCustom !== undefined && p.etfBankBranchCustom !== null)
+    ? String(p.etfBankBranchCustom)
+    : `${bankName}\n${bankBranch}`;
+
+  const clarificationStr = (p.etfClarification !== undefined && p.etfClarification !== null)
+    ? String(p.etfClarification)
+    : '';
+  const phoneStr = headerOverrides.phone !== undefined
+    ? String(headerOverrides.phone)
+    : ((p.phone !== undefined && p.phone !== null) ? String(p.phone) : (currentComp.phone || '+94 11 233 6116'));
+  const emailStr = headerOverrides.email !== undefined
+    ? String(headerOverrides.email)
+    : ((p.email !== undefined && p.email !== null) ? String(p.email) : (currentComp.email || 'info@spillburg.com'));
+  const remittanceDate = headerOverrides.date !== undefined
+    ? String(headerOverrides.date)
+    : ((p.letterDate !== undefined && p.letterDate !== null) ? String(p.letterDate) : (p.date || '31.10.2026'));
+
+  const contribStr = headerOverrides.contrib !== undefined
+    ? String(headerOverrides.contrib)
+    : formatMoney(sumEtf3, 2);
+  const totalRemittanceStr = headerOverrides.total !== undefined
+    ? String(headerOverrides.total)
+    : formatMoney(sumEtf3 + etfSurchargeNum + etfBankChargesNum, 2);
+  const totRsStr = headerOverrides.totRs !== undefined
+    ? String(headerOverrides.totRs)
+    : formatMoney(totalRs, 0);
+  const totCtsStr = headerOverrides.totCts !== undefined
+    ? String(headerOverrides.totCts)
+    : String(totalCts).padStart(2, '0');
+
+  return {
+    eligibleStaff,
+    rows,
+    sumEtf3,
+    totalRs,
+    totalCts,
+    employerText: defaultEmployerText,
+    etfRegNo,
+    monthStr,
+    empCountStr,
+    etfChequeNo,
+    etfSurchargeStr,
+    etfBankChargesStr,
+    etfSurchargeNum,
+    etfBankChargesNum,
+    bankBranchText: defaultBankBranchText,
+    clarificationStr,
+    phoneStr,
+    emailStr,
+    remittanceDate,
+    contribStr,
+    totalRemittanceStr,
+    totRsStr,
+    totCtsStr
+  };
+}
+
 function renderEtfFormR4(container) {
   const p = activePayrollPeriod;
   if (!p) {
     container.innerHTML = '<div class="p-8 text-center text-slate-500">No active payroll period selected.</div>';
     return;
   }
-  const emps = p.employees || [];
-  const totals = p.totals || {};
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
-  const rate = Number(p.exchangeRate) || 440;
-
-  const etfRegNo = getCompanyStatutoryDefault(currentComp, p, 'etfRegNo');
-  const etfChequeNo = p.etfChequeNo || 'DIRECT DEBIT / SLIPS';
-  const etfSurcharge = parseFloat(String(p.etfSurcharge || '0').replace(/,/g, '')) || 0;
-  const etfBankCharges = parseFloat(String(p.etfBankCharges || '0').replace(/,/g, '')) || 0;
-  const remittanceDate = p.letterDate || p.date || '31.10.2026';
-  const monthStr = (p.month || 'October 2026').toUpperCase();
-  const bankName = p.bankName || currentComp.bankName || 'Nations Trust Bank PLC';
-  const bankBranch = p.bankBranch || currentComp.bankBranch || 'Borella Branch';
-  const defaultBankBranchText = p.etfBankBranchCustom || `${bankName}\n${bankBranch}`;
-  const defaultEmployerText = p.etfEmployerCustom || `${currentComp.name || 'APADMI SL (PRIVATE) LIMITED'}\n${(currentComp.address || 'Office 14, Basement Level, Cinnamon Lakeside Hotel, #115, Sir Chittampalam A Gardiner Mw, Colombo 02, Sri Lanka.').replace(/\n/g, ' ')}`;
-
-  let sumGross = 0;
-  let sumEtf3 = 0;
-
-  const empRows = emps.map((e, idx) => {
-    const calc = getEmployeeCalculatedFields(e, rate);
-    sumGross += calc.lkrGross;
-    sumEtf3 += calc.etf3Lkr;
-    const rs = Math.floor(calc.etf3Lkr);
-    const cts = Math.round((calc.etf3Lkr - rs) * 100);
-
-    return {
-      serial: String(idx + 1).padStart(2, '0'),
-      name: (e.name || '').toUpperCase(),
-      nic: e.idNo || '',
-      memberNo: e.epfNo || String(idx + 1).padStart(2, '0'),
-      rs: formatMoney(rs, 0),
-      cts: String(cts).padStart(2, '0'),
-      amount: calc.etf3Lkr
-    };
-  });
-
-  if (totals.sumEtf3Lkr) sumEtf3 = Number(totals.sumEtf3Lkr);
-  const totalRs = Math.floor(sumEtf3);
-  const totalCts = Math.round((sumEtf3 - totalRs) * 100);
+  const state = buildEtfFormState(p, currentComp);
+  const empRows = state.rows;
 
   // Build rows up to 15 matching the exact statutory columns of ETF Form R-4:
   // Note: Serial No. (01..15) is pre-printed in Column 1!
@@ -11387,11 +11649,11 @@ function renderEtfFormR4(container) {
     const pCts = getEtfFieldPos(`etf_r4_cts_${r}`);
 
     rowInputsHtml += `
-      <input type="text" class="form-overlay-input" id="etf_r4_name_${r}" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 8.5px; font-weight: 700;" value="${emp ? escapeHtml((emp.name || '').toUpperCase()) : ''}" title="Member Name">
-      <input type="text" class="form-overlay-input" id="etf_r4_nic_${r}" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.nic) : ''}" title="National Identity Card No">
-      <input type="text" class="form-overlay-input" id="etf_r4_mem_${r}" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.memberNo) : ''}" title="Member No">
-      <input type="text" class="form-overlay-input" id="etf_r4_rs_${r}" style="left: ${pRs.left}; top: ${pRs.top}; width: ${pRs.width}; height: ${pRs.height}; font-size: 8.5px; font-weight: 700; text-align: right;" value="${emp ? emp.rs : ''}" title="Contribution (Rs.)">
-      <input type="text" class="form-overlay-input" id="etf_r4_cts_${r}" style="left: ${pCts.left}; top: ${pCts.top}; width: ${pCts.width}; height: ${pCts.height}; font-size: 8.5px; text-align: center;" value="${emp ? emp.cts : ''}" title="Contribution (Cts.)">
+      <input type="text" class="form-overlay-input" id="etf_r4_name_${r}" onchange="handleEtfRowInputChange(${r}, 'name')" style="left: ${pName.left}; top: ${pName.top}; width: ${pName.width}; height: ${pName.height}; font-size: 8.5px; font-weight: 700;" value="${emp ? escapeHtml(emp.name) : ''}" title="Member / Director Name">
+      <input type="text" class="form-overlay-input" id="etf_r4_nic_${r}" onchange="handleEtfRowInputChange(${r}, 'nic')" style="left: ${pNic.left}; top: ${pNic.top}; width: ${pNic.width}; height: ${pNic.height}; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.nic) : ''}" title="National Identity Card No">
+      <input type="text" class="form-overlay-input" id="etf_r4_mem_${r}" onchange="handleEtfRowInputChange(${r}, 'mem')" style="left: ${pMem.left}; top: ${pMem.top}; width: ${pMem.width}; height: ${pMem.height}; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.memberNo) : ''}" title="Member No">
+      <input type="text" class="form-overlay-input" id="etf_r4_rs_${r}" onchange="handleEtfRowInputChange(${r}, 'rs')" style="left: ${pRs.left}; top: ${pRs.top}; width: ${pRs.width}; height: ${pRs.height}; font-size: 8.5px; font-weight: 700; text-align: right;" value="${emp ? escapeHtml(emp.rs) : ''}" title="Contribution (Rs.)">
+      <input type="text" class="form-overlay-input" id="etf_r4_cts_${r}" onchange="handleEtfRowInputChange(${r}, 'cts')" style="left: ${pCts.left}; top: ${pCts.top}; width: ${pCts.width}; height: ${pCts.height}; font-size: 8.5px; text-align: center;" value="${emp ? escapeHtml(emp.cts) : ''}" title="Contribution (Cts.)">
     `;
   }
 
@@ -11421,10 +11683,10 @@ function renderEtfFormR4(container) {
         <div>
           <div class="flex items-center gap-2">
             <h3 class="text-xs font-bold text-slate-800">Employees' Trust Fund Board &bull; ETF Form R-4 (Portrait)</h3>
-            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">Reg: ${escapeHtml(etfRegNo || 'Not Set')}</span>
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">Reg: ${escapeHtml(state.etfRegNo || 'Not Set')}</span>
             <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">${escapeHtml(currentComp.code || currentComp.name || 'Company')}</span>
           </div>
-          <p class="text-[11px] text-slate-500">Official Advice of Remittance Form R-4 &bull; Click any box or <b>Edit ETF Details</b> to customize &bull; Use Reposition Boxes to drag &amp; align</p>
+          <p class="text-[11px] text-slate-500">Official Advice of Remittance Form R-4 &bull; Type non-staff/directors in empty rows to save to company memory &bull; Cleared boxes print blank</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -11485,36 +11747,36 @@ function renderEtfFormR4(container) {
         <div class="form-r4-portrait-sheet ${etfDragModeActive ? 'etf-drag-active' : ''}" id="etfFormR4Sheet">
           
           <!-- Top Left Employer Name & Address Box -->
-          <textarea id="etf_r4_employer" onchange="saveEtfOverlayEdits()" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; font-weight: 400; line-height: 1.35;" title="Employer Name & Address">${escapeHtml(defaultEmployerText)}</textarea>
+          <textarea id="etf_r4_employer" onchange="saveEtfOverlayEdits('employer')" class="form-overlay-textarea" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 9.5px; font-weight: 400; line-height: 1.35;" title="Employer Name & Address">${escapeHtml(state.employerText)}</textarea>
 
           <!-- Top Right 3-Column Header Boxes: Employer No, Month & Year, No. of Employees -->
-          <input type="text" id="etf_r4_emp_no" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pEmpNo.left}; top: ${pEmpNo.top}; width: ${pEmpNo.width}; height: ${pEmpNo.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(etfRegNo)}" placeholder="ETF Reg No" title="Employer Registration No">
-          <input type="text" id="etf_r4_month_year" class="form-overlay-input" style="left: ${pMonthYear.left}; top: ${pMonthYear.top}; width: ${pMonthYear.width}; height: ${pMonthYear.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(monthStr)}" title="Contribution Month and Year">
-          <input type="text" id="etf_r4_emp_count" class="form-overlay-input" style="left: ${pEmpCount.left}; top: ${pEmpCount.top}; width: ${pEmpCount.width}; height: ${pEmpCount.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${emps.length}" title="Total Number of Employees">
+          <input type="text" id="etf_r4_emp_no" onchange="saveEtfOverlayEdits('regNo')" class="form-overlay-input" style="left: ${pEmpNo.left}; top: ${pEmpNo.top}; width: ${pEmpNo.width}; height: ${pEmpNo.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(state.etfRegNo)}" placeholder="ETF Reg No" title="Employer Registration No">
+          <input type="text" id="etf_r4_month_year" onchange="saveEtfOverlayEdits('monthYear')" class="form-overlay-input" style="left: ${pMonthYear.left}; top: ${pMonthYear.top}; width: ${pMonthYear.width}; height: ${pMonthYear.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(state.monthStr)}" title="Contribution Month and Year">
+          <input type="text" id="etf_r4_emp_count" onchange="saveEtfOverlayEdits('empCount')" class="form-overlay-input" style="left: ${pEmpCount.left}; top: ${pEmpCount.top}; width: ${pEmpCount.width}; height: ${pEmpCount.height}; font-size: 11px; font-weight: 700; text-align: center;" value="${escapeHtml(state.empCountStr)}" title="Total Number of Employees">
 
           <!-- Remittance Summary Section (Rupees and Cents) with generous width so amounts never overflow -->
-          <input type="text" id="etf_r4_contrib" class="form-overlay-input" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; text-align: right; padding-right: 5px; font-size: 9.5px; font-weight: 700;" value="${formatMoney(sumEtf3, 2)}" title="Total Contribution (3%)">
-          <input type="text" id="etf_r4_surcharge" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pSurcharge.left}; top: ${pSurcharge.top}; width: ${pSurcharge.width}; height: ${pSurcharge.height}; text-align: right; padding-right: 5px; font-size: 9.5px;" value="${formatMoney(etfSurcharge, 2)}" title="Surcharge">
-          <input type="text" id="etf_r4_charges" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pCharges.left}; top: ${pCharges.top}; width: ${pCharges.width}; height: ${pCharges.height}; text-align: right; padding-right: 5px; font-size: 9.5px;" value="${formatMoney(etfBankCharges, 2)}" title="Bank Charges">
-          <input type="text" id="etf_r4_total" class="form-overlay-input" style="left: ${pTotal.left}; top: ${pTotal.top}; width: ${pTotal.width}; height: ${pTotal.height}; text-align: right; padding-right: 5px; font-size: 10px; font-weight: 400;" value="${formatMoney(sumEtf3 + etfSurcharge + etfBankCharges, 2)}" title="Total Remittance">
-          <input type="text" id="etf_r4_cheque" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 9px; font-weight: 700;" value="${escapeHtml(etfChequeNo)}" title="Cheque No">
+          <input type="text" id="etf_r4_contrib" onchange="saveEtfOverlayEdits('contrib')" class="form-overlay-input" style="left: ${pContrib.left}; top: ${pContrib.top}; width: ${pContrib.width}; height: ${pContrib.height}; text-align: right; padding-right: 5px; font-size: 9.5px; font-weight: 700;" value="${escapeHtml(state.contribStr)}" title="Total Contribution (3%)">
+          <input type="text" id="etf_r4_surcharge" onchange="saveEtfOverlayEdits('surcharge')" class="form-overlay-input" style="left: ${pSurcharge.left}; top: ${pSurcharge.top}; width: ${pSurcharge.width}; height: ${pSurcharge.height}; text-align: right; padding-right: 5px; font-size: 9.5px;" value="${escapeHtml(state.etfSurchargeStr)}" title="Surcharge">
+          <input type="text" id="etf_r4_charges" onchange="saveEtfOverlayEdits('charges')" class="form-overlay-input" style="left: ${pCharges.left}; top: ${pCharges.top}; width: ${pCharges.width}; height: ${pCharges.height}; text-align: right; padding-right: 5px; font-size: 9.5px;" value="${escapeHtml(state.etfBankChargesStr)}" title="Bank Charges">
+          <input type="text" id="etf_r4_total" onchange="saveEtfOverlayEdits('total')" class="form-overlay-input" style="left: ${pTotal.left}; top: ${pTotal.top}; width: ${pTotal.width}; height: ${pTotal.height}; text-align: right; padding-right: 5px; font-size: 10px; font-weight: 400;" value="${escapeHtml(state.totalRemittanceStr)}" title="Total Remittance">
+          <input type="text" id="etf_r4_cheque" onchange="saveEtfOverlayEdits('cheque')" class="form-overlay-input" style="left: ${pCheque.left}; top: ${pCheque.top}; width: ${pCheque.width}; height: ${pCheque.height}; font-size: 9px; font-weight: 700;" value="${escapeHtml(state.etfChequeNo)}" title="Cheque No">
           <!-- 2-line textarea for Bank and Branch -->
-          <textarea id="etf_r4_bank_branch" onchange="saveEtfOverlayEdits()" class="form-overlay-textarea" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; font-size: 8.5px; font-weight: 600; line-height: 1.25; overflow: hidden; resize: none;" title="Bank Name and Branch Name (Two lines)">${escapeHtml(defaultBankBranchText)}</textarea>
+          <textarea id="etf_r4_bank_branch" onchange="saveEtfOverlayEdits('bankBranch')" class="form-overlay-textarea" style="left: ${pBank.left}; top: ${pBank.top}; width: ${pBank.width}; height: ${pBank.height}; font-size: 8.5px; font-weight: 600; line-height: 1.25; overflow: hidden; resize: none;" title="Bank Name and Branch Name (Two lines)">${escapeHtml(state.bankBranchText)}</textarea>
 
           <!-- 15 Rows Member Table -->
           ${rowInputsHtml}
 
           <!-- Total Row at top: 81.8% -->
-          <input type="text" id="etf_r4_tot_rs" class="form-overlay-input" style="left: ${pTotRs.left}; top: ${pTotRs.top}; width: ${pTotRs.width}; height: ${pTotRs.height}; text-align: right; font-weight: 400; font-size: 10px;" value="${formatMoney(totalRs, 0)}" title="Total Rs">
-          <input type="text" id="etf_r4_tot_cts" class="form-overlay-input" style="left: ${pTotCts.left}; top: ${pTotCts.top}; width: ${pTotCts.width}; height: ${pTotCts.height}; text-align: center; font-weight: 400; font-size: 10px;" value="${String(totalCts).padStart(2, '0')}" title="Total Cts">
+          <input type="text" id="etf_r4_tot_rs" onchange="saveEtfOverlayEdits('totRs')" class="form-overlay-input" style="left: ${pTotRs.left}; top: ${pTotRs.top}; width: ${pTotRs.width}; height: ${pTotRs.height}; text-align: right; font-weight: 400; font-size: 10px;" value="${escapeHtml(state.totRsStr)}" title="Total Rs">
+          <input type="text" id="etf_r4_tot_cts" onchange="saveEtfOverlayEdits('totCts')" class="form-overlay-input" style="left: ${pTotCts.left}; top: ${pTotCts.top}; width: ${pTotCts.width}; height: ${pTotCts.height}; text-align: center; font-weight: 400; font-size: 10px;" value="${escapeHtml(state.totCtsStr)}" title="Total Cts">
 
           <!-- Clarification Box -->
-          <textarea id="etf_r4_clarification" onchange="saveEtfOverlayEdits()" class="form-overlay-textarea" style="left: ${pClarification.left}; top: ${pClarification.top}; width: ${pClarification.width}; height: ${pClarification.height}; font-size: 9px;" title="Clarification if any">${escapeHtml(p.etfClarification || '')}</textarea>
+          <textarea id="etf_r4_clarification" onchange="saveEtfOverlayEdits('clarification')" class="form-overlay-textarea" style="left: ${pClarification.left}; top: ${pClarification.top}; width: ${pClarification.width}; height: ${pClarification.height}; font-size: 9px;" title="Clarification if any">${escapeHtml(state.clarificationStr)}</textarea>
 
           <!-- Bottom Declaration (Telephone, Email, Date) -->
-          <input type="text" id="etf_r4_phone" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 9px;" value="${escapeHtml(p.phone || currentComp.phone || '+94 11 233 6116')}" title="Telephone">
-          <input type="text" id="etf_r4_email" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pEmail.left}; top: ${pEmail.top}; width: ${pEmail.width}; height: ${pEmail.height}; font-size: 9px;" value="${escapeHtml(p.email || currentComp.email || 'info@spillburg.com')}" title="Email">
-          <input type="text" id="etf_r4_date" onchange="saveEtfOverlayEdits()" class="form-overlay-input" style="left: ${pDate.left}; top: ${pDate.top}; width: ${pDate.width}; height: ${pDate.height}; font-size: 9px;" value="${escapeHtml(remittanceDate)}" title="Date">
+          <input type="text" id="etf_r4_phone" onchange="saveEtfOverlayEdits('phone')" class="form-overlay-input" style="left: ${pPhone.left}; top: ${pPhone.top}; width: ${pPhone.width}; height: ${pPhone.height}; font-size: 9px;" value="${escapeHtml(state.phoneStr)}" title="Telephone">
+          <input type="text" id="etf_r4_email" onchange="saveEtfOverlayEdits('email')" class="form-overlay-input" style="left: ${pEmail.left}; top: ${pEmail.top}; width: ${pEmail.width}; height: ${pEmail.height}; font-size: 9px;" value="${escapeHtml(state.emailStr)}" title="Email">
+          <input type="text" id="etf_r4_date" onchange="saveEtfOverlayEdits('date')" class="form-overlay-input" style="left: ${pDate.left}; top: ${pDate.top}; width: ${pDate.width}; height: ${pDate.height}; font-size: 9px;" value="${escapeHtml(state.remittanceDate)}" title="Date">
 
         </div>
       </div>
@@ -12926,18 +13188,189 @@ async function submitStaffCostDetails(e) {
 }
 
 // 4. EPF Form C Edit Modal & Direct Overlay Sync
-async function saveEpfOverlayEdits() {
+function handleEpfRowInputChange(rowIndex, changedField) {
+  const nameEl = document.getElementById(`epf_c_name_${rowIndex}`);
+  const totEl = document.getElementById(`epf_c_tot_${rowIndex}`);
+  const erEl = document.getElementById(`epf_c_er_${rowIndex}`);
+  const eeEl = document.getElementById(`epf_c_ee_${rowIndex}`);
+  const earnEl = document.getElementById(`epf_c_earn_${rowIndex}`);
+
+  if (changedField === 'name' && nameEl && nameEl.value) {
+    nameEl.value = nameEl.value.toUpperCase();
+  }
+
+  // If user types Total Earnings on a row, auto-calculate 20%, 12%, 8%
+  if (changedField === 'earn' && earnEl) {
+    const rawEarn = earnEl.value.trim();
+    if (rawEarn !== '') {
+      const earnVal = parseFloat(rawEarn.replace(/,/g, '')) || 0;
+      earnEl.value = formatMoney(earnVal, 2);
+      if (totEl) totEl.value = formatMoney(earnVal * 0.20, 2);
+      if (erEl) erEl.value = formatMoney(earnVal * 0.12, 2);
+      if (eeEl) eeEl.value = formatMoney(earnVal * 0.08, 2);
+    } else {
+      if (totEl) totEl.value = '';
+      if (erEl) erEl.value = '';
+      if (eeEl) eeEl.value = '';
+    }
+  } else if ((changedField === 'er' || changedField === 'ee') && erEl && eeEl && totEl) {
+    const erRaw = erEl.value.trim();
+    const eeRaw = eeEl.value.trim();
+    if (erRaw === '' && eeRaw === '') {
+      totEl.value = '';
+    } else {
+      const erVal = parseFloat(erRaw.replace(/,/g, '')) || 0;
+      const eeVal = parseFloat(eeRaw.replace(/,/g, '')) || 0;
+      totEl.value = formatMoney(erVal + eeVal, 2);
+    }
+  }
+
+  // Recompute column totals across all 35 rows
+  let sumTot = 0, sumEr = 0, sumEe = 0;
+  for (let i = 0; i < 35; i++) {
+    const tVal = parseFloat((document.getElementById(`epf_c_tot_${i}`)?.value || '').replace(/,/g, '')) || 0;
+    const rVal = parseFloat((document.getElementById(`epf_c_er_${i}`)?.value || '').replace(/,/g, '')) || 0;
+    const eVal = parseFloat((document.getElementById(`epf_c_ee_${i}`)?.value || '').replace(/,/g, '')) || 0;
+    sumTot += tVal;
+    sumEr += rVal;
+    sumEe += eVal;
+  }
+
+  const totalTotEl = document.getElementById('epf_c_total_tot');
+  const totalErEl = document.getElementById('epf_c_total_er');
+  const totalEeEl = document.getElementById('epf_c_total_ee');
+  const contribEl = document.getElementById('epf_c_total_contrib');
+  const surchEl = document.getElementById('epf_c_surcharges');
+  const remitEl = document.getElementById('epf_c_total_remittance');
+
+  if (totalTotEl) totalTotEl.value = sumTot > 0 ? formatMoney(sumTot, 2) : '';
+  if (totalErEl) totalErEl.value = sumEr > 0 ? formatMoney(sumEr, 2) : '';
+  if (totalEeEl) totalEeEl.value = sumEe > 0 ? formatMoney(sumEe, 2) : '';
+  if (contribEl) contribEl.value = sumTot > 0 ? formatMoney(sumTot, 2) : '';
+  if (remitEl) {
+    const sVal = parseFloat((surchEl?.value || '').replace(/,/g, '')) || 0;
+    remitEl.value = (sumTot + sVal) > 0 ? formatMoney(sumTot + sVal, 2) : '';
+  }
+
+  saveEpfOverlayEdits('row');
+}
+
+async function saveEpfOverlayEdits(changedTarget) {
   if (!activePayrollPeriod || !canEdit('payroll')) return;
   const p = activePayrollPeriod;
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || {};
+  const rate = Number(p.exchangeRate) || 440;
+  const eligibleStaff = getEpfEligibleStaff(p, rate);
+
   const employerEl = document.getElementById('epf_c_employer');
   const regNoEl = document.getElementById('epf_c_reg_no');
-  const chequeEl = document.getElementById('epf_c_cheque_no');
+  const monthEl = document.getElementById('epf_c_month_year');
+  const contribEl = document.getElementById('epf_c_total_contrib');
   const surchEl = document.getElementById('epf_c_surcharges');
+  const remitEl = document.getElementById('epf_c_total_remittance');
+  const chequeEl = document.getElementById('epf_c_cheque_no');
   const bankEl = document.getElementById('epf_c_bank_branch');
+  const totalTotEl = document.getElementById('epf_c_total_tot');
+  const totalErEl = document.getElementById('epf_c_total_er');
+  const totalEeEl = document.getElementById('epf_c_total_ee');
   const phoneEl = document.getElementById('epf_c_phone');
   const dateEl = document.getElementById('epf_c_date');
 
-  const payload = { id: p.id };
+  // Recompute total remittance live only when surcharges or totalContrib changed
+  if (changedTarget === 'surcharges' || changedTarget === 'totalContrib') {
+    if (contribEl && surchEl && remitEl) {
+      const cRaw = contribEl.value.trim();
+      const sRaw = surchEl.value.trim();
+      if (cRaw === '' && sRaw === '') {
+        remitEl.value = '';
+      } else {
+        const cVal = parseFloat(cRaw.replace(/,/g, '')) || 0;
+        const sVal = parseFloat(sRaw.replace(/,/g, '')) || 0;
+        remitEl.value = formatMoney(cVal + sVal, 2);
+      }
+    }
+  }
+
+  // Collect row states: first eligibleStaff.length rows map to staff overrides; subsequent rows map to extra/director members
+  const epfStaffOverrides = { ...(p.epfStaffOverrides || {}) };
+  const epfExtraMembers = [];
+
+  for (let i = 0; i < 35; i++) {
+    const nameEl = document.getElementById(`epf_c_name_${i}`);
+    const nicEl = document.getElementById(`epf_c_nic_${i}`);
+    const memEl = document.getElementById(`epf_c_mem_${i}`);
+    const totEl = document.getElementById(`epf_c_tot_${i}`);
+    const erEl = document.getElementById(`epf_c_er_${i}`);
+    const eeEl = document.getElementById(`epf_c_ee_${i}`);
+    const earnEl = document.getElementById(`epf_c_earn_${i}`);
+    if (!nameEl && !nicEl && !memEl && !totEl && !erEl && !eeEl && !earnEl) continue;
+
+    const rowData = {
+      name: nameEl ? nameEl.value.trim() : '',
+      idNo: nicEl ? nicEl.value.trim() : '',
+      memberNo: memEl ? memEl.value.trim() : '',
+      epf20: totEl ? totEl.value.trim() : '',
+      epf12: erEl ? erEl.value.trim() : '',
+      epf8: eeEl ? eeEl.value.trim() : '',
+      totalEarnings: earnEl ? earnEl.value.trim() : ''
+    };
+
+    if (i < eligibleStaff.length) {
+      const emp = eligibleStaff[i];
+      epfStaffOverrides[emp.id] = rowData;
+    } else {
+      const hasAny = rowData.name || rowData.idNo || rowData.memberNo || rowData.epf20 || rowData.epf12 || rowData.epf8 || rowData.totalEarnings;
+      if (hasAny) {
+        epfExtraMembers.push(rowData);
+      }
+    }
+  }
+
+  // Also sync any newly typed extra/director members on EPF Form C into ETF extra members if not already present
+  const existingEtfExtras = Array.isArray(p.etfExtraMembers)
+    ? [...p.etfExtraMembers]
+    : (Array.isArray(currentComp.etfExtraMembers) ? [...currentComp.etfExtraMembers] : []);
+
+  epfExtraMembers.forEach(m => {
+    if (!m.name) return;
+    const matchIdx = existingEtfExtras.findIndex(x =>
+      (x.name && x.name.toUpperCase() === m.name.toUpperCase()) ||
+      (x.memberNo && m.memberNo && x.memberNo === m.memberNo)
+    );
+    const earnVal = parseFloat(String(m.totalEarnings || '').replace(/,/g, '')) || 0;
+    const etf3Val = earnVal * 0.03;
+    const rsNum = Math.floor(etf3Val);
+    const ctsNum = Math.round((etf3Val - rsNum) * 100);
+    if (matchIdx === -1 && earnVal > 0) {
+      existingEtfExtras.push({
+        name: m.name.toUpperCase(),
+        nic: m.idNo || '',
+        memberNo: m.memberNo || '',
+        rs: formatMoney(rsNum, 0),
+        cts: String(ctsNum).padStart(2, '0')
+      });
+    }
+  });
+
+  const epfHeaderOverrides = {
+    ...(p.epfHeaderOverrides || {}),
+    monthYear: monthEl ? monthEl.value : undefined,
+    totalContrib: contribEl ? contribEl.value : undefined,
+    totalRemittance: remitEl ? remitEl.value : undefined,
+    totalTot: totalTotEl ? totalTotEl.value : undefined,
+    totalEr: totalErEl ? totalErEl.value : undefined,
+    totalEe: totalEeEl ? totalEeEl.value : undefined,
+    phone: phoneEl ? phoneEl.value : undefined,
+    date: dateEl ? dateEl.value : undefined
+  };
+
+  const payload = {
+    id: p.id,
+    epfStaffOverrides,
+    epfExtraMembers,
+    etfExtraMembers: existingEtfExtras,
+    epfHeaderOverrides
+  };
   if (employerEl) payload.epfEmployerCustom = employerEl.value;
   if (regNoEl) payload.epfRegNo = regNoEl.value.trim();
   if (chequeEl) payload.epfChequeNo = chequeEl.value.trim();
@@ -12946,13 +13379,13 @@ async function saveEpfOverlayEdits() {
   if (phoneEl) payload.phone = phoneEl.value.trim();
   if (dateEl) payload.letterDate = dateEl.value.trim();
 
-  // Recompute total remittance live if surcharges changed
-  const contribEl = document.getElementById('epf_c_total_contrib');
-  const remitEl = document.getElementById('epf_c_total_remittance');
-  if (contribEl && surchEl && remitEl) {
-    const cVal = parseFloat(contribEl.value.replace(/,/g, '')) || 0;
-    const sVal = parseFloat(surchEl.value.replace(/,/g, '')) || 0;
-    remitEl.value = formatMoney(cVal + sVal, 2);
+  // Update in-memory period and company immediately so printing right away uses latest state
+  Object.assign(p, payload);
+  if (currentComp) {
+    currentComp.epfExtraMembers = epfExtraMembers;
+    currentComp.etfExtraMembers = existingEtfExtras;
+    if (payload.epfRegNo !== undefined) currentComp.epfRegNo = payload.epfRegNo;
+    if (payload.phone !== undefined) currentComp.phone = payload.phone;
   }
 
   try {
@@ -12967,32 +13400,163 @@ async function saveEpfOverlayEdits() {
     if (res.ok) {
       const data = await res.json();
       if (data.period) activePayrollPeriod = data.period;
-      const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId);
-      if (currentComp) {
-        if (payload.epfRegNo !== undefined) currentComp.epfRegNo = payload.epfRegNo;
-        if (payload.phone !== undefined) currentComp.phone = payload.phone;
-      }
     }
   } catch (err) {
     console.error('Error auto-saving EPF overlay edits:', err);
   }
 }
 
-async function saveEtfOverlayEdits() {
-  if (!activePayrollPeriod || !canEdit('payroll')) return;
-  const p = activePayrollPeriod;
-  const empEl = document.getElementById('etf_r4_employer');
-  const regNoEl = document.getElementById('etf_r4_emp_no');
-  const chequeEl = document.getElementById('etf_r4_cheque');
+function handleEtfRowInputChange(rowIndex, changedField) {
+  const nameEl = document.getElementById(`etf_r4_name_${rowIndex}`);
+  const rsEl = document.getElementById(`etf_r4_rs_${rowIndex}`);
+  const ctsEl = document.getElementById(`etf_r4_cts_${rowIndex}`);
+
+  if (changedField === 'name' && nameEl && nameEl.value) {
+    nameEl.value = nameEl.value.toUpperCase();
+  }
+  if (changedField === 'rs' && rsEl) {
+    const rawRs = rsEl.value.trim();
+    if (rawRs !== '') {
+      const rsVal = parseFloat(rawRs.replace(/,/g, '')) || 0;
+      const wholeRs = Math.floor(rsVal);
+      const fracCts = Math.round((rsVal - wholeRs) * 100);
+      rsEl.value = formatMoney(wholeRs, 0);
+      if (ctsEl && (ctsEl.value.trim() === '' || fracCts > 0)) {
+        ctsEl.value = String(fracCts).padStart(2, '0');
+      }
+    } else if (ctsEl) {
+      ctsEl.value = '';
+    }
+  }
+
+  let sumEtf = 0;
+  let activeCount = 0;
+  for (let r = 0; r < 15; r++) {
+    const nVal = (document.getElementById(`etf_r4_name_${r}`)?.value || '').trim();
+    const nicVal = (document.getElementById(`etf_r4_nic_${r}`)?.value || '').trim();
+    const memVal = (document.getElementById(`etf_r4_mem_${r}`)?.value || '').trim();
+    const rsStr = (document.getElementById(`etf_r4_rs_${r}`)?.value || '').trim();
+    const ctsStr = (document.getElementById(`etf_r4_cts_${r}`)?.value || '').trim();
+    if (nVal || nicVal || memVal || rsStr || ctsStr) activeCount++;
+    const rNum = parseFloat(rsStr.replace(/,/g, '')) || 0;
+    const cNum = (parseFloat(ctsStr.replace(/,/g, '')) || 0) / 100;
+    sumEtf += rNum + cNum;
+  }
+
+  const totalRs = Math.floor(sumEtf);
+  const totalCts = Math.round((sumEtf - totalRs) * 100);
+
+  const empCountEl = document.getElementById('etf_r4_emp_count');
+  const totRsEl = document.getElementById('etf_r4_tot_rs');
+  const totCtsEl = document.getElementById('etf_r4_tot_cts');
+  const contribEl = document.getElementById('etf_r4_contrib');
   const surchEl = document.getElementById('etf_r4_surcharge');
   const chargesEl = document.getElementById('etf_r4_charges');
+  const totalEl = document.getElementById('etf_r4_total');
+
+  if (empCountEl) empCountEl.value = activeCount > 0 ? String(activeCount) : '';
+  if (totRsEl) totRsEl.value = sumEtf > 0 ? formatMoney(totalRs, 0) : '';
+  if (totCtsEl) totCtsEl.value = sumEtf > 0 ? String(totalCts).padStart(2, '0') : '';
+  if (contribEl) contribEl.value = sumEtf > 0 ? formatMoney(sumEtf, 2) : '';
+  if (totalEl) {
+    const sVal = parseFloat((surchEl?.value || '').replace(/,/g, '')) || 0;
+    const bVal = parseFloat((chargesEl?.value || '').replace(/,/g, '')) || 0;
+    totalEl.value = (sumEtf + sVal + bVal) > 0 ? formatMoney(sumEtf + sVal + bVal, 2) : '';
+  }
+
+  saveEtfOverlayEdits('row');
+}
+
+async function saveEtfOverlayEdits(changedTarget) {
+  if (!activePayrollPeriod || !canEdit('payroll')) return;
+  const p = activePayrollPeriod;
+  const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || {};
+  const rate = Number(p.exchangeRate) || 440;
+  const eligibleStaff = getEtfEligibleStaff(p, rate);
+
+  const empEl = document.getElementById('etf_r4_employer');
+  const regNoEl = document.getElementById('etf_r4_emp_no');
+  const monthEl = document.getElementById('etf_r4_month_year');
+  const empCountEl = document.getElementById('etf_r4_emp_count');
+  const contribEl = document.getElementById('etf_r4_contrib');
+  const surchEl = document.getElementById('etf_r4_surcharge');
+  const chargesEl = document.getElementById('etf_r4_charges');
+  const totalEl = document.getElementById('etf_r4_total');
+  const chequeEl = document.getElementById('etf_r4_cheque');
   const bankEl = document.getElementById('etf_r4_bank_branch');
+  const totRsEl = document.getElementById('etf_r4_tot_rs');
+  const totCtsEl = document.getElementById('etf_r4_tot_cts');
   const clarifEl = document.getElementById('etf_r4_clarification');
   const phoneEl = document.getElementById('etf_r4_phone');
   const emailEl = document.getElementById('etf_r4_email');
   const dateEl = document.getElementById('etf_r4_date');
 
-  const payload = { id: p.id };
+  // Recompute total remittance live only when surcharge, charges, or contrib changed
+  if (changedTarget === 'surcharge' || changedTarget === 'charges' || changedTarget === 'contrib') {
+    if (contribEl && totalEl) {
+      const cRaw = contribEl.value.trim();
+      const sRaw = (surchEl?.value || '').trim();
+      const bRaw = (chargesEl?.value || '').trim();
+      if (cRaw === '' && sRaw === '' && bRaw === '') {
+        totalEl.value = '';
+      } else {
+        const cVal = parseFloat(cRaw.replace(/,/g, '')) || 0;
+        const sVal = parseFloat(sRaw.replace(/,/g, '')) || 0;
+        const bVal = parseFloat(bRaw.replace(/,/g, '')) || 0;
+        totalEl.value = formatMoney(cVal + sVal + bVal, 2);
+      }
+    }
+  }
+
+  const etfStaffOverrides = { ...(p.etfStaffOverrides || {}) };
+  const etfExtraMembers = [];
+
+  for (let r = 0; r < 15; r++) {
+    const nameEl = document.getElementById(`etf_r4_name_${r}`);
+    const nicEl = document.getElementById(`etf_r4_nic_${r}`);
+    const memEl = document.getElementById(`etf_r4_mem_${r}`);
+    const rsEl = document.getElementById(`etf_r4_rs_${r}`);
+    const ctsEl = document.getElementById(`etf_r4_cts_${r}`);
+    if (!nameEl && !nicEl && !memEl && !rsEl && !ctsEl) continue;
+
+    const rowData = {
+      name: nameEl ? nameEl.value.trim() : '',
+      nic: nicEl ? nicEl.value.trim() : '',
+      memberNo: memEl ? memEl.value.trim() : '',
+      rs: rsEl ? rsEl.value.trim() : '',
+      cts: ctsEl ? ctsEl.value.trim() : ''
+    };
+
+    if (r < eligibleStaff.length) {
+      const emp = eligibleStaff[r];
+      etfStaffOverrides[emp.id] = rowData;
+    } else {
+      const hasAny = rowData.name || rowData.nic || rowData.memberNo || rowData.rs || rowData.cts;
+      if (hasAny) {
+        etfExtraMembers.push(rowData);
+      }
+    }
+  }
+
+  const etfHeaderOverrides = {
+    ...(p.etfHeaderOverrides || {}),
+    monthYear: monthEl ? monthEl.value : undefined,
+    empCount: empCountEl ? empCountEl.value : undefined,
+    contrib: contribEl ? contribEl.value : undefined,
+    total: totalEl ? totalEl.value : undefined,
+    totRs: totRsEl ? totRsEl.value : undefined,
+    totCts: totCtsEl ? totCtsEl.value : undefined,
+    phone: phoneEl ? phoneEl.value : undefined,
+    email: emailEl ? emailEl.value : undefined,
+    date: dateEl ? dateEl.value : undefined
+  };
+
+  const payload = {
+    id: p.id,
+    etfStaffOverrides,
+    etfExtraMembers,
+    etfHeaderOverrides
+  };
   if (empEl) payload.etfEmployerCustom = empEl.value;
   if (regNoEl) payload.etfRegNo = regNoEl.value.trim();
   if (chequeEl) payload.etfChequeNo = chequeEl.value.trim();
@@ -13004,14 +13568,13 @@ async function saveEtfOverlayEdits() {
   if (emailEl) payload.email = emailEl.value.trim();
   if (dateEl) payload.letterDate = dateEl.value.trim();
 
-  // Recompute total remittance live if surcharge or bank charges changed
-  const contribEl = document.getElementById('etf_r4_contrib');
-  const totalEl = document.getElementById('etf_r4_total');
-  if (contribEl && totalEl) {
-    const cVal = parseFloat(contribEl.value.replace(/,/g, '')) || 0;
-    const sVal = parseFloat((surchEl?.value || '0').replace(/,/g, '')) || 0;
-    const bVal = parseFloat((chargesEl?.value || '0').replace(/,/g, '')) || 0;
-    totalEl.value = formatMoney(cVal + sVal + bVal, 2);
+  // Update in-memory period and company immediately
+  Object.assign(p, payload);
+  if (currentComp) {
+    currentComp.etfExtraMembers = etfExtraMembers;
+    if (payload.etfRegNo !== undefined) currentComp.etfRegNo = payload.etfRegNo;
+    if (payload.phone !== undefined) currentComp.phone = payload.phone;
+    if (payload.email !== undefined) currentComp.email = payload.email;
   }
 
   try {
@@ -13026,12 +13589,6 @@ async function saveEtfOverlayEdits() {
     if (res.ok) {
       const data = await res.json();
       if (data.period) activePayrollPeriod = data.period;
-      const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId);
-      if (currentComp) {
-        if (payload.etfRegNo !== undefined) currentComp.etfRegNo = payload.etfRegNo;
-        if (payload.phone !== undefined) currentComp.phone = payload.phone;
-        if (payload.email !== undefined) currentComp.email = payload.email;
-      }
     }
   } catch (err) {
     console.error('Error auto-saving ETF overlay edits:', err);
@@ -15653,46 +16210,41 @@ function exportStaffCostCsv() {
   document.body.removeChild(link);
 }
 
+function getOverlayDomOrState(elId, fallbackVal) {
+  const el = document.getElementById(elId);
+  return el ? el.value : (fallbackVal ?? '');
+}
+
 function printEpfFormC() {
   const p = activePayrollPeriod;
   if (!p) return;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
-  const emps = p.employees || [];
-  const rate = Number(p.exchangeRate) || 440;
-  let sumEpf20 = 0, sumEpf12 = 0, sumEpf8 = 0;
-  emps.forEach(e => {
-    const calc = getEmployeeCalculatedFields(e, rate);
-    sumEpf20 += calc.epf20Lkr;
-    sumEpf12 += calc.epf12Lkr;
-    sumEpf8 += calc.epf8Lkr;
-  });
-  const epfSurcharges = Number(p.epfSurcharges) || 0;
+  const state = buildEpfFormState(p, currentComp);
 
-  const regNo = document.getElementById('epf_c_reg_no')?.value || getCompanyStatutoryDefault(currentComp, p, 'epfRegNo');
-  const monthYear = document.getElementById('epf_c_month_year')?.value || (p.month || 'October 2026').toUpperCase();
-  const totalContrib = document.getElementById('epf_c_total_contrib')?.value || formatMoney(sumEpf20, 2);
-  const surcharges = document.getElementById('epf_c_surcharges')?.value || formatMoney(epfSurcharges, 2);
-  const totalRemittance = document.getElementById('epf_c_total_remittance')?.value || formatMoney(sumEpf20 + epfSurcharges, 2);
-  const chequeNo = document.getElementById('epf_c_cheque_no')?.value || p.epfChequeNo || 'CHQ-890214';
-  const defaultBankBranch = p.epfBankBranchCustom || `${p.bankName || currentComp.bankName || "Nations Trust Bank PLC"}\n${p.bankBranch || currentComp.bankBranch || "Borella Branch"}`;
-  const bankBranch = document.getElementById('epf_c_bank_branch')?.value || defaultBankBranch;
-  const totalTot = document.getElementById('epf_c_total_tot')?.value || formatMoney(sumEpf20, 2);
-  const totalEr = document.getElementById('epf_c_total_er')?.value || formatMoney(sumEpf12, 2);
-  const totalEe = document.getElementById('epf_c_total_ee')?.value || formatMoney(sumEpf8, 2);
-  const phone = document.getElementById('epf_c_phone')?.value || p.phone || currentComp.phone || '+94 11 233 6116';
-  const dateVal = document.getElementById('epf_c_date')?.value || p.letterDate || p.date || '31.10.2026';
+  const employerText = getOverlayDomOrState('epf_c_employer', state.employerText);
+  const regNo = getOverlayDomOrState('epf_c_reg_no', state.epfRegNo);
+  const monthYear = getOverlayDomOrState('epf_c_month_year', state.monthStr);
+  const totalContrib = getOverlayDomOrState('epf_c_total_contrib', state.totalContribStr);
+  const surcharges = getOverlayDomOrState('epf_c_surcharges', state.epfSurchargesStr);
+  const totalRemittance = getOverlayDomOrState('epf_c_total_remittance', state.totalRemittanceStr);
+  const chequeNo = getOverlayDomOrState('epf_c_cheque_no', state.epfChequeNo);
+  const bankBranch = getOverlayDomOrState('epf_c_bank_branch', state.bankBranchText);
+  const totalTot = getOverlayDomOrState('epf_c_total_tot', state.totalTotStr);
+  const totalEr = getOverlayDomOrState('epf_c_total_er', state.totalErStr);
+  const totalEe = getOverlayDomOrState('epf_c_total_ee', state.totalEeStr);
+  const phone = getOverlayDomOrState('epf_c_phone', state.phoneStr);
+  const dateVal = getOverlayDomOrState('epf_c_date', state.remittanceDate);
 
   let rowFieldsHtml = '';
   for (let i = 0; i < 35; i++) {
-    const emp = emps[i] || null;
-    const calc = emp ? getEmployeeCalculatedFields(emp, rate) : null;
-    const name = document.getElementById(`epf_c_name_${i}`)?.value || (emp ? emp.name : '');
-    const nic = document.getElementById(`epf_c_nic_${i}`)?.value || (emp ? (emp.idNo || emp.tinNo || '') : '');
-    const mem = document.getElementById(`epf_c_mem_${i}`)?.value || (emp ? (emp.epfNo || '') : '');
-    const tot = document.getElementById(`epf_c_tot_${i}`)?.value || (calc ? formatMoney(calc.epf20Lkr, 2) : '');
-    const er = document.getElementById(`epf_c_er_${i}`)?.value || (calc ? formatMoney(calc.epf12Lkr, 2) : '');
-    const ee = document.getElementById(`epf_c_ee_${i}`)?.value || (calc ? formatMoney(calc.epf8Lkr, 2) : '');
-    const earn = document.getElementById(`epf_c_earn_${i}`)?.value || (calc ? formatMoney(calc.lkrGross, 2) : '');
+    const r = state.rows[i] || null;
+    const name = getOverlayDomOrState(`epf_c_name_${i}`, r ? r.name : '');
+    const nic = getOverlayDomOrState(`epf_c_nic_${i}`, r ? r.idNo : '');
+    const mem = getOverlayDomOrState(`epf_c_mem_${i}`, r ? r.memberNo : '');
+    const tot = getOverlayDomOrState(`epf_c_tot_${i}`, r ? r.epf20 : '');
+    const er = getOverlayDomOrState(`epf_c_er_${i}`, r ? r.epf12 : '');
+    const ee = getOverlayDomOrState(`epf_c_ee_${i}`, r ? r.epf8 : '');
+    const earn = getOverlayDomOrState(`epf_c_earn_${i}`, r ? r.totalEarnings : '');
 
     if (!name && !nic && !mem && !tot && !er && !ee && !earn) continue;
 
@@ -15717,11 +16269,6 @@ function printEpfFormC() {
 
   // Header & Summary Field positions
   const pEmployer = getEpfFieldPos('epf_c_employer');
-  const defaultEmployerText = p.epfEmployerCustom || [
-    (currentComp.name || '').toUpperCase(),
-    currentComp.addressLine1 || currentComp.address || '',
-    currentComp.addressLine2 || ''
-  ].filter(Boolean).join('\n');
   const pReg = getEpfFieldPos('epf_c_reg_no');
   const pMonth = getEpfFieldPos('epf_c_month_year');
   const pContrib = getEpfFieldPos('epf_c_total_contrib');
@@ -15787,7 +16334,7 @@ function printEpfFormC() {
     <body>
       <div class="print-sheet">
         <!-- Top Left Employer Name & Address (M-13 Box) -->
-        <div class="field" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 8pt; font-weight: 400; font-family: Arial, Helvetica, sans-serif; white-space: pre-line; line-height: 1.35; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; padding: 2px 4px;">${escapeHtml(document.getElementById('epf_c_employer')?.value || defaultEmployerText)}</div>
+        <div class="field" style="left: ${pEmployer.left}; top: ${pEmployer.top}; width: ${pEmployer.width}; height: ${pEmployer.height}; font-size: 8pt; font-weight: 400; font-family: Arial, Helvetica, sans-serif; white-space: pre-line; line-height: 1.35; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; padding: 2px 4px;">${escapeHtml(employerText)}</div>
 
         <!-- Row 1: Reg No -->
         <div class="field" style="left: ${pReg.left}; top: ${pReg.top}; width: ${pReg.width}; height: ${pReg.height}; justify-content: center; font-size: 8.5pt; font-weight: bold;">${escapeHtml(regNo)}</div>
@@ -15829,49 +16376,33 @@ function printEtfFormR4() {
   const p = activePayrollPeriod;
   if (!p) return;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
-  const emps = p.employees || [];
-  const rate = Number(p.exchangeRate) || 440;
-  let sumEtf3 = 0;
-  emps.forEach(e => {
-    const calc = getEmployeeCalculatedFields(e, rate);
-    sumEtf3 += calc.etf3Lkr;
-  });
-  const etfSurcharge = Number(p.etfSurcharge) || 0;
-  const etfCharges = Number(p.etfCharges) || 0;
-  const totalEtfRemit = sumEtf3 + etfSurcharge + etfCharges;
-  const totEtfRs = Math.floor(totalEtfRemit).toLocaleString('en-US');
-  const totEtfCts = Math.round((totalEtfRemit - Math.floor(totalEtfRemit)) * 100).toString().padStart(2, '0');
+  const state = buildEtfFormState(p, currentComp);
 
-  const employer = document.getElementById("etf_r4_employer")?.value || p.etfEmployerCustom || `${currentComp.name || "APADMI SL (PRIVATE) LIMITED"}\n${(currentComp.address || "Colombo").replace(/\n/g, " ")}`;
-  const empNo = document.getElementById('etf_r4_emp_no')?.value || getCompanyStatutoryDefault(currentComp, p, 'etfRegNo');
-  const monthYear = document.getElementById('etf_r4_month_year')?.value || (p.month || 'October 2026').toUpperCase();
-  const empCount = document.getElementById('etf_r4_emp_count')?.value || (emps.length || 0);
-  const contrib = document.getElementById('etf_r4_contrib')?.value || formatMoney(sumEtf3, 2);
-  const surcharge = document.getElementById('etf_r4_surcharge')?.value || formatMoney(etfSurcharge, 2);
-  const charges = document.getElementById('etf_r4_charges')?.value || formatMoney(etfCharges, 2);
-  const total = document.getElementById('etf_r4_total')?.value || formatMoney(totalEtfRemit, 2);
-  const chequeNo = document.getElementById('etf_r4_cheque')?.value || p.etfChequeNo || 'CHQ-890214';
-  const bankBranch = document.getElementById("etf_r4_bank_branch")?.value || document.getElementById("etf_r4_bank")?.value || p.etfBankBranchCustom || `${p.bankName || currentComp.bankName || "NTB"}\n${p.bankBranch || currentComp.bankBranch || "Borella"}`;
-  const totRs = document.getElementById('etf_r4_tot_rs')?.value || totEtfRs;
-  const totCts = document.getElementById('etf_r4_tot_cts')?.value || totEtfCts;
-  const clarification = document.getElementById('etf_r4_clarification')?.value || p.etfClarification || '';
-  const phone = document.getElementById('etf_r4_phone')?.value || p.phone || currentComp.phone || '+94 11 233 6116';
-  const email = document.getElementById('etf_r4_email')?.value || p.email || currentComp.email || 'info@spillburg.com';
-  const dateVal = document.getElementById('etf_r4_date')?.value || p.letterDate || p.date || '31.10.2026';
+  const employer = getOverlayDomOrState('etf_r4_employer', state.employerText);
+  const empNo = getOverlayDomOrState('etf_r4_emp_no', state.etfRegNo);
+  const monthYear = getOverlayDomOrState('etf_r4_month_year', state.monthStr);
+  const empCount = getOverlayDomOrState('etf_r4_emp_count', state.empCountStr);
+  const contrib = getOverlayDomOrState('etf_r4_contrib', state.contribStr);
+  const surcharge = getOverlayDomOrState('etf_r4_surcharge', state.etfSurchargeStr);
+  const charges = getOverlayDomOrState('etf_r4_charges', state.etfBankChargesStr);
+  const total = getOverlayDomOrState('etf_r4_total', state.totalRemittanceStr);
+  const chequeNo = getOverlayDomOrState('etf_r4_cheque', state.etfChequeNo);
+  const bankBranch = getOverlayDomOrState('etf_r4_bank_branch', state.bankBranchText);
+  const totRs = getOverlayDomOrState('etf_r4_tot_rs', state.totRsStr);
+  const totCts = getOverlayDomOrState('etf_r4_tot_cts', state.totCtsStr);
+  const clarification = getOverlayDomOrState('etf_r4_clarification', state.clarificationStr);
+  const phone = getOverlayDomOrState('etf_r4_phone', state.phoneStr);
+  const email = getOverlayDomOrState('etf_r4_email', state.emailStr);
+  const dateVal = getOverlayDomOrState('etf_r4_date', state.remittanceDate);
 
   let rowFieldsHtml = '';
   for (let r = 0; r < 15; r++) {
-    const emp = emps[r] || null;
-    const calc = emp ? getEmployeeCalculatedFields(emp, rate) : null;
-    const etfVal = calc ? calc.etf3Lkr : 0;
-    const defaultRs = calc ? Math.floor(etfVal).toLocaleString('en-US') : '';
-    const defaultCts = calc ? Math.round((etfVal - Math.floor(etfVal)) * 100).toString().padStart(2, '0') : '';
-
-    const name = document.getElementById(`etf_r4_name_${r}`)?.value || (emp ? emp.name : '');
-    const nic = document.getElementById(`etf_r4_nic_${r}`)?.value || (emp ? (emp.idNo || emp.tinNo || '') : '');
-    const mem = document.getElementById(`etf_r4_mem_${r}`)?.value || (emp ? (emp.epfNo || '') : '');
-    const rs = document.getElementById(`etf_r4_rs_${r}`)?.value || defaultRs;
-    const cts = document.getElementById(`etf_r4_cts_${r}`)?.value || defaultCts;
+    const rowState = state.rows[r] || null;
+    const name = getOverlayDomOrState(`etf_r4_name_${r}`, rowState ? rowState.name : '');
+    const nic = getOverlayDomOrState(`etf_r4_nic_${r}`, rowState ? rowState.nic : '');
+    const mem = getOverlayDomOrState(`etf_r4_mem_${r}`, rowState ? rowState.memberNo : '');
+    const rs = getOverlayDomOrState(`etf_r4_rs_${r}`, rowState ? rowState.rs : '');
+    const cts = getOverlayDomOrState(`etf_r4_cts_${r}`, rowState ? rowState.cts : '');
 
     if (!name && !nic && !mem && !rs && !cts) continue;
 
@@ -16002,27 +16533,36 @@ function printEtfFormR4() {
 function exportEtfFormR4Csv() {
   const p = activePayrollPeriod;
   if (!p) return;
-  const emps = p.employees || [];
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
-  const rate = Number(p.exchangeRate) || 440;
+  const state = buildEtfFormState(p, currentComp);
+  const regNo = getOverlayDomOrState('etf_r4_emp_no', state.etfRegNo);
+  const chequeNo = getOverlayDomOrState('etf_r4_cheque', state.etfChequeNo);
 
   const rows = [];
   rows.push(["EMPLOYEES' TRUST FUND BOARD - ETF FORM R-4 (ADVICE OF REMITTANCE)"]);
-  rows.push([`Employer ETF Reg No: ${getCompanyStatutoryDefault(currentComp, p, 'etfRegNo')}`, `Period: ${p.month || ''}`]);
-  rows.push([`Employer Name: ${currentComp.name || ''}`, `Cheque No: ${p.etfChequeNo || 'ETF-CHQ-7721'}`]);
+  rows.push([`Employer ETF Reg No: ${regNo}`, `Period: ${p.month || ''}`]);
+  rows.push([`Employer Name: ${currentComp.name || ''}`, `Cheque No: ${chequeNo}`]);
   rows.push([]);
   rows.push(["Serial No.", "Member Name", "National Identity Card No.", "Member No.", "Contribution (Rs.)", "Contribution (Cts.)"]);
 
   let sumEtf3 = 0;
-  emps.forEach((e, idx) => {
-    const calc = getEmployeeCalculatedFields(e, rate);
-    sumEtf3 += calc.etf3Lkr;
-    const rs = Math.floor(calc.etf3Lkr);
-    const cts = Math.round((calc.etf3Lkr - rs) * 100);
-    const memberNo = e.epfNo || String(idx + 1).padStart(2, '0');
+  let serialIdx = 0;
+  for (let r = 0; r < 15; r++) {
+    const rowState = state.rows[r] || null;
+    const name = getOverlayDomOrState(`etf_r4_name_${r}`, rowState ? rowState.name : '').trim();
+    const nic = getOverlayDomOrState(`etf_r4_nic_${r}`, rowState ? rowState.nic : '').trim();
+    const mem = getOverlayDomOrState(`etf_r4_mem_${r}`, rowState ? rowState.memberNo : '').trim();
+    const rsStr = getOverlayDomOrState(`etf_r4_rs_${r}`, rowState ? rowState.rs : '').trim();
+    const ctsStr = getOverlayDomOrState(`etf_r4_cts_${r}`, rowState ? rowState.cts : '').trim();
 
-    rows.push([String(idx + 1).padStart(2, '0'), (e.name || '').toUpperCase(), e.idNo || '', memberNo, rs, String(cts).padStart(2, '0')]);
-  });
+    if (!name && !nic && !mem && !rsStr && !ctsStr) continue;
+    serialIdx++;
+    const rsNum = parseFloat(rsStr.replace(/,/g, '')) || 0;
+    const ctsNum = (parseFloat(ctsStr.replace(/,/g, '')) || 0) / 100;
+    sumEtf3 += rsNum + ctsNum;
+
+    rows.push([String(serialIdx).padStart(2, '0'), name.toUpperCase(), nic, mem, rsStr, ctsStr]);
+  }
 
   const totalRs = Math.floor(sumEtf3);
   const totalCts = Math.round((sumEtf3 - totalRs) * 100);

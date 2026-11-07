@@ -1134,6 +1134,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             'netTotalGross': net_total_gross,
             'epf8Lkr': epf8_lkr,
             'epf12Lkr': epf12_lkr,
+            'epf20Lkr': round(epf8_lkr + epf12_lkr, 2),
             'etf3Lkr': etf3_lkr,
             'totalEmployerLkr': total_employer_lkr,
             'apit': apit,
@@ -1207,6 +1208,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             'netTotalGross': net_total_gross,
             'epf8Lkr': epf8_lkr,
             'epf12Lkr': epf12_lkr,
+            'epf20Lkr': round(epf8_lkr + epf12_lkr, 2),
             'etf3Lkr': etf3_lkr,
             'totalEmployerLkr': total_employer_lkr,
             'apit': apit,
@@ -1277,14 +1279,18 @@ def enrich_payroll_period(period):
     enriched = copy.deepcopy(period)
     enriched['currencyMode'] = currency_mode
     enriched['isSingleCurrency'] = (currency_mode == 'single')
-    if not enriched.get('epfRegNo') and comp.get('epfRegNo'):
+    if enriched.get('epfRegNo') is None and comp.get('epfRegNo'):
         enriched['epfRegNo'] = comp.get('epfRegNo')
-    if not enriched.get('etfRegNo') and comp.get('etfRegNo'):
+    if enriched.get('etfRegNo') is None and comp.get('etfRegNo'):
         enriched['etfRegNo'] = comp.get('etfRegNo')
-    if not enriched.get('phone') and comp.get('phone'):
+    if enriched.get('phone') is None and comp.get('phone'):
         enriched['phone'] = comp.get('phone')
-    if not enriched.get('email') and comp.get('email'):
+    if enriched.get('email') is None and comp.get('email'):
         enriched['email'] = comp.get('email')
+    if enriched.get('epfExtraMembers') is None and comp.get('epfExtraMembers') is not None:
+        enriched['epfExtraMembers'] = copy.deepcopy(comp.get('epfExtraMembers'))
+    if enriched.get('etfExtraMembers') is None and comp.get('etfExtraMembers') is not None:
+        enriched['etfExtraMembers'] = copy.deepcopy(comp.get('etfExtraMembers'))
     enriched['employees'] = computed_emps
     enriched['totals'] = {
         'totalEmployees': len(computed_emps),
@@ -3449,6 +3455,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "bankAddress": body.get("bankAddress", (comp.get("bankAddress") if comp else "67 D.S. Senanayake Mawatha,\nColombo 08.")),
                 "debitAccountNo": body.get("debitAccountNo", (comp.get("debitAccountNo") if comp else "1001 5000 7554")),
                 "debitAccountName": body.get("debitAccountName", (comp.get("debitAccountName") if comp else (comp.get("name") if comp else "Spillburg Holdings (Private) Limited"))),
+                "epfExtraMembers": copy.deepcopy(comp.get("epfExtraMembers", [])) if comp else [],
+                "etfExtraMembers": copy.deepcopy(comp.get("etfExtraMembers", [])) if comp else [],
                 "employees": base_employees
             }
             PAYROLL_RECORDS.setdefault("periods", []).append(new_period)
@@ -3751,19 +3759,19 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Period not found"}, 404)
                 return
 
-            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "authorizedTitle", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "invoiceNo", "bankCharges", "epfRegNo", "etfRegNo", "epfChequeNo", "etfChequeNo", "epfSurcharges", "etfSurcharge", "etfBankCharges", "epfBankBranchCustom", "etfBankBranchCustom", "epfEmployerCustom", "etfEmployerCustom", "letterheadUrl", "completedDate", "currencyMode", "baseCurrency", "etfClarification", "phone", "email", "notes"]:
+            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "authorizedTitle", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "invoiceNo", "bankCharges", "epfRegNo", "etfRegNo", "epfChequeNo", "etfChequeNo", "epfSurcharges", "etfSurcharge", "etfBankCharges", "epfBankBranchCustom", "etfBankBranchCustom", "epfEmployerCustom", "etfEmployerCustom", "epfStaffOverrides", "etfStaffOverrides", "epfExtraMembers", "etfExtraMembers", "epfHeaderOverrides", "etfHeaderOverrides", "letterheadUrl", "completedDate", "currencyMode", "baseCurrency", "etfClarification", "phone", "email", "notes"]:
                 if k in body:
                     if k in ["exchangeRate", "bankCharges"]:
                         target_period[k] = float(body[k])
                     else:
                         target_period[k] = body[k]
 
-            # Also sync company-level statutory registration numbers, bank details & contact details if updated for this period's company
+            # Also sync company-level statutory registration numbers, bank details, contact details & non-staff EPF/ETF members if updated for this period's company
             comp_id = target_period.get("companyId")
             if comp_id:
                 for c in PAYROLL_RECORDS.get("companies", []):
                     if c.get("id") == comp_id:
-                        for ck in ["epfRegNo", "etfRegNo", "phone", "email", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "letterheadUrl"]:
+                        for ck in ["epfRegNo", "etfRegNo", "phone", "email", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "letterheadUrl", "epfExtraMembers", "etfExtraMembers"]:
                             if ck in body and body[ck] is not None:
                                 c[ck] = body[ck]
                         break
