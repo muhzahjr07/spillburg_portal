@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-07T02:37:59Z",
+  "exportTimestamp": "2026-11-07T02:38:49Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6859,7 +6859,7 @@
         "etfChequeNo": "DIRECT DEBIT / SLIPS",
         "checkedBy": "Hemanthi Basnayake",
         "checkedTitle": null,
-        "authorizedSignatory": "Director",
+        "authorizedSignatory": "......................................................................",
         "authorizedCompany": "",
         "bankName": "Commercial Bank of Ceylon PLC",
         "bankBranch": "Keyzer Street Branch",
@@ -6923,7 +6923,7 @@
         "epfRegNo": "A - 55322",
         "etfRegNo": "A - 55322",
         "letterheadUrl": "/public/spillburg_vacation_letterhead.jpg",
-        "authorizedTitle": "Director - Spillburg Vacation (Pvt) Ltd."
+        "authorizedTitle": "Director"
       }
     ]
   },
