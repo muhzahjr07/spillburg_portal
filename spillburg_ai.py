@@ -564,10 +564,10 @@ def classify_workstream_and_type(text):
     lower = text.lower()
     if any(k in lower for k in ['roc', 'registrar', 'bo 2', 'bo2', 'beneficial', 'benificial', 'form 1', 'form 13', 'form 15', 'form 20', 'incorporat', 'company approval', 'companies', 'secretarial', 'level 2', 'level 3', 'harshanee', 'chrishanthi', 'trademark', 'intellectual', 'interlectual', 'utps', 'paper advertisement', 'seal', 'trc', 'sltda', 'tourist']):
         return "Corporate Secretarial & ROC", "ROC / Statutory Filing"
-    if any(k in lower for k in ['epf', 'etf', 'form c', 'form r-4', 'form r4', 'salary', 'payroll', 'labour', 'rahul']):
+    if any(k in lower for k in ['epf', 'etf', 'form c', 'form r-4', 'form r4', 'salary', 'salaries', 'payroll', 'labour', 'rahul']):
         return "Payroll & Statutory", "EPF / ETF / Payroll"
-    if any(re.search(rf'\b{re.escape(k)}\b' if len(k) <= 4 else re.escape(k), lower) for k in ['ird', 'ramis', 'tin', 'apit', 'apiit', 'wht', 'tax', 'vat', 'sscl', 'audit', 'financial statement', 'shehan', 'frontier', 'draft account', 'qunli', 'wanli', 'manhan', 'gaia ella', 'tdl']):
-        return "Tax, Accounting & Audit", "Tax / Audit Compliance"
+    if any(re.search(rf'\b{re.escape(k)}\b' if len(k) <= 4 else re.escape(k), lower) for k in ['ird', 'ramis', 'tin', 'apit', 'apiit', 'wht', 'tax', 'vat', 'sscl', 'audit', 'financial statement', 'financial account', 'fa', 'f a', 'monthly sales', 'monthly. sales', 'diziko', 'life cosmetics', 'shehan', 'frontier', 'draft account', 'qunli', 'wanli', 'manhan', 'gaia ella', 'tdl', 'hmk']):
+        return "Accounting & Audit", "Accounting & Tax Compliance"
     if any(k in lower for k in ['petty cash', 'voucher', 'reimbursement']):
         return "Finance & Petty Cash", "Petty Cash & Vouchers"
     if any(k in lower for k in ['comm bank', 'commercial bank', 'ntb', 'nations trust', 'sampath', 'hnb', 'ndb', 'dfcc', 'citi', 'bank', 'keyzer', 'fund transfer', 'alp', 'cheque', 'remittance', 'account', 'mandate']):
@@ -626,6 +626,20 @@ def build_clean_task_title(raw_text):
     if 'labour' in lower and ('alp' in lower or 'commissioner' in lower or 'narahenpita' in lower):
         return "Labour Dept Narahenpita – Meet Labour Commissioner Reg. ALP Matter"
 
+    # Accounting / Miss Hemanthi daily work-plan shorthand expansions
+    if 'monthly' in lower and 'sales' in lower and ('sv' in lower or 'vacation' in lower):
+        return "Prepare Monthly Sales Report – Spillburg Vacation (SV)"
+    if 'bank' in lower and 'update' in lower and 'both' in lower and 'compan' in lower:
+        return "Update Banking Transactions – Both Companies (Spillburg Holdings & Vacation)"
+    fa_match = re.match(r'^([a-z0-9\s.&()\-]+?)\s+f\s*\.?\s*a\.?\s+(?:will\s+(?:finish|do|complete)|to\s+finish|finish|prepare).*$', first_line, flags=re.I)
+    if fa_match:
+        client_raw = fa_match.group(1).strip().title()
+        if 'life cosmetics' in client_raw.lower() and 'lanka' not in client_raw.lower():
+            client_raw = "Life Cosmetics Lanka"
+        return f"Complete Financial Accounts (FA) – {client_raw}"
+    if re.match(r'^salaries\s+will\s+do\b', lower):
+        return "Prepare & Process Monthly Staff Salaries"
+
     cleaned = re.sub(r'^(?:going\s+to|went\s+to|visit)\s+', '', first_line, flags=re.I).strip()
     typo_fixes = [
         (r'\bApprovels\b', 'Approvals'),
@@ -652,6 +666,7 @@ def clean_item_notes(raw_text):
     cleaned = re.sub(r'\.\.\s*the\s+ai\s+should\s+be\s+able.*$', '', raw_text.strip(), flags=re.I).strip()
     lines = [ln.strip() for ln in cleaned.splitlines() if ln.strip()]
     joined = " ".join(lines)
+    joined = re.sub(r'\s+', ' ', joined)
     joined = re.sub(r'\bApprovels\b', 'Approvals', joined, flags=re.I)
     joined = re.sub(r'\bAssistan\b', 'Assistant', joined, flags=re.I)
     joined = re.sub(r'\bBenificial\b', 'Beneficial', joined, flags=re.I)
@@ -698,24 +713,25 @@ def extract_followup_action(notes_text):
     }
 
 
-def determine_status_and_priority(item_text, header_done=False, tasked_date=""):
+def determine_status_and_priority(item_text, header_done=False, tasked_date="", is_work_plan=False):
     """
     Determines task status ('Completed', 'In Progress', 'Pending', 'On Hold'),
     completedDate, and priority ('Critical', 'High', 'Medium', 'Low').
     """
     lower = item_text.lower()
 
-    has_followup = any(p in lower for p in [
+    has_followup = is_work_plan or any(p in lower for p in [
         'to be follow up', 'to be followed up', 'follow up', 'to be gone to final approvals',
         'awaiting', 'waiting for', 'pending approval', 'still in progress', 'in progress',
-        'to be done', 'need to follow', 'will do', 'works to be'
+        'to be done', 'need to follow', 'will do', 'will finish', 'to finish', 'works to be',
+        'prepare'
     ])
     has_on_hold = 'on hold' in lower
     has_completed_cue = any(p in lower for p in [
         'sort it out', 'sorted it out', 'sorted out', 'got approved', 'approved by him',
         'completed', 'finished', 'done', 'needful', 'resolved', 'handed over', 'deposited',
         'cashed', 'collected', 'purchased', 'refilled'
-    ])
+    ]) and not any(p in lower for p in ['will finish', 'will do', 'to be done', 'works to be'])
 
     if has_on_hold:
         status = "On Hold"
@@ -735,7 +751,7 @@ def determine_status_and_priority(item_text, header_done=False, tasked_date=""):
 
     if any(p in lower for p in ['urgent', 'critical', 'immediate', 'emergency']):
         priority = "Critical"
-    elif any(p in lower for p in ['roc', 'system error', 'bo 2', 'fund transfer', 'bank', 'approval', 'registrar', 'ird', 'epf', 'etf', 'audit', 'salary']):
+    elif any(p in lower for p in ['roc', 'system error', 'bo 2', 'fund transfer', 'bank', 'approval', 'registrar', 'ird', 'epf', 'etf', 'audit', 'salary', 'salaries', 'fa ', 'f a ']):
         priority = "High"
     else:
         priority = "Medium"
@@ -922,7 +938,7 @@ def extract_raw_task_items(text, users=None):
     1. Numbered lists: 1) ... 2) ... or 1. ... 2. ... or bullet points
     2. Repeated staff name markers: 'Ravi\nGoing to...\nRavi\nGoing to...'
     3. Action verb sequences: 'Going to IRD...\nGoing to pay EPF...'
-    4. Multi-line work plans and command prefixes
+    4. Multi-line work plans (e.g. 'Today Works to be,' / 'tasks for staff_hemanthi') and inline work plans
     """
     lines = [l.strip() for l in text.strip().splitlines() if l.strip()]
     if not lines:
@@ -945,17 +961,68 @@ def extract_raw_task_items(text, users=None):
         if len(items) >= 1:
             return items
 
-    # 2. Repeated name separators or action line sequences
-    cmd_head_pat = r'^(?:tasks?\s*tracker\s*update|(?:(?:create|add|new|update|edit|track)\s+)+(?:the\s+)?(?:tasks?|tracker)?)(?:\s+(?:for|of|to)\s+)?(?:\b(?:ravi|hemanthi|insaaf|bilal|zaharan|shameel|shaameel)\b)?\s*$'
-    name_pat = r'^(?:ravi|hemanthi|insaaf|bilal|zaharan|shameel|shaameel)\b[:\- ]*$'
-    action_verb_pat = r'^(?:going\s+to|went\s+to|visit|visiting|to\s+be|need\s+to|collect|collecting|collected|hand\s+over|handed\s+over|call|calling|called|pay|paying|paid|meet|meeting|met|deposit|depositing|deposited|purchas|purchasing|follow\s+up|followed\s+up|submit|submitting|submitted|sort\s+out|sorted\s+out)\b'
+    staff_tok = r'(?:staff_)?(?:ravi|hemanthi|insaaf|insaff|bilal|zaharan|shameel|shaameel)'
+    cmd_head_pat = rf'^(?:tasks?\s*tracker\s*update|(?:(?:create|add|new|update|edit|track|log)\s+)*(?:the\s+)?(?:tasks?|tracker|works?)(?:\s+(?:for|of|to)\s+@?{staff_tok})?)\s*[,:\-–]*\s*$'
+    work_plan_hdr_pat = r'^(?:today(?:\'?s)?\s+works?(?:\s+to\s+be|\s+done)?|yesterday(?:\'?s)?\s+(?:completed\s+)?works?|works?\s+to\s+be(?:\s+done|\s+completed)?|to\s+be\s+completed?)\s*[,:\-–]*\s*$'
+    name_pat = rf'^@?{staff_tok}\b[:\- ]*$'
+    action_verb_pat = r'^(?:going\s+to|went\s+to|visit|visiting|to\s+be|need\s+to|collect|collecting|collected|hand\s+over|handed\s+over|call|calling|called|pay|paying|paid|meet|meeting|met|deposit|depositing|deposited|purchas|purchasing|follow\s+up|followed\s+up|submit|submitting|submitted|sort\s+out|sorted\s+out|prepare|preparing|update|updating|complete|completing)\b'
 
+    has_plan_header = any(
+        re.match(cmd_head_pat, l, re.I) or re.match(work_plan_hdr_pat, l, re.I)
+        for l in lines
+    ) or bool(re.search(r"today(?:'?s)?\s+works?\s*(?:to\s+be|done)?|yesterday(?:'?s)?\s+(?:completed\s+)?works?|\bworks?\s+to\s+be\b", text, re.I))
+
+    has_repeated_names = sum(1 for l in lines if re.match(name_pat, l, re.I)) >= 2
+
+    # Strip header lines first
+    body_lines = []
+    for l in lines:
+        if re.match(cmd_head_pat, l, re.I) or re.match(work_plan_hdr_pat, l, re.I):
+            continue
+        # Also strip inline header prefix if someone wrote header + first task on the same line
+        l_clean = re.sub(
+            rf'^(?:(?:create|add|new|update|edit|track|log)\s+)*(?:the\s+)?(?:tasks?|tracker|works?)\s+(?:for|of|to)\s+@?{staff_tok}\b\s*[,:\-–]*\s*',
+            '',
+            l,
+            flags=re.I
+        ).strip()
+        l_clean = re.sub(
+            r'^(?:today(?:\'?s)?\s+works?(?:\s+to\s+be|\s+done)?|yesterday(?:\'?s)?\s+(?:completed\s+)?works?|works?\s+to\s+be(?:\s+done|\s+completed)?)\s*[,:\-–]*\s*',
+            '',
+            l_clean,
+            flags=re.I
+        ).strip()
+        if l_clean:
+            body_lines.append(l_clean)
+
+    # If this is a multi-line work plan (e.g. Hemanthi's 'Today Works to be' list) without repeated name separators,
+    # each line is a separate task item (unless a line is just a parenthetical continuation note)
+    if (has_plan_header or len(body_lines) >= 2) and not has_repeated_names:
+        will_do_lines = sum(1 for l in body_lines if re.search(r'\b(?:will\s+do|will\s+finish|to\s+be|prepare|update|finish|complete)\b', l, re.I))
+        if has_plan_header or will_do_lines >= 2:
+            plan_items = []
+            for l in body_lines:
+                if l.startswith('(') and plan_items:
+                    plan_items[-1] = f"{plan_items[-1]} {l}"
+                else:
+                    # Also handle if multiple items were pasted onto a single line
+                    sub_parts = re.sub(
+                        r'(\b(?:will\s+do|will\s+finish|prepare\s+SV|both\s+company|both\s+companies))\s+(?=[A-Z])',
+                        r'\1\n',
+                        l
+                    ).splitlines()
+                    for sp in sub_parts:
+                        sp_clean = sp.strip().rstrip(',.')
+                        if sp_clean and len(sp_clean) >= 3:
+                            plan_items.append(sp_clean)
+            if len(plan_items) >= 1:
+                return plan_items
+
+    # 2. Repeated name separators or action line sequences
     items = []
     current_item = []
 
-    for l in lines:
-        if re.match(cmd_head_pat, l, re.I):
-            continue
+    for l in body_lines:
         is_name_hdr = bool(re.match(name_pat, l, re.I))
         is_act = bool(re.match(action_verb_pat, l, re.I))
 
@@ -980,8 +1047,8 @@ def extract_raw_task_items(text, users=None):
 
     cleaned_items = []
     for it in items:
-        it_clean = re.sub(r'^(?:tasks?\s*tracker\s*update|(?:(?:create|add|new|update|edit|track)\s+)+(?:the\s+)?(?:tasks?|tracker)?(?:\s+(?:for|to|of)\s+)?(?:\b(?:ravi|hemanthi|insaaf|bilal|zaharan|shameel|shaameel)\b)?\s*)', '', it, flags=re.I).strip()
-        it_clean = re.sub(r'^(?:ravi|hemanthi|insaaf|bilal|zaharan|shameel|shaameel)\b[:\- ]*', '', it_clean, flags=re.I).strip()
+        it_clean = re.sub(rf'^(?:tasks?\s*tracker\s*update|(?:(?:create|add|new|update|edit|track)\s+)+(?:the\s+)?(?:tasks?|tracker)?(?:\s+(?:for|to|of)\s+)?(?:@?{staff_tok}\b)?\s*)', '', it, flags=re.I).strip()
+        it_clean = re.sub(rf'^@?{staff_tok}\b[:\- ]*', '', it_clean, flags=re.I).strip()
         if it_clean and len(it_clean) >= 4:
             cleaned_items.append(it_clean)
 
@@ -1007,8 +1074,11 @@ def parse_ai_task_intent(user, message, users, operations):
         if len(inline_matches) >= 2:
             numbered_matches = inline_matches
 
-    # Also check unnumbered multi-line work plans
-    is_work_plan_header = bool(re.search(r"today'?s\s+works?\s*(?:to\s+be|done)?|yesterday'?s?\s+(?:completed\s+)?works?", lower))
+    # Also check unnumbered multi-line work plans (supports both "Today's works" and "Today Works to be")
+    is_work_plan_header = bool(re.search(
+        r"today(?:'?s)?\s+works?\s*(?:to\s+be|done)?|yesterday(?:'?s)?\s+(?:completed\s+)?works?|\bworks?\s+to\s+be\b",
+        lower
+    ))
     is_explicit_task_cmd = bool(re.search(
         r'\b(?:add|create|new|assign|update|edit|mark|log|track)\s*(?:and\s*update\s*)?(?:the\s*)?(?:tasks?|tracker|deliverables?|todos?|to-dos?|works?|work\s*log|daily\s*log)\b|\b(?:tasks?|tracker)\s+(?:update|create|entry|log)\b|\b(?:done\s+the\s+works|works\s+done|daily\s+report|work\s+report)\b',
         lower
@@ -1034,7 +1104,7 @@ def parse_ai_task_intent(user, message, users, operations):
 
     header_text = text[:numbered_matches[0].start()] if numbered_matches else text
     tasked_date = extract_standard_date(header_text if numbered_matches else text)
-    header_done = bool(re.search(r'\b(?:done\s+the\s+works|works\s+done|completed|did\s+the\s+works|yesterday\s+on|today\'?s\s+work\s+done)\b', header_text.lower()))
+    header_done = bool(re.search(r'\b(?:done\s+the\s+works|works\s+done|completed|did\s+the\s+works|yesterday\s+on|today(?:\'?s)?\s+work\s+done)\b', header_text.lower()))
 
     proposed_tasks = []
     auto_followups_count = 0
@@ -1059,7 +1129,12 @@ def parse_ai_task_intent(user, message, users, operations):
             title = build_clean_task_title(raw_item)
             workstream, task_type = classify_workstream_and_type(cleaned_notes)
             req_by = infer_requester_from_text(cleaned_notes, default_requester=user.get("fullName") or "Mr. Shameel")
-            status, completed_date, priority = determine_status_and_priority(cleaned_notes, header_done=header_done, tasked_date=tasked_date)
+            status, completed_date, priority = determine_status_and_priority(
+                cleaned_notes,
+                header_done=header_done,
+                tasked_date=tasked_date,
+                is_work_plan=is_work_plan_header
+            )
 
             existing = find_matching_existing_task(title, cleaned_notes, user_existing_tasks)
             action = "update" if existing else "create"
@@ -1588,9 +1663,11 @@ def answer_knowledge_query(user, message, users, operations, customer_records, f
         if matched_emps:
             lines.append("\n#### 👤 Matching Payroll Employee Records:")
             for comp_name, month_str, e in matched_emps[:8]:
+                basic_lkr = e.get('lkrGross', 0)
+                earned_lkr = e.get('totalGrossLkr', basic_lkr)
                 lines.append(
                     f"- **{e.get('name')}** ({e.get('position')}) — *{comp_name} ({month_str})*\n"
-                    f"  - Gross LKR: `Rs {e.get('lkrGross', 0):,.2f}` | EPF 8%: `Rs {e.get('epf8Lkr', 0):,.2f}` | EPF 12%: `Rs {e.get('epf12Lkr', 0):,.2f}` | ETF 3%: `Rs {e.get('etf3Lkr', 0):,.2f}` | APIT: `Rs {e.get('apit', 0):,.2f}` | **Net Salary**: `Rs {e.get('netSalaryLkr', 0):,.2f}`"
+                    f"  - Basic LKR: `Rs {basic_lkr:,.2f}` | Earned Salary: `Rs {earned_lkr:,.2f}` | EPF 8%: `Rs {e.get('epf8Lkr', 0):,.2f}` | EPF 12%: `Rs {e.get('epf12Lkr', 0):,.2f}` | ETF 3%: `Rs {e.get('etf3Lkr', 0):,.2f}` | APIT: `Rs {e.get('apit', 0):,.2f}` | **Net Salary**: `Rs {e.get('netSalaryLkr', 0):,.2f}`"
                 )
         else:
             lines.append("\n#### 📅 Payroll Cycles:")
@@ -1600,7 +1677,7 @@ def answer_knowledge_query(user, message, users, operations, customer_records, f
                 comp_name = next((c.get("name") for c in companies if c.get("id") == p.get("companyId")), p.get("companyId"))
                 lines.append(
                     f"- **{ep.get('month')}** — *{comp_name}* [`{ep.get('status')}`]: "
-                    f"`{len(ep.get('employees', []))}` Staff | Gross: `Rs {tots.get('sumLkrGross', 0):,.2f}` | "
+                    f"`{len(ep.get('employees', []))}` Staff | Basic: `Rs {tots.get('sumLkrGross', 0):,.2f}` | Earned: `Rs {tots.get('sumTotalGrossLkr', tots.get('sumLkrGross', 0)):,.2f}` | "
                     f"**Net Remittance**: `Rs {tots.get('sumNetSalaryLkr', 0):,.2f}` | "
                     f"EPF (20%): `Rs {(tots.get('sumEpf8Lkr', 0) + tots.get('sumEpf12Lkr', 0)):,.2f}` | ETF (3%): `Rs {tots.get('sumEtf3Lkr', 0):,.2f}`"
                 )
@@ -1613,11 +1690,13 @@ def answer_knowledge_query(user, message, users, operations, customer_records, f
         'the', 'for', 'in', 'of', 'and', 'is', 'are', 'all', 'list', 'give', 'details', 'information',
         'file', 'files', 'company', 'companies', 'record', 'records', 'status', 'number', 'tin', 'ird',
         'pin', 'ssid', 'cupboard', 'box', 'customer', 'financial', 'spillburg', 'portal', 'can', 'you',
-        'tasks', 'task', 'tracker', 'operations'
+        'tasks', 'task', 'tracker', 'operations', 'staff', 'ravi', 'hemanthi', 'insaaf', 'insaff',
+        'bilal', 'zaharan', 'shameel', 'shaameel', 'miss', 'mrs', 'today', 'works', 'work', 'will'
     }
-    search_terms = [w for w in re.findall(r'[a-z0-9]{3,}', lower) if w not in stop_q]
+    search_terms = [w for w in re.findall(r'[a-z_0-9]{3,}', lower) if w not in stop_q and not w.startswith('staff_')]
 
-    if search_terms:
+    is_pure_user_task_lookup = bool(asks_ops and mentioned_user and not asks_fin and not asks_cust)
+    if search_terms and not is_pure_user_task_lookup:
         if access["modules"]["financial_files"]["view"]:
             fin_matches = []
             for r in financial_records:
