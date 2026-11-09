@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-09T06:35:02Z",
+  "exportTimestamp": "2026-11-09T06:39:31Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6932,7 +6932,7 @@
         "month": "October 2026",
         "monthCode": "OCT-26",
         "yearPeriod": "2026-2027",
-        "letterDate": "31.10.2026",
+        "letterDate": "09.11.2026",
         "exchangeRate": 440,
         "createdAt": "2026-10-28T06:16:05Z",
         "baseCurrency": "LKR",
