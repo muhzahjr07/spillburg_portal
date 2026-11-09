@@ -12169,76 +12169,78 @@ function renderPayrollStaffManager(container) {
 
       <!-- Staff Cards Table -->
       <div class="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
-        <table class="w-full text-xs text-left">
-          <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
-            <tr>
-              <th class="p-3 w-12 text-center">No</th>
-              <th class="p-3">Staff Member</th>
-              <th class="p-3">Position</th>
-              <th class="p-3 text-right">${isSingle ? 'Basic Salary (LKR)' : `${escapeHtml(foreignCurr)} Base`}</th>
-              <th class="p-3 text-center">Working Days</th>
-              <th class="p-3 text-right">Fixed Allow. (LKR)</th>
-              <th class="p-3 text-right">Special Allow. (LKR)</th>
-              <th class="p-3 text-right">Earned Salary (LKR)</th>
-              <th class="p-3 text-right">APIT Tax (LKR)</th>
-              <th class="p-3 text-right">Other Deductions (LKR)</th>
-              <th class="p-3">Bank Remittance Account</th>
-              <th class="p-3">TIN &amp; NIC / Passport</th>
-              <th class="p-3">Date Joined</th>
-              <th class="p-3 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-100">
-            ${emps.map(e => `
-              <tr class="hover:bg-slate-50/80 transition">
-                <td class="p-3 text-center font-bold text-slate-400">${e.no}</td>
-                <td class="p-3">
-                  <div class="font-bold text-slate-900">${escapeHtml(e.name)}</div>
-                  <div class="text-[11px] text-slate-400">EPF No: ${escapeHtml(e.epfNo || e.no)}</div>
-                </td>
-                <td class="p-3 font-medium text-slate-700">${escapeHtml(e.position)}</td>
-                <td class="p-3 text-right font-bold text-slate-900">${isSingle ? `Rs ${formatMoney(e.lkrSalary || e.lkrGross || 0, 2)}` : `${foreignCurr === 'GBP' ? '&pound;' : foreignCurr} ${formatMoney(e.gbpSalary, 2)}`}</td>
-                <td class="p-3 text-center font-semibold text-amber-700">${escapeHtml(e.workDays || '-')}</td>
-                <td class="p-3 text-right font-mono font-semibold text-teal-700">
-                  ${e.fixedAllowance ? `Rs ${formatMoney(e.fixedAllowance, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
-                </td>
-                <td class="p-3 text-right font-mono font-semibold text-teal-700">
-                  ${e.specialAllowance ? `Rs ${formatMoney(e.specialAllowance, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
-                </td>
-                <td class="p-3 text-right font-mono font-bold text-slate-800">
-                  Rs ${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || e.lkrSalary || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}
-                </td>
-                <td class="p-3 text-right font-mono font-semibold text-red-600">
-                  ${Number(e.apit || 0) ? `Rs ${formatMoney(e.apit, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">0</span>'}
-                </td>
-                <td class="p-3 text-right font-mono font-semibold text-amber-700">
-                  ${e.otherDeductions ? `Rs ${formatMoney(e.otherDeductions, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
-                </td>
-                <td class="p-3">
-                  <div class="font-mono font-medium text-slate-800">${escapeHtml(e.bankAccountNo)}</div>
-                  <div class="text-[11px] text-slate-500">${escapeHtml(e.bankBranch)}</div>
-                </td>
-                <td class="p-3">
-                  <div class="text-slate-800">TIN: <span class="font-mono">${escapeHtml(e.tinNo || '-')}</span></div>
-                  <div class="text-[11px] text-slate-500">ID: <span class="font-mono">${escapeHtml(e.idNo || '-')}</span></div>
-                </td>
-                <td class="p-3 text-slate-600">${escapeHtml(e.dateJoined || '-')}</td>
-                <td class="p-3 text-center">
-                  <div class="flex items-center justify-center gap-1">
-                    <button onclick="openEditEmployeeModal('${e.id}')" title="Edit Staff Member"
-                      class="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition">
-                      <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
-                    </button>
-                    <button onclick="deleteEmployee('${e.id}')" title="Remove Staff Member"
-                      class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
-                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                    </button>
-                  </div>
-                </td>
+        <div class="overflow-x-auto sticky-scrollable-table" data-sticky-scroll="true">
+          <table class="w-full min-w-[1300px] text-xs text-left whitespace-nowrap">
+            <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[10px] tracking-wider">
+              <tr>
+                <th class="p-3 w-12 text-center">No</th>
+                <th class="p-3">Staff Member</th>
+                <th class="p-3">Position</th>
+                <th class="p-3 text-right">${isSingle ? 'Basic Salary (LKR)' : `${escapeHtml(foreignCurr)} Base`}</th>
+                <th class="p-3 text-center">Working Days</th>
+                <th class="p-3 text-right">Fixed Allow. (LKR)</th>
+                <th class="p-3 text-right">Special Allow. (LKR)</th>
+                <th class="p-3 text-right">Earned Salary (LKR)</th>
+                <th class="p-3 text-right">APIT Tax (LKR)</th>
+                <th class="p-3 text-right">Other Deductions (LKR)</th>
+                <th class="p-3">Bank Remittance Account</th>
+                <th class="p-3">TIN &amp; NIC / Passport</th>
+                <th class="p-3">Date Joined</th>
+                <th class="p-3 text-center sticky right-0 bg-slate-50 shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">Actions</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${emps.map(e => `
+                <tr class="hover:bg-slate-50/80 transition group">
+                  <td class="p-3 text-center font-bold text-slate-400">${e.no}</td>
+                  <td class="p-3">
+                    <div class="font-bold text-slate-900">${escapeHtml(e.name)}</div>
+                    <div class="text-[11px] text-slate-400">EPF No: ${escapeHtml(e.epfNo || e.no)}</div>
+                  </td>
+                  <td class="p-3 font-medium text-slate-700">${escapeHtml(e.position)}</td>
+                  <td class="p-3 text-right font-bold text-slate-900">${isSingle ? `Rs ${formatMoney(e.lkrSalary || e.lkrGross || 0, 2)}` : `${foreignCurr === 'GBP' ? '&pound;' : foreignCurr} ${formatMoney(e.gbpSalary, 2)}`}</td>
+                  <td class="p-3 text-center font-semibold text-amber-700">${escapeHtml(e.workDays || '-')}</td>
+                  <td class="p-3 text-right font-mono font-semibold text-teal-700">
+                    ${e.fixedAllowance ? `Rs ${formatMoney(e.fixedAllowance, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
+                  </td>
+                  <td class="p-3 text-right font-mono font-semibold text-teal-700">
+                    ${e.specialAllowance ? `Rs ${formatMoney(e.specialAllowance, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
+                  </td>
+                  <td class="p-3 text-right font-mono font-bold text-slate-800">
+                    Rs ${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || e.lkrSalary || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}
+                  </td>
+                  <td class="p-3 text-right font-mono font-semibold text-red-600">
+                    ${Number(e.apit || 0) ? `Rs ${formatMoney(e.apit, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">0</span>'}
+                  </td>
+                  <td class="p-3 text-right font-mono font-semibold text-amber-700">
+                    ${e.otherDeductions ? `Rs ${formatMoney(e.otherDeductions, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
+                  </td>
+                  <td class="p-3">
+                    <div class="font-mono font-medium text-slate-800">${escapeHtml(e.bankAccountNo)}</div>
+                    <div class="text-[11px] text-slate-500">${escapeHtml(e.bankBranch)}</div>
+                  </td>
+                  <td class="p-3">
+                    <div class="text-slate-800">TIN: <span class="font-mono">${escapeHtml(e.tinNo || '-')}</span></div>
+                    <div class="text-[11px] text-slate-500">ID: <span class="font-mono">${escapeHtml(e.idNo || '-')}</span></div>
+                  </td>
+                  <td class="p-3 text-slate-600">${escapeHtml(e.dateJoined || '-')}</td>
+                  <td class="p-3 text-center sticky right-0 bg-white group-hover:bg-slate-50 transition shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)]">
+                    <div class="flex items-center justify-center gap-1">
+                      <button onclick="openEditEmployeeModal('${e.id}')" title="Edit Staff Member"
+                        class="p-1.5 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition">
+                        <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                      </button>
+                      <button onclick="deleteEmployee('${e.id}')" title="Remove Staff Member"
+                        class="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>
 
     </div>
