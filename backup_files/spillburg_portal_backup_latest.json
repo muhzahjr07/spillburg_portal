@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-09T06:26:47Z",
+  "exportTimestamp": "2026-11-09T06:27:26Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6697,7 +6697,7 @@
         "etfChequeNo": "DIRECT DEBIT / SLIPS",
         "checkedBy": "Hemanthi Basnayake",
         "checkedTitle": null,
-        "authorizedSignatory": "Shaameel Mohideen",
+        "authorizedSignatory": "..........................................",
         "authorizedCompany": "",
         "bankName": "Nations Trust Bank PLC",
         "bankBranch": "Borella Branch",
