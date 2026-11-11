@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-10T07:54:42Z",
+  "exportTimestamp": "2026-11-11T04:14:34Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6007,6 +6007,74 @@
       "priority": "High",
       "estimatedCost": "",
       "notes": "Went to Mrs.Nazreen's Sisters place at Polhengoda,handed over the Audit report"
+    },
+    {
+      "id": "ops_9b2784",
+      "no": 215,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "ROC met Ayesha she hasn't submitted the forms which was sent by SH she said forward the...",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Corporate Secretarial & ROC",
+      "type": "ROC / Statutory Filing",
+      "taskedDate": "10-Nov-2026",
+      "completedDate": "10-Nov-2026",
+      "status": "Completed",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Went to ROC met Ayesha she hasn't submitted the forms which was sent by SH she said forward the form to person who handling the subject on 10/11/2026 In the meantime, I met subject clerk Sanka, who handling BO. he said come on 11/11/2026 due to not checking rest of Public days"
+    },
+    {
+      "id": "ops_44e47f",
+      "no": 216,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Citi Traffic Colombo met Morawak status informed to Mr.Shameel/Emad",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Banking & Treasury",
+      "type": "Banking & Fund Transfer",
+      "taskedDate": "10-Nov-2026",
+      "completedDate": "10-Nov-2026",
+      "status": "Completed",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Went to Citi Traffic Colombo met Morawak status informed to Mr.Shameel/Emad"
+    },
+    {
+      "id": "ops_165cdd",
+      "no": 217,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "NTB bank with Bilal N/cashed 2 cheques blk I Global/Makancy Constructions handed over to...",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Banking & Treasury",
+      "type": "Banking & Fund Transfer",
+      "taskedDate": "10-Nov-2026",
+      "completedDate": "10-Nov-2026",
+      "status": "Completed",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Went to NTB bank with Bilal N/cashed 2 cheques blk I Global/Makancy Constructions handed over to Mr.Shameel"
+    },
+    {
+      "id": "ops_e041f2",
+      "no": 218,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Maradana collected the driving licence from Morawaka, handed over to Mr.Shameel",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Office Operations",
+      "type": "Field / Office Operations",
+      "taskedDate": "10-Nov-2026",
+      "completedDate": "10-Nov-2026",
+      "status": "Completed",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Went to Maradana collected the driving licence from Morawaka,handed over to Mr.Shameel"
     }
   ],
   "payroll": {
