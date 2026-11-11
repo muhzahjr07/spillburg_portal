@@ -488,6 +488,367 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
     return bio.getvalue()
 
 
+def _col_letter(col_idx):
+    """0-indexed column number to Excel column letter (0 -> A, 25 -> Z, 26 -> AA)."""
+    res = ""
+    n = col_idx + 1
+    while n > 0:
+        n, rem = divmod(n - 1, 26)
+        res = chr(65 + rem) + res
+    return res
+
+
+def _resolve_fin_checklist(r, target_year=None):
+    chk = r.get("filingChecklist") if isinstance(r, dict) else None
+    if isinstance(chk, dict) and target_year and isinstance(chk.get("byYear"), dict) and target_year in chk["byYear"]:
+        chk = chk["byYear"][target_year]
+    if isinstance(chk, dict) and isinstance(chk.get("items"), dict):
+        items = chk.get("items", {})
+        stages = chk.get("stages", {})
+        year_val = chk.get("assessmentYear") or target_year or "2024/2025"
+    else:
+        text = str((r or {}).get("filingStatus") or "").lower()
+        is_ird = "submitted" in text or "ird submitted" in text
+        is_aud = "audited" in text or "audit account" in text
+        is_draft = "draft account" in text or "final accounts" in text or is_aud or is_ird
+        is_tax = "tax" in text or "itr" in text or "ita" in text or "set" in text or "wht" in text or is_ird
+        year_val = target_year or "2024/2025"
+        stages = {
+            "draftAccounts": {"status": "Completed" if is_draft else "Pending"},
+            "audit": {"status": "Completed" if (is_aud or is_ird) else "Pending"},
+            "taxation": {"status": "Completed" if is_tax else "Pending"},
+            "irdSubmission": {"status": "Completed" if is_ird else "Pending"}
+        }
+        items = {
+            "balanceSheet": {"checked": is_draft, "status": "Done" if is_draft else "Pending"},
+            "pnl": {"checked": is_draft, "status": "Done" if is_draft else "Pending"},
+            "qt": {"checked": is_tax, "status": "Done" if is_tax else "Pending"},
+            "cashFlow": {"checked": is_draft, "status": "Done" if is_draft else "Pending"},
+            "policies": {"checked": is_draft, "status": "Done" if is_draft else "Pending"},
+            "taxation": {"checked": is_tax, "status": "Done" if is_tax else "Pending"},
+            "notesToAccount": {"checked": is_draft, "status": "Done" if is_draft else "Pending"}
+        }
+
+    item_keys = ["balanceSheet", "pnl", "qt", "cashFlow", "policies", "taxation", "notesToAccount"]
+    done_count = sum(1 for k in item_keys if isinstance(items.get(k), dict) and items[k].get("checked"))
+
+    stage_label = "Draft Accounts"
+    if isinstance(stages.get("irdSubmission"), dict) and stages["irdSubmission"].get("status") in ("Completed", "Acknowledged"):
+        stage_label = "IRD Submitted"
+    elif isinstance(stages.get("taxation"), dict) and stages["taxation"].get("status") == "Completed":
+        stage_label = "Tax Finalized"
+    elif isinstance(stages.get("audit"), dict) and stages["audit"].get("status") == "Completed":
+        stage_label = "Audited"
+    elif isinstance(stages.get("draftAccounts"), dict) and stages["draftAccounts"].get("status") == "Completed":
+        stage_label = "Draft Accounts Done"
+
+    return {
+        "year": year_val,
+        "stage": stage_label,
+        "doneCount": done_count,
+        "progressStr": f"{done_count}/7",
+        "items": items,
+        "stages": stages
+    }
+
+
+def _match_customer_archive_str(fin_rec, customer_records):
+    if not customer_records or not isinstance(customer_records, list):
+        return ""
+    reg = str(fin_rec.get("regNo") or "").strip().lower().replace(" ", "")
+    name = str(fin_rec.get("entityName") or "").strip().lower()
+    for token in ["(pvt) ltd", "(private) limited", "pvt ltd", "private limited", ".", ","]:
+        name = name.replace(token, "")
+    name = " ".join(name.split())
+
+    matches = []
+    for c in customer_records:
+        c_reg = str(c.get("Registration No") or "").strip().lower().replace(" ", "")
+        c_name = str(c.get("Company Name") or "").strip().lower()
+        for token in ["(pvt) ltd", "(private) limited", "pvt ltd", "private limited", ".", ","]:
+            c_name = c_name.replace(token, "")
+        c_name = " ".join(c_name.split())
+
+        if (reg and len(reg) >= 4 and c_reg and reg == c_reg) or (name and len(name) >= 4 and c_name and (name == c_name or name in c_name or c_name in name)):
+            cup = c.get("Cupboard") or ""
+            box = c.get("Box No") or ""
+            ftype = "Orig" if "orig" in str(c.get("Type") or "").lower() else "Copy"
+            loc = f"{cup} / {box} ({ftype})".strip(" /")
+            if loc and loc not in matches:
+                matches.append(loc)
+    return " | ".join(matches[:3])
+
+
+def generate_financial_files_xlsx(records, customer_records=None, options=None):
+    """
+    Generates a 100% compliant OpenXML (.xlsx) workbook for the Financial Files Database
+    with full tax credentials, 4-stage pipeline, 7-point statutory checklist, and physical archive cross-links.
+    """
+    opts = options or {}
+    mask_pwd = bool(opts.get("maskPasswords", False))
+    target_year = opts.get("assessmentYear") or ""
+    filter_summary = opts.get("filterSummary") or f"All Records ({len(records)} profiles)"
+
+    headers = [
+        ("No", 5, 7),
+        ("Entity / Client Name", 34, 8),
+        ("Category", 16, 7),
+        ("Reg No", 15, 7),
+        ("Date of Incorp", 14, 7),
+        ("Physical Archive (Cupboard / Box)", 26, 8),
+        ("Tax ID (TIN)", 15, 7),
+        ("Economic Code", 13, 7),
+        ("IRD Portal PIN", 18, 7),
+        ("IRD Password", 18, 7),
+        ("IRD Registered Email", 24, 8),
+        ("SSID No", 14, 7),
+        ("SSID PIN", 14, 7),
+        ("Director Name", 24, 8),
+        ("Director Passport / NIC", 20, 7),
+        ("Phones", 22, 8),
+        ("Emails", 26, 8),
+        ("Assessment Year", 14, 7),
+        ("Compliance Stage", 18, 7),
+        ("Checklist Progress", 15, 7),
+        ("1. Balance Sheet", 15, 7),
+        ("2. Profit & Loss", 15, 7),
+        ("3. Quarterly Tax (QT)", 16, 7),
+        ("4. Cash Flow", 15, 7),
+        ("5. Policies", 15, 7),
+        ("6. Taxation Comp.", 16, 7),
+        ("7. Notes to Accounts", 16, 7),
+        ("Filing Status / Audit History", 42, 8),
+        ("General Notes", 30, 8),
+        ("Register Photo File", 28, 8)
+    ]
+
+    sheet_rows = []
+    cur_row = 1
+
+    # Title & Metadata rows
+    sheet_rows.append((cur_row, [("A", 6, "inlineStr", "SPILLBURG HOLDINGS (PVT) LTD - CORPORATE TAX & FINANCIAL FILES REGISTER")]))
+    cur_row += 1
+    meta_str = f"Scope: {filter_summary}   |   Password Mode: {'Masked' if mask_pwd else 'Full Credentials'}   |   Total Profiles: {len(records)}"
+    sheet_rows.append((cur_row, [("A", 3, "inlineStr", meta_str)]))
+    cur_row += 2
+
+    # Header row
+    header_cells = []
+    for c_idx, (h_label, _, h_style) in enumerate(headers):
+        header_cells.append((_col_letter(c_idx), h_style, "inlineStr", h_label))
+    sheet_rows.append((cur_row, header_cells))
+    cur_row += 1
+
+    item_keys = ["balanceSheet", "pnl", "qt", "cashFlow", "policies", "taxation", "notesToAccount"]
+
+    for idx, r in enumerate(records, start=1):
+        chk_info = _resolve_fin_checklist(r, target_year=target_year if target_year else None)
+        archive_loc = _match_customer_archive_str(r, customer_records)
+
+        ird_pwd = str(r.get("irdPassword") or "")
+        ssid_pin = str(r.get("ssidPin") or "")
+        if mask_pwd:
+            if ird_pwd:
+                ird_pwd = "********"
+            if ssid_pin:
+                ssid_pin = "****"
+
+        def fmt_chk_item(k):
+            it = chk_info["items"].get(k) or {}
+            st = it.get("status") or ("Done" if it.get("checked") else "Pending")
+            dt = it.get("date") or ""
+            return f"{st} ({dt})" if dt else st
+
+        row_vals = [
+            (11, "num", idx),
+            (10, "inlineStr", r.get("entityName") or ""),
+            (11, "inlineStr", r.get("category") or "Corporate"),
+            (11, "inlineStr", r.get("regNo") or ""),
+            (11, "inlineStr", r.get("dateOfIncorp") or ""),
+            (10, "inlineStr", archive_loc),
+            (11, "inlineStr", r.get("tinNo") or ""),
+            (11, "inlineStr", r.get("economicCode") or ""),
+            (11, "inlineStr", r.get("irdPin") or ""),
+            (11, "inlineStr", ird_pwd),
+            (10, "inlineStr", r.get("irdEmail") or ""),
+            (11, "inlineStr", r.get("ssid") or ""),
+            (11, "inlineStr", ssid_pin),
+            (10, "inlineStr", r.get("directorName") or ""),
+            (11, "inlineStr", r.get("directorPassportOrId") or ""),
+            (10, "inlineStr", r.get("phones") or ""),
+            (10, "inlineStr", r.get("emails") or ""),
+            (11, "inlineStr", chk_info["year"]),
+            (11, "inlineStr", chk_info["stage"]),
+            (11, "inlineStr", chk_info["progressStr"]),
+            (11, "inlineStr", fmt_chk_item("balanceSheet")),
+            (11, "inlineStr", fmt_chk_item("pnl")),
+            (11, "inlineStr", fmt_chk_item("qt")),
+            (11, "inlineStr", fmt_chk_item("cashFlow")),
+            (11, "inlineStr", fmt_chk_item("policies")),
+            (11, "inlineStr", fmt_chk_item("taxation")),
+            (11, "inlineStr", fmt_chk_item("notesToAccount")),
+            (10, "inlineStr", r.get("filingStatus") or ""),
+            (10, "inlineStr", r.get("notes") or ""),
+            (10, "inlineStr", r.get("photoFile") or "")
+        ]
+
+        row_cells = []
+        for c_idx, (s_idx, c_type, val) in enumerate(row_vals):
+            row_cells.append((_col_letter(c_idx), s_idx, c_type, val))
+        sheet_rows.append((cur_row, row_cells))
+        cur_row += 1
+
+    sheet_xml_lines = [
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+        '  <sheetViews>',
+        '    <sheetView tabSelected="1" workbookViewId="0">',
+        '      <pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/>',
+        '      <selection pane="bottomLeft" activeCell="A5" sqref="A5"/>',
+        '    </sheetView>',
+        '  </sheetViews>',
+        '  <sheetFormatPr defaultRowHeight="18"/>',
+        '  <cols>'
+    ]
+
+    for c_idx, (_, col_w, _) in enumerate(headers, start=1):
+        sheet_xml_lines.append(f'    <col min="{c_idx}" max="{c_idx}" width="{col_w}" customWidth="1"/>')
+
+    sheet_xml_lines.append('  </cols>')
+    sheet_xml_lines.append('  <sheetData>')
+
+    for r_idx, cells in sheet_rows:
+        sheet_xml_lines.append(f'    <row r="{r_idx}">')
+        for c_col, s_idx, c_type, val in cells:
+            cell_ref = f"{c_col}{r_idx}"
+            if c_type == "num":
+                try:
+                    num_val = int(val)
+                    sheet_xml_lines.append(f'      <c r="{cell_ref}" s="{s_idx}"><v>{num_val}</v></c>')
+                except (ValueError, TypeError):
+                    escaped_str = escape_xml(val)
+                    sheet_xml_lines.append(f'      <c r="{cell_ref}" s="{s_idx}" t="inlineStr"><is><t>{escaped_str}</t></is></c>')
+            else:
+                escaped_str = escape_xml(val)
+                sheet_xml_lines.append(f'      <c r="{cell_ref}" s="{s_idx}" t="inlineStr"><is><t>{escaped_str}</t></is></c>')
+        sheet_xml_lines.append('    </row>')
+
+    sheet_xml_lines.append('  </sheetData>')
+    sheet_xml_lines.append('</worksheet>')
+    sheet_xml = '\n'.join(sheet_xml_lines)
+
+    styles_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <numFmts count="2">
+    <numFmt numFmtId="164" formatCode="#,##0.00"/>
+    <numFmt numFmtId="165" formatCode="#,##0"/>
+  </numFmts>
+  <fonts count="4">
+    <font><sz val="9"/><color theme="1"/><name val="Calibri"/><family val="2"/></font>
+    <font><b/><sz val="9"/><color theme="1"/><name val="Calibri"/><family val="2"/></font>
+    <font><b/><sz val="10"/><color rgb="FF065F46"/><name val="Calibri"/><family val="2"/></font>
+    <font><i/><sz val="9"/><color theme="1"/><name val="Calibri"/><family val="2"/></font>
+  </fonts>
+  <fills count="5">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFD1FAE5"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFE2EFDA"/></patternFill></fill>
+  </fills>
+  <borders count="4">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border>
+      <left style="thin"><color rgb="FFCBD5E1"/></left>
+      <right style="thin"><color rgb="FFCBD5E1"/></right>
+      <top style="thin"><color rgb="FFCBD5E1"/></top>
+      <bottom style="thin"><color rgb="FFCBD5E1"/></bottom>
+      <diagonal/>
+    </border>
+    <border>
+      <left/><right/>
+      <top style="thin"><color rgb="FF000000"/></top>
+      <bottom style="double"><color rgb="FF000000"/></bottom>
+      <diagonal/>
+    </border>
+    <border>
+      <left style="thin"><color rgb="FF94A3B8"/></left>
+      <right style="thin"><color rgb="FF94A3B8"/></right>
+      <top style="thin"><color rgb="FF94A3B8"/></top>
+      <bottom style="medium"><color rgb="FF059669"/></bottom>
+      <diagonal/>
+    </border>
+  </borders>
+  <cellStyleXfs count="1">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+  </cellStyleXfs>
+  <cellXfs count="12">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1"><alignment horizontal="left" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"><alignment horizontal="left" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="3" borderId="0" xfId="0" applyFont="1" applyFill="1"><alignment horizontal="left" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="right" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"><alignment horizontal="left" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
+  </cellXfs>
+</styleSheet>"""
+
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr('[Content_Types].xml', """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>""")
+
+        z.writestr('_rels/.rels', """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>""")
+
+        z.writestr('docProps/app.xml', """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+  <Application>Spillburg Enterprise Portal</Application>
+</Properties>""")
+
+        z.writestr('docProps/core.xml', """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">
+  <dc:creator>Spillburg Holdings</dc:creator>
+  <cp:lastModifiedBy>Spillburg Holdings</cp:lastModifiedBy>
+</cp:coreProperties>""")
+
+        z.writestr('xl/_rels/workbook.xml.rels', """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>""")
+
+        z.writestr('xl/workbook.xml', """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Financial Tax Register" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>""")
+
+        z.writestr('xl/styles.xml', styles_xml)
+        z.writestr('xl/worksheets/sheet1.xml', sheet_xml)
+
+    return bio.getvalue()
+
+
+
 def generate_payslips_xlsx(enriched_period, company_info=None, single_emp_id=None):
     comp = company_info or {}
     comp_name = comp.get('name') or 'APADMI SL (PRIVATE) LIMITED'
@@ -960,3 +1321,4 @@ def generate_payslips_xlsx(enriched_period, company_info=None, single_emp_id=Non
         z.writestr('xl/worksheets/sheet1.xml', sheet_xml)
 
     return bio.getvalue()
+

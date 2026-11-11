@@ -3534,46 +3534,307 @@ function renderCustomerBoxes(records) {
 }
 
 // ================= 4. FINANCIAL FILES DATABASE (LIGHT THEME & PHOTOS) =================
+let finStageFilter = '';
+let finAssessmentYearFilter = '';
+let finMaskPasswords = false;
+let finRevealedRowIds = {};
+
+function computeFinancialKpiMetrics(recordsList, targetYear) {
+  const list = Array.isArray(recordsList) ? recordsList : (financialRecords || []);
+  let total = list.length;
+  let irdSubmitted = 0;
+  let inProgress = 0;
+  let pending = 0;
+  let missingCreds = 0;
+
+  list.forEach(r => {
+    const chk = getFilingChecklistStats(r, targetYear);
+    if (chk.stage === 'IRD Submitted' || chk.completedCount === chk.total) {
+      irdSubmitted++;
+    } else if (chk.completedCount > 0 || ['Draft Accounts Done', 'Audited', 'Tax Finalized'].includes(chk.stage)) {
+      inProgress++;
+    } else {
+      pending++;
+    }
+
+    const hasTin = Boolean((r.tinNo || '').trim() && (r.tinNo || '').trim().toLowerCase() !== 'n/a');
+    const hasPin = Boolean((r.irdPin || '').trim() && (r.irdPin || '').trim().toLowerCase() !== 'n/a');
+    if (!hasTin || !hasPin) {
+      missingCreds++;
+    }
+  });
+
+  return { total, irdSubmitted, inProgress, pending, missingCreds };
+}
+
+function getLinkedCustomerArchiveForFinancial(finRec) {
+  if (!finRec || !Array.isArray(customerRecords) || !customerRecords.length) return [];
+  const reg = (finRec.regNo || '').trim().toLowerCase().replace(/\s+/g, '');
+  const normName = (s) => (s || '').toLowerCase()
+    .replace(/\(pvt\)\s*ltd\.?|\(private\)\s*limited|pvt\s*ltd|private\s*limited|[.,]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const targetName = normName(finRec.entityName);
+
+  const matches = [];
+  const seenKeys = new Set();
+  for (const c of customerRecords) {
+    const cReg = (c['Registration No'] || '').trim().toLowerCase().replace(/\s+/g, '');
+    const cName = normName(c['Company Name']);
+    const regMatch = reg && reg.length >= 4 && cReg && reg === cReg;
+    const nameMatch = targetName && targetName.length >= 4 && cName && (targetName === cName || targetName.includes(cName) || cName.includes(targetName));
+    if (regMatch || nameMatch) {
+      const cup = (c['Cupboard'] || '').trim();
+      const box = (c['Box No'] || '').trim();
+      const isOrig = (c['Type'] || '').toLowerCase().includes('orig');
+      const shortCup = cup.replace(/cupboard\s*/i, 'Cup ');
+      const shortType = isOrig ? 'Orig' : 'Copy';
+      const key = `${cup}|${box}|${shortType}`;
+      if (!seenKeys.has(key) && (cup || box)) {
+        seenKeys.add(key);
+        matches.push({
+          no: c['No'],
+          companyName: c['Company Name'] || finRec.entityName,
+          cupboard: cup,
+          boxNo: box,
+          isOrig,
+          shortLabel: `${shortCup}${shortCup && box ? ' • ' : ''}${box} (${shortType})`
+        });
+      }
+    }
+  }
+  return matches.slice(0, 2);
+}
+
+function jumpToCustomerArchiveFromFinancial(companyName) {
+  switchView('customer-files');
+  setTimeout(() => {
+    const inp = document.getElementById('custSearchInput');
+    if (inp) {
+      inp.value = companyName || '';
+      handleCustomerFilter();
+    }
+  }, 80);
+}
+
+function copyFinancialCredential(val, label, btnEl) {
+  if (!val) return;
+  navigator.clipboard.writeText(String(val)).then(() => {
+    if (btnEl) {
+      const origHtml = btnEl.innerHTML;
+      btnEl.innerHTML = `<span class="text-[10px] font-bold text-emerald-600">Copied!</span>`;
+      setTimeout(() => {
+        btnEl.innerHTML = origHtml;
+        if (window.lucide) lucide.createIcons();
+      }, 1200);
+    }
+  }).catch(() => {
+    // Fallback copy
+    const ta = document.createElement('textarea');
+    ta.value = String(val);
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  });
+}
+
+function toggleFinancialPasswordMask() {
+  finMaskPasswords = !finMaskPasswords;
+  finRevealedRowIds = {};
+  const btn = document.getElementById('finMaskToggleBtn');
+  if (btn) {
+    btn.innerHTML = `
+      <i data-lucide="${finMaskPasswords ? 'eye-off' : 'eye'}" class="w-3.5 h-3.5 ${finMaskPasswords ? 'text-amber-600' : 'text-slate-500'}"></i>
+      <span>${finMaskPasswords ? 'Passwords Masked' : 'Mask Passwords'}</span>
+    `;
+  }
+  handleFinancialFilter();
+}
+
+function toggleSingleRowPasswordReveal(id) {
+  finRevealedRowIds[id] = !finRevealedRowIds[id];
+  handleFinancialFilter();
+}
+
+function setFinancialStageFilterFromCard(stageKey) {
+  if (finStageFilter === stageKey) {
+    finStageFilter = '';
+  } else {
+    finStageFilter = stageKey;
+  }
+  const sel = document.getElementById('finStageFilterSelect');
+  if (sel) sel.value = finStageFilter;
+  handleFinancialFilter();
+}
+
+function clearFinancialSearch() {
+  const inp = document.getElementById('finSearchInput');
+  if (inp) inp.value = '';
+  handleFinancialFilter();
+}
+
+function resetAllFinancialFilters() {
+  finStageFilter = '';
+  finAssessmentYearFilter = '';
+  const qEl = document.getElementById('finSearchInput');
+  const catEl = document.getElementById('finCategoryFilter');
+  const stgEl = document.getElementById('finStageFilterSelect');
+  const yrEl = document.getElementById('finYearFilterSelect');
+  if (qEl) qEl.value = '';
+  if (catEl) catEl.value = '';
+  if (stgEl) stgEl.value = '';
+  if (yrEl) yrEl.value = '';
+  handleFinancialFilter();
+}
+
 function renderFinancialFiles(container) {
   const categories = [...new Set(financialRecords.map(r => r.category).filter(Boolean))];
   const withPhotos = financialRecords.filter(r => r.photoFile).length;
+  const kpi = computeFinancialKpiMetrics(financialRecords, finAssessmentYearFilter || null);
 
   container.innerHTML = `
-    <div class="space-y-6 fade-in">
+    <div class="space-y-5 fade-in">
       
       <!-- Top Action Bar -->
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <h2 class="font-display font-bold text-xl text-slate-900">Financial Files Database</h2>
             <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-              Live Seed Database
+              Live Corporate & Tax Register
             </span>
           </div>
           <p class="text-xs text-slate-500 mt-1">
-            Digitized from 44 physical register photos in <span class="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">financial_records_active.json</span> (${financialRecords.length} profiles &middot; ${withPhotos} photo pages linked)
+            Digitized from physical register photos in <span class="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">financial_records_active.json</span> (${financialRecords.length} profiles &middot; ${withPhotos} photo pages linked &middot; Cross-linked to Customer File Archive)
           </p>
         </div>
 
-        <div class="flex items-center gap-3">
-          <button onclick="openAddFinancialModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5 ${!canEdit('financial_files') ? 'permission-locked' : ''}">
+        <div class="flex flex-wrap items-center gap-2">
+          <!-- Mask / Show Passwords Toggle (applies to screen, print, PDF & Excel) -->
+          <button type="button" id="finMaskToggleBtn" onclick="toggleFinancialPasswordMask()" title="Mask or reveal IRD & SSID passwords on screen, printouts, PDFs, and Excel exports" class="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 transition flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="${finMaskPasswords ? 'eye-off' : 'eye'}" class="w-3.5 h-3.5 ${finMaskPasswords ? 'text-amber-600' : 'text-slate-500'}"></i>
+            <span>${finMaskPasswords ? 'Passwords Masked' : 'Mask Passwords'}</span>
+          </button>
+
+          <!-- Print / Save as PDF Button -->
+          <button type="button" onclick="printFinancialRegisterReport()" title="Print or Save as PDF (A4 Landscape Official Tax & Audit Register)" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            <span>Print / Save PDF</span>
+          </button>
+
+          <!-- Export Excel (.xlsx) Button -->
+          <button type="button" onclick="exportFinancialFilesXlsx()" title="Download formatted Microsoft Excel (.xlsx) workbook of current view" class="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+            <span>Export Excel (.xlsx)</span>
+          </button>
+
+          <!-- Export CSV Button -->
+          <button type="button" onclick="exportFinancialFilesCsv()" title="Download UTF-8 CSV spreadsheet of current view" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 transition flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="download" class="w-3.5 h-3.5 text-slate-600"></i>
+            <span>CSV</span>
+          </button>
+
+          <!-- Add Profile Button -->
+          <button onclick="openAddFinancialModal()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5 cursor-pointer ${!canEdit('financial_files') ? 'permission-locked' : ''}">
             <i data-lucide="plus" class="w-4 h-4"></i> Add Entity Profile
           </button>
         </div>
       </div>
 
-      <!-- Search & Filters -->
-      <div class="flex flex-col sm:flex-row items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
-        <div class="relative flex-1 w-full">
-          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-          <input type="text" id="finSearchInput" oninput="handleFinancialFilter()" placeholder="Search entity name, TIN, SSID, director, filing notes..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+      <!-- Interactive Compliance KPI Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <!-- 1. Total Entities -->
+        <div id="finKpiCard_all" onclick="setFinancialStageFilterFromCard('')" class="cursor-pointer hover:border-slate-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${finStageFilter === '' ? 'border-slate-800 ring-2 ring-slate-200' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to show all financial profiles">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-slate-500 tracking-wider">Total Profiles</div>
+            <div id="finKpiTotal" class="text-2xl font-bold font-display text-slate-900 mt-0.5">${kpi.total}</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">${withPhotos} with notebook photos</div>
+          </div>
+          <div class="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center"><i data-lucide="building-2" class="w-4 h-4"></i></div>
         </div>
-        <select id="finCategoryFilter" onchange="handleFinancialFilter()" class="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none w-full sm:w-auto">
-          <option value="">All Categories (${categories.length})</option>
-          ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
-        </select>
-        <div class="text-[11px] text-slate-400 hidden lg:block shrink-0">
-          Click any column to sort (&Delta;/&nabla;)
+
+        <!-- 2. IRD Submitted / 7/7 Complete -->
+        <div id="finKpiCard_ird_submitted" onclick="setFinancialStageFilterFromCard('ird_submitted')" class="cursor-pointer hover:border-emerald-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${finStageFilter === 'ird_submitted' ? 'border-emerald-500 ring-2 ring-emerald-200' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter entities submitted to IRD or 7/7 complete">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-emerald-700 tracking-wider">IRD Submitted</div>
+            <div id="finKpiSubmitted" class="text-2xl font-bold font-display text-emerald-700 mt-0.5">${kpi.irdSubmitted}</div>
+            <div class="text-[10px] text-emerald-600 font-medium mt-0.5">Filed / 7 of 7 Ready</div>
+          </div>
+          <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center"><i data-lucide="check-circle-2" class="w-4 h-4"></i></div>
+        </div>
+
+        <!-- 3. Audit / Tax In Progress -->
+        <div id="finKpiCard_in_progress" onclick="setFinancialStageFilterFromCard('in_progress')" class="cursor-pointer hover:border-blue-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${finStageFilter === 'in_progress' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter entities in Draft, Audit, or Taxation stage">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-blue-700 tracking-wider">In Progress</div>
+            <div id="finKpiInProgress" class="text-2xl font-bold font-display text-blue-700 mt-0.5">${kpi.inProgress}</div>
+            <div class="text-[10px] text-blue-600 font-medium mt-0.5">Draft / Audit / Tax</div>
+          </div>
+          <div class="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center"><i data-lucide="clipboard-check" class="w-4 h-4"></i></div>
+        </div>
+
+        <!-- 4. Pending Action (0/7) -->
+        <div id="finKpiCard_pending" onclick="setFinancialStageFilterFromCard('pending')" class="cursor-pointer hover:border-amber-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${finStageFilter === 'pending' ? 'border-amber-500 ring-2 ring-amber-200' : 'border-slate-200'} shadow-xs flex items-center justify-between" title="Click to filter entities pending initial accounts & checklist">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-amber-700 tracking-wider">Pending (0/7)</div>
+            <div id="finKpiPending" class="text-2xl font-bold font-display text-amber-700 mt-0.5">${kpi.pending}</div>
+            <div class="text-[10px] text-amber-600 font-medium mt-0.5">Awaiting Accounts</div>
+          </div>
+          <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 flex items-center justify-center"><i data-lucide="clock" class="w-4 h-4"></i></div>
+        </div>
+
+        <!-- 5. Missing TIN / IRD PIN -->
+        <div id="finKpiCard_missing_credentials" onclick="setFinancialStageFilterFromCard('missing_credentials')" class="cursor-pointer hover:border-rose-400 hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${finStageFilter === 'missing_credentials' ? 'border-rose-500 ring-2 ring-rose-200' : 'border-slate-200'} shadow-xs flex items-center justify-between col-span-2 sm:col-span-1" title="Click to filter entities missing TIN or IRD Portal PIN">
+          <div>
+            <div class="text-[11px] font-semibold uppercase text-rose-700 tracking-wider">Missing TIN / PIN</div>
+            <div id="finKpiMissing" class="text-2xl font-bold font-display text-rose-700 mt-0.5">${kpi.missingCreds}</div>
+            <div class="text-[10px] text-rose-600 font-medium mt-0.5">Needs RAMIS Setup</div>
+          </div>
+          <div class="w-9 h-9 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center"><i data-lucide="key-round" class="w-4 h-4"></i></div>
+        </div>
+      </div>
+
+      <!-- Search & Multi-Dimension Filters -->
+      <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+          <input type="text" id="finSearchInput" oninput="handleFinancialFilter()" placeholder="Search entity, Reg No, TIN, IRD PIN, SSID, director, passport, email, phone, or filing notes..." class="w-full pl-9 pr-8 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+          <button type="button" id="finSearchClearBtn" onclick="clearFinancialSearch()" class="hidden absolute right-2.5 top-1.5 text-slate-400 hover:text-slate-600 font-bold text-sm" title="Clear search">&times;</button>
+        </div>
+
+        <div class="flex flex-wrap sm:flex-nowrap items-center gap-2">
+          <!-- Category Filter -->
+          <select id="finCategoryFilter" onchange="handleFinancialFilter()" class="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 font-medium focus:outline-none w-full sm:w-auto">
+            <option value="">All Categories (${categories.length})</option>
+            ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+          </select>
+
+          <!-- Compliance Stage / Status Filter -->
+          <select id="finStageFilterSelect" onchange="finStageFilter = this.value; handleFinancialFilter();" class="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 font-medium focus:outline-none w-full sm:w-auto">
+            <option value="" ${finStageFilter === '' ? 'selected' : ''}>All Compliance Stages</option>
+            <option value="ird_submitted" ${finStageFilter === 'ird_submitted' ? 'selected' : ''}>IRD Submitted / 7/7 Ready</option>
+            <option value="in_progress" ${finStageFilter === 'in_progress' ? 'selected' : ''}>In Progress (Draft / Audit / Tax)</option>
+            <option value="tax_finalized" ${finStageFilter === 'tax_finalized' ? 'selected' : ''}>Stage: Tax Finalized</option>
+            <option value="audited" ${finStageFilter === 'audited' ? 'selected' : ''}>Stage: Audited</option>
+            <option value="draft_done" ${finStageFilter === 'draft_done' ? 'selected' : ''}>Stage: Draft Accounts Done</option>
+            <option value="pending" ${finStageFilter === 'pending' ? 'selected' : ''}>Pending Action (0/7)</option>
+            <option value="missing_credentials" ${finStageFilter === 'missing_credentials' ? 'selected' : ''}>Missing TIN or IRD PIN</option>
+            <option value="has_photo" ${finStageFilter === 'has_photo' ? 'selected' : ''}>With Register Photo</option>
+          </select>
+
+          <!-- Assessment Year Filter -->
+          <select id="finYearFilterSelect" onchange="finAssessmentYearFilter = this.value; handleFinancialFilter();" class="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-700 font-medium focus:outline-none w-full sm:w-auto" title="View checklist status for a specific Year of Assessment">
+            <option value="" ${finAssessmentYearFilter === '' ? 'selected' : ''}>Active Assessment Year</option>
+            <option value="2025/2026" ${finAssessmentYearFilter === '2025/2026' ? 'selected' : ''}>Y/A 2025/2026</option>
+            <option value="2024/2025" ${finAssessmentYearFilter === '2024/2025' ? 'selected' : ''}>Y/A 2024/2025</option>
+            <option value="2023/2024" ${finAssessmentYearFilter === '2023/2024' ? 'selected' : ''}>Y/A 2023/2024</option>
+            <option value="2022/2023" ${finAssessmentYearFilter === '2022/2023' ? 'selected' : ''}>Y/A 2022/2023</option>
+          </select>
+
+          <button type="button" id="finResetFiltersBtn" onclick="resetAllFinancialFilters()" class="hidden px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition shrink-0">
+            Reset
+          </button>
         </div>
       </div>
 
@@ -3587,19 +3848,59 @@ function renderFinancialFiles(container) {
 }
 
 function getFilteredFinancialRecords() {
-  const q = (document.getElementById('finSearchInput')?.value || '').toLowerCase();
-  const cat = (document.getElementById('finCategoryFilter')?.value || '').toLowerCase();
+  const q = (document.getElementById('finSearchInput')?.value || '').toLowerCase().trim();
+  const cat = (document.getElementById('finCategoryFilter')?.value || '').toLowerCase().trim();
+  const stageKey = finStageFilter || (document.getElementById('finStageFilterSelect')?.value || '');
+  const yearFilter = finAssessmentYearFilter || (document.getElementById('finYearFilterSelect')?.value || '');
 
   let filtered = financialRecords.filter(r => {
     const matchQ = !q ||
       (r.entityName || '').toLowerCase().includes(q) ||
+      (r.regNo || '').toLowerCase().includes(q) ||
       (r.tinNo || '').toLowerCase().includes(q) ||
+      (r.economicCode || '').toLowerCase().includes(q) ||
+      (r.irdPin || '').toLowerCase().includes(q) ||
+      (r.irdEmail || '').toLowerCase().includes(q) ||
       (r.ssid || '').toLowerCase().includes(q) ||
       (r.directorName || '').toLowerCase().includes(q) ||
+      (r.directorPassportOrId || '').toLowerCase().includes(q) ||
+      (r.emails || '').toLowerCase().includes(q) ||
+      (r.phones || '').toLowerCase().includes(q) ||
       (r.notes || '').toLowerCase().includes(q) ||
       (r.filingStatus || '').toLowerCase().includes(q);
+    if (!matchQ) return false;
+
     const matchCat = !cat || (r.category || '').toLowerCase().includes(cat);
-    return matchQ && matchCat;
+    if (!matchCat) return false;
+
+    if (stageKey) {
+      const chk = getFilingChecklistStats(r, yearFilter || null);
+      if (stageKey === 'ird_submitted') {
+        if (chk.stage !== 'IRD Submitted' && chk.completedCount !== chk.total) return false;
+      } else if (stageKey === 'in_progress') {
+        const isSub = chk.stage === 'IRD Submitted' || chk.completedCount === chk.total;
+        const isProg = !isSub && (chk.completedCount > 0 || ['Draft Accounts Done', 'Audited', 'Tax Finalized'].includes(chk.stage));
+        if (!isProg) return false;
+      } else if (stageKey === 'tax_finalized') {
+        if (chk.stage !== 'Tax Finalized') return false;
+      } else if (stageKey === 'audited') {
+        if (chk.stage !== 'Audited') return false;
+      } else if (stageKey === 'draft_done') {
+        if (chk.stage !== 'Draft Accounts Done') return false;
+      } else if (stageKey === 'pending') {
+        const isSub = chk.stage === 'IRD Submitted' || chk.completedCount === chk.total;
+        const isProg = !isSub && (chk.completedCount > 0 || ['Draft Accounts Done', 'Audited', 'Tax Finalized'].includes(chk.stage));
+        if (isSub || isProg) return false;
+      } else if (stageKey === 'missing_credentials') {
+        const hasTin = Boolean((r.tinNo || '').trim() && (r.tinNo || '').trim().toLowerCase() !== 'n/a');
+        const hasPin = Boolean((r.irdPin || '').trim() && (r.irdPin || '').trim().toLowerCase() !== 'n/a');
+        if (hasTin && hasPin) return false;
+      } else if (stageKey === 'has_photo') {
+        if (!r.photoFile) return false;
+      }
+    }
+
+    return true;
   });
 
   const sortCol = tableSortState.financial.col;
@@ -3607,13 +3908,54 @@ function getFilteredFinancialRecords() {
   return sortGenericRecords(filtered, sortCol, sortAsc);
 }
 
+function updateFinancialKpiAndFilterUI() {
+  const kpi = computeFinancialKpiMetrics(financialRecords, finAssessmentYearFilter || null);
+  const elTot = document.getElementById('finKpiTotal');
+  const elSub = document.getElementById('finKpiSubmitted');
+  const elProg = document.getElementById('finKpiInProgress');
+  const elPend = document.getElementById('finKpiPending');
+  const elMiss = document.getElementById('finKpiMissing');
+  if (elTot) elTot.textContent = kpi.total;
+  if (elSub) elSub.textContent = kpi.irdSubmitted;
+  if (elProg) elProg.textContent = kpi.inProgress;
+  if (elPend) elPend.textContent = kpi.pending;
+  if (elMiss) elMiss.textContent = kpi.missingCreds;
+
+  const cardSpecs = [
+    { key: '', id: 'finKpiCard_all', activeCls: 'border-slate-800 ring-2 ring-slate-200', hoverCls: 'hover:border-slate-400' },
+    { key: 'ird_submitted', id: 'finKpiCard_ird_submitted', activeCls: 'border-emerald-500 ring-2 ring-emerald-200', hoverCls: 'hover:border-emerald-400' },
+    { key: 'in_progress', id: 'finKpiCard_in_progress', activeCls: 'border-blue-500 ring-2 ring-blue-200', hoverCls: 'hover:border-blue-400' },
+    { key: 'pending', id: 'finKpiCard_pending', activeCls: 'border-amber-500 ring-2 ring-amber-200', hoverCls: 'hover:border-amber-400' },
+    { key: 'missing_credentials', id: 'finKpiCard_missing_credentials', activeCls: 'border-rose-500 ring-2 ring-rose-200 col-span-2 sm:col-span-1', hoverCls: 'hover:border-rose-400 col-span-2 sm:col-span-1' }
+  ];
+  cardSpecs.forEach(cs => {
+    const el = document.getElementById(cs.id);
+    if (el) {
+      const isAct = finStageFilter === cs.key;
+      el.className = `cursor-pointer ${cs.hoverCls} hover:shadow-xs transition bg-white p-3.5 rounded-xl border ${isAct ? cs.activeCls : 'border-slate-200'} shadow-xs flex items-center justify-between`;
+    }
+  });
+
+  const qVal = (document.getElementById('finSearchInput')?.value || '').trim();
+  const catVal = (document.getElementById('finCategoryFilter')?.value || '').trim();
+  const clearBtn = document.getElementById('finSearchClearBtn');
+  if (clearBtn) clearBtn.classList.toggle('hidden', !qVal);
+
+  const resetBtn = document.getElementById('finResetFiltersBtn');
+  if (resetBtn) {
+    const anyFilter = Boolean(qVal || catVal || finStageFilter || finAssessmentYearFilter);
+    resetBtn.classList.toggle('hidden', !anyFilter);
+  }
+}
+
 function handleFinancialFilter() {
   const filtered = getFilteredFinancialRecords();
   const container = document.getElementById('financialTableContainer');
   if (container) {
     container.innerHTML = renderFinancialTable(filtered);
-    if (window.lucide) lucide.createIcons();
   }
+  updateFinancialKpiAndFilterUI();
+  if (window.lucide) lucide.createIcons();
 }
 
 function renderFinancialTable(records) {
@@ -3621,7 +3963,10 @@ function renderFinancialTable(records) {
     return `
       <div class="p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 space-y-2 shadow-sm">
         <i data-lucide="file-x" class="w-10 h-10 mx-auto text-slate-300"></i>
-        <div class="text-sm font-semibold text-slate-700">No financial records match your search criteria</div>
+        <div class="text-sm font-semibold text-slate-700">No financial records match your search or filter criteria</div>
+        <button type="button" onclick="resetAllFinancialFilters()" class="mt-2 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-semibold border border-emerald-200 transition">
+          Reset Filters
+        </button>
       </div>
     `;
   }
@@ -3632,8 +3977,8 @@ function renderFinancialTable(records) {
         <table class="w-full text-left text-xs whitespace-nowrap">
           <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
             <tr>
-              <th onclick="handleSort('financial', 'entityName')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition min-w-[220px]">
-                Entity / Director ${getSortHeaderIcon('financial', 'entityName')}
+              <th onclick="handleSort('financial', 'entityName')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition min-w-[240px]">
+                Entity / Director & Archive ${getSortHeaderIcon('financial', 'entityName')}
               </th>
               <th onclick="handleSort('financial', 'category')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
                 Category ${getSortHeaderIcon('financial', 'category')}
@@ -3642,13 +3987,13 @@ function renderFinancialTable(records) {
                 Tax ID (TIN) ${getSortHeaderIcon('financial', 'tinNo')}
               </th>
               <th onclick="handleSort('financial', 'irdPin')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
-                IRD Credentials ${getSortHeaderIcon('financial', 'irdPin')}
+                IRD RAMIS Credentials ${getSortHeaderIcon('financial', 'irdPin')}
               </th>
               <th onclick="handleSort('financial', 'ssid')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
                 SSID / PIN ${getSortHeaderIcon('financial', 'ssid')}
               </th>
-              <th onclick="handleSort('financial', 'filingStatus')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition min-w-[200px]">
-                Filing Status & Notes ${getSortHeaderIcon('financial', 'filingStatus')}
+              <th onclick="handleSort('financial', 'filingStatus')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition min-w-[240px]">
+                Filing Status & Checklist ${getSortHeaderIcon('financial', 'filingStatus')}
               </th>
               <th onclick="handleSort('financial', 'photoFile')" class="py-3 px-3.5 cursor-pointer select-none hover:bg-slate-100 transition">
                 Notebook Photo ${getSortHeaderIcon('financial', 'photoFile')}
@@ -3658,49 +4003,114 @@ function renderFinancialTable(records) {
           </thead>
           <tbody class="divide-y divide-slate-100">
             ${records.map(r => {
-    const chk = getFilingChecklistStats(r);
+    const chk = getFilingChecklistStats(r, finAssessmentYearFilter || null);
+    const linkedArchives = getLinkedCustomerArchiveForFinancial(r);
+    const isRowMasked = finMaskPasswords && !finRevealedRowIds[r.id];
+    const safeTin = (r.tinNo || '').replace(/'/g, "\\'");
+    const safeIrdPin = (r.irdPin || '').replace(/'/g, "\\'");
+    const safeIrdPwd = (r.irdPassword || '').replace(/'/g, "\\'");
+    const safeSsid = (r.ssid || '').replace(/'/g, "\\'");
+    const safeSsidPin = (r.ssidPin || '').replace(/'/g, "\\'");
+
     return `
               <tr class="hover:bg-slate-50/80 transition">
                 <td class="py-3 px-3.5">
-                  <div class="font-semibold text-slate-900">${r.entityName || 'Unnamed'}</div>
-                  <div class="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 flex-wrap">
-                    ${r.directorName ? `<span>Director: ${r.directorName}</span>` : `<span>${r.category || 'Corporate'}</span>`}
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-semibold text-slate-900">${escapeHtml(r.entityName || 'Unnamed')}</span>
+                    ${r.regNo ? `<span class="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-mono text-[10px] border border-slate-200">${escapeHtml(r.regNo)}</span>` : ''}
+                  </div>
+                  <div class="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 flex-wrap mt-0.5">
+                    ${r.directorName ? `<span>Director: ${escapeHtml(r.directorName)}${r.directorPassportOrId ? ` <span class="font-mono text-[10px] text-slate-400">(${escapeHtml(r.directorPassportOrId)})</span>` : ''}</span>` : `<span>${escapeHtml(r.category || 'Corporate')}</span>`}
                     ${r.dateOfIncorp ? `<span class="text-slate-300">&bull;</span><span class="text-slate-500 font-mono text-[10px]">Incorp: ${formatDisplayDate(r.dateOfIncorp)}</span>` : ''}
                   </div>
+                  ${linkedArchives.length > 0 ? `
+                    <div class="flex items-center gap-1.5 flex-wrap mt-1">
+                      ${linkedArchives.map(la => `
+                        <button type="button" onclick="jumpToCustomerArchiveFromFinancial('${(la.companyName || '').replace(/'/g, "\\'")}')" title="Open physical file location in Customer Files DB (${escapeHtml(la.cupboard)} -> ${escapeHtml(la.boxNo)})" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold ${la.isOrig ? 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100' : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'} transition cursor-pointer">
+                          <i data-lucide="archive" class="w-3 h-3"></i>
+                          <span>${escapeHtml(la.shortLabel)}</span>
+                        </button>
+                      `).join('')}
+                    </div>
+                  ` : ''}
                 </td>
                 <td class="py-3 px-3.5">
                   <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${r.category === 'Corporate' ? 'bg-blue-50 text-blue-700 border border-blue-200' : (r.category === 'Individual' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-700 border border-slate-200')}">
-                    ${r.category || 'Corporate'}
+                    ${escapeHtml(r.category || 'Corporate')}
                   </span>
                 </td>
                 <td class="py-3 px-3.5">
-                  ${r.tinNo ? `<div class="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-block text-[11px]">${r.tinNo}</div>` : '<span class="text-slate-400">-</span>'}
-                  ${r.economicCode ? `<div class="text-[10px] text-slate-400 mt-0.5 font-mono">Code: ${r.economicCode}</div>` : ''}
+                  ${r.tinNo ? `
+                    <div class="flex items-center gap-1">
+                      <span class="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-block text-[11px]">${escapeHtml(r.tinNo)}</span>
+                      <button type="button" onclick="copyFinancialCredential('${safeTin}', 'TIN', this)" title="Copy TIN" class="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition">
+                        <i data-lucide="copy" class="w-3 h-3"></i>
+                      </button>
+                    </div>
+                  ` : '<span class="text-rose-400 text-[11px] font-medium">Missing TIN</span>'}
+                  ${r.economicCode ? `<div class="text-[10px] text-slate-400 mt-0.5 font-mono">Econ Code: ${escapeHtml(r.economicCode)}</div>` : ''}
                 </td>
                 <td class="py-3 px-3.5 text-slate-600">
-                  ${r.irdPin ? `<div class="font-mono text-[11px]">PIN: <span class="text-slate-900 font-semibold">${r.irdPin}</span></div>` : ''}
-                  ${r.irdPassword ? `<div class="font-mono text-[10px] text-slate-500">Pwd: ${r.irdPassword}</div>` : ''}
+                  ${r.irdPin ? `
+                    <div class="font-mono text-[11px] flex items-center gap-1">
+                      <span>PIN: <span class="text-slate-900 font-semibold">${escapeHtml(r.irdPin)}</span></span>
+                      <button type="button" onclick="copyFinancialCredential('${safeIrdPin}', 'IRD PIN', this)" title="Copy IRD PIN" class="p-0.5 rounded text-slate-400 hover:text-emerald-600 transition">
+                        <i data-lucide="copy" class="w-3 h-3"></i>
+                      </button>
+                    </div>
+                  ` : ''}
+                  ${r.irdPassword ? `
+                    <div class="font-mono text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                      <span>Pwd: <span class="font-semibold text-slate-700">${isRowMasked ? '&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;' : escapeHtml(r.irdPassword)}</span></span>
+                      <button type="button" onclick="copyFinancialCredential('${safeIrdPwd}', 'IRD Password', this)" title="Copy IRD Password" class="p-0.5 rounded text-slate-400 hover:text-emerald-600 transition">
+                        <i data-lucide="copy" class="w-3 h-3"></i>
+                      </button>
+                      ${finMaskPasswords ? `
+                        <button type="button" onclick="toggleSingleRowPasswordReveal('${r.id}')" title="${isRowMasked ? 'Reveal password' : 'Mask password'}" class="p-0.5 rounded text-slate-400 hover:text-amber-600 transition">
+                          <i data-lucide="${isRowMasked ? 'eye' : 'eye-off'}" class="w-3 h-3"></i>
+                        </button>
+                      ` : ''}
+                    </div>
+                  ` : ''}
+                  ${r.irdEmail ? `<div class="text-[10px] text-slate-400 truncate max-w-[160px]" title="${escapeHtml(r.irdEmail)}">${escapeHtml(r.irdEmail)}</div>` : ''}
                   ${!r.irdPin && !r.irdPassword ? '<span class="text-slate-400">-</span>' : ''}
                 </td>
                 <td class="py-3 px-3.5 text-slate-600">
-                  ${r.ssid ? `<div class="font-mono text-[11px]">SSID: <span class="text-slate-900 font-semibold">${r.ssid}</span></div>` : ''}
-                  ${r.ssidPin ? `<div class="font-mono text-[10px] text-slate-500">PIN: ${r.ssidPin}</div>` : ''}
+                  ${r.ssid ? `
+                    <div class="font-mono text-[11px] flex items-center gap-1">
+                      <span>SSID: <span class="text-slate-900 font-semibold">${escapeHtml(r.ssid)}</span></span>
+                      <button type="button" onclick="copyFinancialCredential('${safeSsid}', 'SSID', this)" title="Copy SSID" class="p-0.5 rounded text-slate-400 hover:text-emerald-600 transition">
+                        <i data-lucide="copy" class="w-3 h-3"></i>
+                      </button>
+                    </div>
+                  ` : ''}
+                  ${r.ssidPin ? `
+                    <div class="font-mono text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                      <span>PIN: <span class="font-semibold text-slate-700">${isRowMasked ? '&bull;&bull;&bull;&bull;' : escapeHtml(r.ssidPin)}</span></span>
+                      <button type="button" onclick="copyFinancialCredential('${safeSsidPin}', 'SSID PIN', this)" title="Copy SSID PIN" class="p-0.5 rounded text-slate-400 hover:text-emerald-600 transition">
+                        <i data-lucide="copy" class="w-3 h-3"></i>
+                      </button>
+                    </div>
+                  ` : ''}
                   ${!r.ssid && !r.ssidPin ? '<span class="text-slate-400">-</span>' : ''}
                 </td>
-                <td class="py-3 px-3.5 min-w-[240px] max-w-xs whitespace-normal">
+                <td class="py-3 px-3.5 min-w-[250px] max-w-xs whitespace-normal">
                   <div class="space-y-1.5">
                     <div class="flex items-center gap-1.5 flex-wrap">
-                      <button onclick="openFilingChecklistModal('${r.id}')" title="Click to view and edit statutory filing checklist" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition shadow-xs group ${chk.badgeClass}">
+                      <button onclick="openFilingChecklistModal('${r.id}', '${finAssessmentYearFilter || ''}')" title="Click to view and edit statutory filing checklist" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition shadow-xs group ${chk.badgeClass}">
                         <i data-lucide="${chk.icon}" class="w-3.5 h-3.5"></i>
                         <span>Checklist: ${chk.badgeText}</span>
                         <i data-lucide="chevron-right" class="w-3 h-3 opacity-60 group-hover:translate-x-0.5 transition-transform"></i>
                       </button>
                       <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                        ${chk.stage}
+                        ${escapeHtml(chk.stage)}
+                      </span>
+                      <span class="px-1.5 py-0.2 rounded text-[10px] font-mono text-slate-500 bg-slate-50 border border-slate-200">
+                        ${escapeHtml(chk.assessmentYear || '2024/2025')}
                       </span>
                     </div>
-                    <div class="text-[11px] text-slate-600 line-clamp-2 leading-relaxed" title="${r.filingStatus || r.notes || ''}">
-                      ${r.filingStatus || r.notes || '<span class="text-slate-400 italic">No filing status recorded</span>'}
+                    <div class="text-[11px] text-slate-600 line-clamp-2 leading-relaxed" title="${escapeHtml(r.filingStatus || r.notes || '')}">
+                      ${r.filingStatus || r.notes ? escapeHtml(r.filingStatus || r.notes) : '<span class="text-slate-400 italic">No filing status recorded</span>'}
                     </div>
                   </div>
                 </td>
@@ -3711,14 +4121,17 @@ function renderFinancialTable(records) {
                     </button>
                   ` : '<span class="text-slate-400 text-[11px]">No Photo</span>'}
                 </td>
-                <td class="py-3 px-3.5 text-right sticky right-0 bg-white/95 backdrop-blur-xs space-x-1">
-                  <button onclick="openFilingChecklistModal('${r.id}')" title="Statutory Filing Checklist" class="p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition">
+                <td class="py-3 px-3.5 text-right sticky right-0 bg-white/95 backdrop-blur-xs space-x-0.5">
+                  <button onclick="printSingleFinancialEntityDossier('${r.id}')" title="Print / Save PDF Client Tax & Audit Dossier" class="p-1.5 rounded text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition">
+                    <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button onclick="openFilingChecklistModal('${r.id}', '${finAssessmentYearFilter || ''}')" title="Statutory Filing Checklist" class="p-1.5 rounded text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition">
                     <i data-lucide="clipboard-check" class="w-3.5 h-3.5 text-emerald-600"></i>
                   </button>
-                  <button onclick="openEditFinancialModal('${r.id}')" title="Edit Profile" class="p-1 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition ${!canEdit('financial_files') ? 'permission-locked' : ''}">
+                  <button onclick="openEditFinancialModal('${r.id}')" title="Edit Profile" class="p-1.5 rounded text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition ${!canEdit('financial_files') ? 'permission-locked' : ''}">
                     <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
                   </button>
-                  <button onclick="deleteFinancialRecord('${r.id}')" title="Delete Profile" class="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 transition ${!canEdit('financial_files') ? 'permission-locked' : ''}">
+                  <button onclick="deleteFinancialRecord('${r.id}')" title="Delete Profile" class="p-1.5 rounded text-slate-500 hover:text-red-600 hover:bg-red-50 transition ${!canEdit('financial_files') ? 'permission-locked' : ''}">
                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                   </button>
                 </td>
@@ -3728,13 +4141,696 @@ function renderFinancialTable(records) {
           </tbody>
         </table>
       </div>
-      <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-slate-500 text-[11px] flex items-center justify-between">
-        <span>Showing ${records.length} of ${financialRecords.length} records</span>
+      <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-slate-500 text-[11px] flex flex-wrap items-center justify-between gap-2">
+        <span>Showing <strong>${records.length}</strong> of <strong>${financialRecords.length}</strong> financial profiles</span>
         <span class="font-mono">Sorted by: ${tableSortState.financial.col} (${tableSortState.financial.asc ? 'Ascending' : 'Descending'})</span>
       </div>
     </div>
   `;
 }
+
+// ================= 4.0.1 FINANCIAL FILES EXPORT (EXCEL .XLSX, CSV) & PRINT / PDF SUITE =================
+function buildFinancialFilterSummaryText(recordsCount) {
+  const parts = [];
+  const q = (document.getElementById('finSearchInput')?.value || '').trim();
+  const cat = (document.getElementById('finCategoryFilter')?.value || '').trim();
+  if (cat) parts.push(`Category: ${cat}`);
+  if (finStageFilter) parts.push(`Stage: ${finStageFilter.replace(/_/g, ' ').toUpperCase()}`);
+  if (finAssessmentYearFilter) parts.push(`Y/A: ${finAssessmentYearFilter}`);
+  if (q) parts.push(`Search: "${q}"`);
+  if (!parts.length) return `All Financial Profiles (${recordsCount} entities)`;
+  return `${parts.join(' • ')} (${recordsCount} entities)`;
+}
+
+async function exportFinancialFilesXlsx() {
+  const records = getFilteredFinancialRecords();
+  if (!records.length) {
+    alert('No financial records in the current view to export.');
+    return;
+  }
+  const filterSummary = buildFinancialFilterSummaryText(records.length);
+  try {
+    const res = await fetch('/api/financial-files/export-xlsx', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify({
+        recordIds: records.map(r => r.id),
+        maskPasswords: finMaskPasswords,
+        assessmentYear: finAssessmentYearFilter || '',
+        filterSummary
+      })
+    });
+    if (!res.ok) {
+      throw new Error('Server returned ' + res.status);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Spillburg_Financial_Tax_Register_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Error exporting Excel (.xlsx): ' + err.message);
+  }
+}
+
+function exportFinancialFilesCsv() {
+  const records = getFilteredFinancialRecords();
+  if (!records.length) {
+    alert('No financial records in the current view to export.');
+    return;
+  }
+  const filterSummary = buildFinancialFilterSummaryText(records.length);
+  const rows = [];
+  rows.push(["SPILLBURG HOLDINGS (PVT) LTD - CORPORATE TAX & FINANCIAL FILES REGISTER"]);
+  rows.push([`Scope: ${filterSummary}`, `Generated: ${new Date().toLocaleString()}`, `Password Mode: ${finMaskPasswords ? 'Masked' : 'Full Credentials'}`]);
+  rows.push([]);
+  rows.push([
+    "No.",
+    "Entity / Client Name",
+    "Category",
+    "Registration No",
+    "Date of Incorp",
+    "Physical Archive (Cupboard / Box)",
+    "Tax ID (TIN)",
+    "Economic Code",
+    "IRD Portal PIN",
+    "IRD Password",
+    "IRD Email",
+    "SSID No",
+    "SSID PIN",
+    "Director Name",
+    "Director Passport / NIC",
+    "Phones",
+    "Emails",
+    "Assessment Year",
+    "Compliance Stage",
+    "Checklist Ready (X/7)",
+    "1. Balance Sheet",
+    "2. Profit & Loss (P&L)",
+    "3. Quarterly Tax (QT)",
+    "4. Cash Flow Statement",
+    "5. Accounting Policies",
+    "6. Taxation Computation",
+    "7. Notes to Accounts",
+    "Filing Status / Audit History",
+    "General Notes",
+    "Register Photo File"
+  ]);
+
+  records.forEach((r, idx) => {
+    const chk = getFilingChecklist(r, finAssessmentYearFilter || null);
+    const stats = getFilingChecklistStats(r, finAssessmentYearFilter || null);
+    const archiveStr = getLinkedCustomerArchiveForFinancial(r).map(a => a.shortLabel).join(' | ');
+    const irdPwd = finMaskPasswords && r.irdPassword ? '********' : (r.irdPassword || '');
+    const ssidPin = finMaskPasswords && r.ssidPin ? '****' : (r.ssidPin || '');
+    const fmtItem = (k) => {
+      const it = (chk.items && chk.items[k]) ? chk.items[k] : {};
+      const st = it.status || (it.checked ? 'Done' : 'Pending');
+      return it.date ? `${st} (${it.date})` : st;
+    };
+
+    rows.push([
+      idx + 1,
+      r.entityName || '',
+      r.category || 'Corporate',
+      r.regNo || '',
+      formatDisplayDate(r.dateOfIncorp) || '',
+      archiveStr,
+      r.tinNo || '',
+      r.economicCode || '',
+      r.irdPin || '',
+      irdPwd,
+      r.irdEmail || '',
+      r.ssid || '',
+      ssidPin,
+      r.directorName || '',
+      r.directorPassportOrId || '',
+      r.phones || '',
+      r.emails || '',
+      chk.assessmentYear || '2024/2025',
+      stats.stage || '',
+      `${stats.completedCount}/${stats.total}`,
+      fmtItem('balanceSheet'),
+      fmtItem('pnl'),
+      fmtItem('qt'),
+      fmtItem('cashFlow'),
+      fmtItem('policies'),
+      fmtItem('taxation'),
+      fmtItem('notesToAccount'),
+      r.filingStatus || '',
+      r.notes || '',
+      r.photoFile || ''
+    ]);
+  });
+
+  const csvContent = "\uFEFF" + rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Spillburg_Financial_Tax_Register_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function printFinancialRegisterReport() {
+  const records = getFilteredFinancialRecords();
+  if (!records.length) {
+    alert('No financial records in the current view to print.');
+    return;
+  }
+  const printWin = window.open('', '_blank');
+  if (!printWin) {
+    alert('Please allow popups to open the Print / Save as PDF view.');
+    return;
+  }
+
+  const kpi = computeFinancialKpiMetrics(records, finAssessmentYearFilter || null);
+  const filterSummary = buildFinancialFilterSummaryText(records.length);
+  const generatedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const generatedTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const prepBy = currentUser ? `${currentUser.fullName || currentUser.username} (${(currentUser.title || currentUser.role || 'Officer').toUpperCase()})` : 'Administrator';
+
+  const rowsHtml = records.map((r, idx) => {
+    const chk = getFilingChecklist(r, finAssessmentYearFilter || null);
+    const stats = getFilingChecklistStats(r, finAssessmentYearFilter || null);
+    const archives = getLinkedCustomerArchiveForFinancial(r).map(a => a.shortLabel).join(', ');
+    const pwdDisplay = r.irdPassword ? (finMaskPasswords ? '••••••••' : escapeHtml(r.irdPassword)) : '-';
+    const ssidPinDisplay = r.ssidPin ? (finMaskPasswords ? '••••' : escapeHtml(r.ssidPin)) : '-';
+
+    const stageBadgeCls = stats.stage === 'IRD Submitted' || stats.completedCount === 7
+      ? 'background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;'
+      : (stats.completedCount > 0 ? 'background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;' : 'background:#fef3c7;color:#92400e;border:1px solid #fde68a;');
+
+    return `
+      <tr>
+        <td style="text-align:center;font-family:monospace;font-weight:bold;">${idx + 1}</td>
+        <td>
+          <div style="font-weight:700;color:#0f172a;">${escapeHtml(r.entityName || 'Unnamed')}</div>
+          <div style="font-size:8.5px;color:#475569;">
+            ${r.regNo ? `Reg: <strong>${escapeHtml(r.regNo)}</strong> &bull; ` : ''}
+            ${r.dateOfIncorp ? `Incorp: ${escapeHtml(formatDisplayDate(r.dateOfIncorp))} &bull; ` : ''}
+            ${escapeHtml(r.category || 'Corporate')}
+          </div>
+          ${archives ? `<div style="font-size:8px;color:#047857;margin-top:2px;"><strong>Archive:</strong> ${escapeHtml(archives)}</div>` : ''}
+        </td>
+        <td>
+          <div style="font-family:monospace;font-weight:700;font-size:10px;color:#0f172a;">${escapeHtml(r.tinNo || '-')}</div>
+          ${r.economicCode ? `<div style="font-size:8px;color:#64748b;font-family:monospace;">Econ: ${escapeHtml(r.economicCode)}</div>` : ''}
+        </td>
+        <td style="font-family:monospace;font-size:9px;">
+          <div><strong>PIN:</strong> ${escapeHtml(r.irdPin || '-')}</div>
+          <div class="pwd-cell" data-raw="${escapeHtml(r.irdPassword || '-')}" data-masked="${r.irdPassword ? '••••••••' : '-'}"><strong>Pwd:</strong> <span class="pwd-val">${pwdDisplay}</span></div>
+          ${r.irdEmail ? `<div style="font-size:8px;color:#64748b;word-break:break-all;">${escapeHtml(r.irdEmail)}</div>` : ''}
+        </td>
+        <td style="font-family:monospace;font-size:9px;">
+          <div><strong>SSID:</strong> ${escapeHtml(r.ssid || '-')}</div>
+          <div class="pwd-cell" data-raw="${escapeHtml(r.ssidPin || '-')}" data-masked="${r.ssidPin ? '••••' : '-'}"><strong>PIN:</strong> <span class="pwd-val">${ssidPinDisplay}</span></div>
+        </td>
+        <td>
+          <div style="font-weight:600;color:#1e293b;">${escapeHtml(r.directorName || '-')}</div>
+          ${r.directorPassportOrId ? `<div style="font-family:monospace;font-size:8.5px;color:#475569;">ID: ${escapeHtml(r.directorPassportOrId)}</div>` : ''}
+          ${r.phones ? `<div style="font-size:8px;color:#64748b;">Tel: ${escapeHtml(r.phones)}</div>` : ''}
+        </td>
+        <td>
+          <div style="margin-bottom:3px;">
+            <span style="display:inline-block;padding:1.5px 6px;border-radius:4px;font-size:8px;font-weight:700;${stageBadgeCls}">
+              ${escapeHtml(stats.stage)} (${stats.completedCount}/7)
+            </span>
+            <span style="font-size:8px;color:#64748b;font-family:monospace;margin-left:3px;">Y/A ${escapeHtml(chk.assessmentYear || '2024/2025')}</span>
+          </div>
+          <div style="font-size:8.5px;color:#334155;line-height:1.35;">${escapeHtml(r.filingStatus || r.notes || '-')}</div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>Spillburg Financial & Tax Register Report - ${generatedDate}</title>
+      <style>
+        @page {
+          size: A4 landscape;
+          margin: 10mm 12mm;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+          color: #0f172a;
+          background: #ffffff;
+          font-size: 9.5px;
+          line-height: 1.35;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .no-print-bar {
+          position: sticky;
+          top: 0;
+          z-index: 100;
+          background: #0f172a;
+          color: #fff;
+          padding: 10px 18px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        @media print {
+          .no-print-bar { display: none !important; }
+        }
+        .page-wrap {
+          max-width: 1080px;
+          margin: 0 auto;
+          padding: 12px 0;
+        }
+        .hdr-table {
+          width: 100%;
+          border-bottom: 2px solid #059669;
+          padding-bottom: 8px;
+          margin-bottom: 10px;
+        }
+        .kpi-row {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 8px;
+          margin-bottom: 12px;
+        }
+        .kpi-box {
+          background: #f8fafc;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          padding: 6px 10px;
+        }
+        .kpi-lbl { font-size: 8px; text-transform: uppercase; font-weight: 700; color: #475569; }
+        .kpi-val { font-size: 14px; font-weight: 700; color: #0f172a; margin-top: 1px; }
+        table.reg-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 9px;
+        }
+        table.reg-table th {
+          background: #f1f5f9;
+          color: #1e293b;
+          font-weight: 700;
+          text-align: left;
+          padding: 6px 7px;
+          border: 1px solid #cbd5e1;
+          text-transform: uppercase;
+          font-size: 8px;
+          letter-spacing: 0.3px;
+        }
+        table.reg-table td {
+          padding: 5px 7px;
+          border: 1px solid #e2e8f0;
+          vertical-align: top;
+        }
+        table.reg-table tr:nth-child(even) td { background: #f8fafc; }
+        tr { page-break-inside: avoid; }
+        .sign-grid {
+          margin-top: 20px;
+          padding-top: 12px;
+          border-top: 1px solid #cbd5e1;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 40px;
+          page-break-inside: avoid;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="no-print-bar">
+        <div>
+          <strong style="font-size:13px;">Spillburg Holdings — Financial & Tax Register (Print / Save as PDF)</strong>
+          <span style="font-size:11px;color:#94a3b8;margin-left:10px;">Tip: Choose "Save as PDF" in the Destination dropdown to save a PDF copy.</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;cursor:pointer;background:#1e293b;padding:5px 10px;border-radius:6px;border:1px solid #334155;">
+            <input type="checkbox" id="printMaskToggle" ${finMaskPasswords ? 'checked' : ''} onchange="togglePrintPasswords(this.checked)">
+            <span>Mask IRD/SSID Passwords</span>
+          </label>
+          <button onclick="window.print()" style="background:#059669;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;">Print / Save as PDF</button>
+          <button onclick="window.close()" style="background:#475569;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;">Close</button>
+        </div>
+      </div>
+
+      <div class="page-wrap">
+        <table class="hdr-table">
+          <tr>
+            <td style="width:50px;"><img src="/public/logo.png" style="height:42px;object-fit:contain;" alt="Logo"></td>
+            <td>
+              <div style="font-size:15px;font-weight:700;color:#0f172a;letter-spacing:0.4px;">SPILLBURG HOLDINGS (PVT) LTD</div>
+              <div style="font-size:9.5px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.8px;">Corporate Tax, IRD RAMIS & Statutory Audit Compliance Register</div>
+              <div style="font-size:8.5px;color:#64748b;margin-top:1px;">Scope: ${escapeHtml(filterSummary)}</div>
+            </td>
+            <td style="text-align:right;font-size:8.5px;color:#475569;">
+              <div><strong>Generated:</strong> ${generatedDate} ${generatedTime}</div>
+              <div><strong>Prepared By:</strong> ${escapeHtml(prepBy)}</div>
+              <div><strong>Office:</strong> Office 14, Cinnamon Lakeside, Colombo 02</div>
+            </td>
+          </tr>
+        </table>
+
+        <div class="kpi-row">
+          <div class="kpi-box">
+            <div class="kpi-lbl">Total Entities in Report</div>
+            <div class="kpi-val">${kpi.total}</div>
+          </div>
+          <div class="kpi-box" style="background:#ecfdf5;border-color:#6ee7b7;">
+            <div class="kpi-lbl" style="color:#047857;">IRD Submitted / 7/7 Ready</div>
+            <div class="kpi-val" style="color:#065f46;">${kpi.irdSubmitted}</div>
+          </div>
+          <div class="kpi-box" style="background:#eff6ff;border-color:#93c5fd;">
+            <div class="kpi-lbl" style="color:#1d4ed8;">Audit / Tax In Progress</div>
+            <div class="kpi-val" style="color:#1e40af;">${kpi.inProgress}</div>
+          </div>
+          <div class="kpi-box" style="background:#fffbeb;border-color:#fde68a;">
+            <div class="kpi-lbl" style="color:#b45309;">Pending Action (0/7)</div>
+            <div class="kpi-val" style="color:#92400e;">${kpi.pending}</div>
+          </div>
+          <div class="kpi-box" style="background:#fff1f2;border-color:#fecdd3;">
+            <div class="kpi-lbl" style="color:#be123c;">Missing TIN / IRD PIN</div>
+            <div class="kpi-val" style="color:#9f1239;">${kpi.missingCreds}</div>
+          </div>
+        </div>
+
+        <table class="reg-table">
+          <thead>
+            <tr>
+              <th style="width:28px;text-align:center;">#</th>
+              <th style="width:22%;">Entity / Reg No & Archive</th>
+              <th style="width:11%;">Tax ID (TIN)</th>
+              <th style="width:15%;">IRD RAMIS Credentials</th>
+              <th style="width:11%;">SSID / PIN</th>
+              <th style="width:15%;">Director & Contact</th>
+              <th style="width:24%;">Statutory Compliance & Filing Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <div class="sign-grid">
+          <div>
+            <div style="font-size:8.5px;color:#64748b;text-transform:uppercase;">Compiled & Verified By (Accounts & Tax Division):</div>
+            <div style="font-weight:700;margin-top:3px;">${escapeHtml(prepBy)}</div>
+            <div style="margin-top:24px;border-top:1px dotted #94a3b8;padding-top:3px;font-size:8.5px;color:#475569;">Accountant / Tax Officer Signature & Date</div>
+          </div>
+          <div>
+            <div style="font-size:8.5px;color:#64748b;text-transform:uppercase;">Approved By (Executive Management):</div>
+            <div style="font-weight:700;margin-top:3px;">Director — Spillburg Holdings (Pvt) Ltd</div>
+            <div style="margin-top:24px;border-top:1px dotted #94a3b8;padding-top:3px;font-size:8.5px;color:#475569;">Authorized Signatory & Corporate Seal</div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        function togglePrintPasswords(masked) {
+          document.querySelectorAll('.pwd-cell').forEach(function(cell) {
+            var valSpan = cell.querySelector('.pwd-val');
+            if (valSpan) {
+              valSpan.textContent = masked ? cell.getAttribute('data-masked') : cell.getAttribute('data-raw');
+            }
+          });
+        }
+        window.onload = function() {
+          setTimeout(function() { window.print(); }, 400);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
+}
+
+function printSingleFinancialEntityDossier(recordId, yearOverride) {
+  const r = financialRecords.find(x => String(x.id) === String(recordId));
+  if (!r) {
+    alert('Financial entity profile not found.');
+    return;
+  }
+
+  const targetYear = yearOverride || document.getElementById('chkAssessmentYear')?.value || finAssessmentYearFilter || null;
+  const chk = getFilingChecklist(r, targetYear);
+  const stats = getFilingChecklistStats(r, targetYear);
+  const archives = getLinkedCustomerArchiveForFinancial(r).map(a => `${a.cupboard} -> ${a.boxNo} (${a.isOrig ? 'Original' : 'Copy'})`).join(' | ') || 'Not Linked in Customer Archive';
+
+  const printWin = window.open('', '_blank');
+  if (!printWin) {
+    alert('Please allow popups to print or save the Client Tax Dossier as PDF.');
+    return;
+  }
+
+  const generatedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const prepBy = currentUser ? `${currentUser.fullName || currentUser.username}` : 'Spillburg Tax & Audit Team';
+  const irdPwdDisp = r.irdPassword ? (finMaskPasswords ? '••••••••' : escapeHtml(r.irdPassword)) : 'Not Recorded';
+  const ssidPinDisp = r.ssidPin ? (finMaskPasswords ? '••••' : escapeHtml(r.ssidPin)) : 'Not Recorded';
+
+  const checklistRowsHtml = FILING_CHECKLIST_ITEMS.map((it, idx) => {
+    const itemData = (chk.items && chk.items[it.key]) ? chk.items[it.key] : { checked: false, status: 'Pending', date: '', notes: '' };
+    const isDone = Boolean(itemData.checked || itemData.status === 'Done');
+    return `
+      <tr>
+        <td style="text-align:center;font-weight:700;">${idx + 1}</td>
+        <td>
+          <strong>${escapeHtml(it.label)}</strong>
+          <div style="font-size:8.5px;color:#64748b;">${escapeHtml(it.subtitle)}</div>
+        </td>
+        <td style="text-align:center;">
+          <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-weight:700;font-size:8.5px;${isDone ? 'background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;' : 'background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;'}">
+            ${isDone ? '✓ ' : ''}${escapeHtml(itemData.status || (isDone ? 'Done' : 'Pending'))}
+          </span>
+        </td>
+        <td style="font-family:monospace;text-align:center;">${escapeHtml(formatDisplayDate(itemData.date) || '-')}</td>
+        <td>${escapeHtml(itemData.notes || '-')}</td>
+      </tr>
+    `;
+  }).join('');
+
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>Tax & Statutory Compliance Dossier - ${escapeHtml(r.entityName || 'Entity')}</title>
+      <style>
+        @page { size: A4 portrait; margin: 12mm 14mm; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+          color: #0f172a;
+          background: #fff;
+          font-size: 10px;
+          line-height: 1.4;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .no-print-bar {
+          background: #0f172a;
+          color: #fff;
+          padding: 10px 18px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        @media print { .no-print-bar { display: none !important; } }
+        .dossier { max-width: 780px; margin: 0 auto; padding: 10px 0; }
+        .sec-title {
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          color: #065f46;
+          border-left: 3px solid #059669;
+          padding-left: 7px;
+          margin: 12px 0 6px 0;
+          letter-spacing: 0.4px;
+        }
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 8px;
+          background: #f8fafc;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          padding: 10px 12px;
+        }
+        .info-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding-bottom: 3px; }
+        .info-lbl { color: #64748b; font-weight: 600; }
+        .info-val { color: #0f172a; font-weight: 700; font-family: monospace; }
+        .stage-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+        }
+        .stage-card {
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          padding: 7px 9px;
+          background: #f8fafc;
+        }
+        .stage-card.done { background: #ecfdf5; border-color: #6ee7b7; }
+        table.chk-table { width: 100%; border-collapse: collapse; font-size: 9.5px; }
+        table.chk-table th {
+          background: #f1f5f9;
+          border: 1px solid #cbd5e1;
+          padding: 6px 8px;
+          text-align: left;
+          font-size: 8.5px;
+          text-transform: uppercase;
+        }
+        table.chk-table td { border: 1px solid #e2e8f0; padding: 5px 8px; }
+      </style>
+    </head>
+    <body>
+      <div class="no-print-bar">
+        <div>
+          <strong>Client Tax & Statutory Compliance Dossier — ${escapeHtml(r.entityName || '')}</strong>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;cursor:pointer;background:#1e293b;padding:4px 10px;border-radius:6px;">
+            <input type="checkbox" ${finMaskPasswords ? 'checked' : ''} onchange="document.querySelectorAll('.pwd-span').forEach(el => el.textContent = this.checked ? el.dataset.masked : el.dataset.raw)">
+            <span>Mask Passwords</span>
+          </label>
+          <button onclick="window.print()" style="background:#059669;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-weight:700;cursor:pointer;">Print / Save as PDF</button>
+          <button onclick="window.close()" style="background:#475569;color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;">Close</button>
+        </div>
+      </div>
+
+      <div class="dossier">
+        <table style="width:100%;border-bottom:2px solid #059669;padding-bottom:8px;margin-bottom:10px;">
+          <tr>
+            <td style="width:52px;"><img src="/public/logo.png" style="height:44px;object-fit:contain;" alt="Logo"></td>
+            <td>
+              <div style="font-size:15px;font-weight:700;">SPILLBURG HOLDINGS (PVT) LTD</div>
+              <div style="font-size:9.5px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:0.6px;">Client Tax & Statutory Audit Compliance Dossier</div>
+            </td>
+            <td style="text-align:right;font-size:9px;color:#475569;">
+              <div><strong>Assessment Year:</strong> ${escapeHtml(chk.assessmentYear || '2024/2025')}</div>
+              <div><strong>Date Printed:</strong> ${generatedDate}</div>
+              <div><strong>Checklist Readiness:</strong> ${stats.completedCount}/7 (${stats.percent}%)</div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Entity Banner -->
+        <div style="background:#0f172a;color:#fff;padding:10px 14px;border-radius:8px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div>
+            <div style="font-size:14px;font-weight:700;">${escapeHtml(r.entityName || 'Unnamed Entity')}</div>
+            <div style="font-size:9.5px;color:#cbd5e1;margin-top:2px;">
+              Category: <strong>${escapeHtml(r.category || 'Corporate')}</strong> &bull;
+              Reg No: <strong>${escapeHtml(r.regNo || 'N/A')}</strong> &bull;
+              Incorp Date: <strong>${escapeHtml(formatDisplayDate(r.dateOfIncorp) || 'N/A')}</strong>
+            </div>
+            <div style="font-size:9px;color:#6ee7b7;margin-top:2px;">Physical File Archive: ${escapeHtml(archives)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:9px;text-transform:uppercase;color:#94a3b8;">Current Pipeline Stage</div>
+            <div style="font-size:12px;font-weight:700;color:#34d399;margin-top:2px;">${escapeHtml(stats.stage)}</div>
+          </div>
+        </div>
+
+        <div class="sec-title">1. IRD RAMIS, Tax Identification & Director Credentials</div>
+        <div class="info-grid">
+          <div class="info-row"><span class="info-lbl">Taxpayer Identification (TIN):</span><span class="info-val">${escapeHtml(r.tinNo || 'Not Assigned')}</span></div>
+          <div class="info-row"><span class="info-lbl">Economic Activity Code:</span><span class="info-val">${escapeHtml(r.economicCode || 'N/A')}</span></div>
+          <div class="info-row"><span class="info-lbl">IRD RAMIS Portal PIN:</span><span class="info-val">${escapeHtml(r.irdPin || 'Not Recorded')}</span></div>
+          <div class="info-row"><span class="info-lbl">IRD RAMIS Password:</span><span class="info-val pwd-span" data-raw="${escapeHtml(r.irdPassword || 'Not Recorded')}" data-masked="${r.irdPassword ? '••••••••' : 'Not Recorded'}">${irdPwdDisp}</span></div>
+          <div class="info-row"><span class="info-lbl">SSID Number:</span><span class="info-val">${escapeHtml(r.ssid || 'N/A')}</span></div>
+          <div class="info-row"><span class="info-lbl">SSID PIN:</span><span class="info-val pwd-span" data-raw="${escapeHtml(r.ssidPin || 'Not Recorded')}" data-masked="${r.ssidPin ? '••••' : 'Not Recorded'}">${ssidPinDisp}</span></div>
+          <div class="info-row"><span class="info-lbl">Director / Principal:</span><span class="info-val" style="font-family:Arial,sans-serif;">${escapeHtml(r.directorName || 'N/A')}</span></div>
+          <div class="info-row"><span class="info-lbl">Passport / NIC No:</span><span class="info-val">${escapeHtml(r.directorPassportOrId || 'N/A')}</span></div>
+          <div class="info-row"><span class="info-lbl">IRD / Contact Email:</span><span class="info-val" style="font-size:8.5px;">${escapeHtml(r.irdEmail || r.emails || 'N/A')}</span></div>
+          <div class="info-row"><span class="info-lbl">Contact Phones:</span><span class="info-val">${escapeHtml(r.phones || 'N/A')}</span></div>
+        </div>
+
+        <div class="sec-title">2. 4-Stage Statutory Compliance Workflow (${escapeHtml(chk.assessmentYear || '2024/2025')})</div>
+        <div class="stage-grid">
+          <div class="stage-card ${chk.stages?.draftAccounts?.status === 'Completed' ? 'done' : ''}">
+            <div style="font-size:8px;color:#64748b;font-weight:700;text-transform:uppercase;">Stage 1 • Draft Accounts</div>
+            <div style="font-weight:700;font-size:10.5px;margin-top:2px;">${escapeHtml(chk.stages?.draftAccounts?.status || 'Pending')}</div>
+            <div style="font-size:8.5px;color:#475569;margin-top:2px;">Date: ${escapeHtml(formatDisplayDate(chk.stages?.draftAccounts?.date) || '-')}</div>
+            <div style="font-size:8px;color:#64748b;">${escapeHtml(chk.stages?.draftAccounts?.notes || '')}</div>
+          </div>
+          <div class="stage-card ${chk.stages?.audit?.status === 'Completed' ? 'done' : ''}">
+            <div style="font-size:8px;color:#64748b;font-weight:700;text-transform:uppercase;">Stage 2 • Audit Process</div>
+            <div style="font-weight:700;font-size:10.5px;margin-top:2px;">${escapeHtml(chk.stages?.audit?.status || 'Pending')}</div>
+            <div style="font-size:8.5px;color:#475569;margin-top:2px;">Signed: ${escapeHtml(formatDisplayDate(chk.stages?.audit?.date) || '-')}</div>
+            <div style="font-size:8px;color:#64748b;">Auditor: ${escapeHtml(chk.stages?.audit?.auditor || '-')}</div>
+          </div>
+          <div class="stage-card ${chk.stages?.taxation?.status === 'Completed' ? 'done' : ''}">
+            <div style="font-size:8px;color:#64748b;font-weight:700;text-transform:uppercase;">Stage 3 • Taxation</div>
+            <div style="font-weight:700;font-size:10.5px;margin-top:2px;">${escapeHtml(chk.stages?.taxation?.status || 'Pending')}</div>
+            <div style="font-size:8.5px;color:#475569;margin-top:2px;">Date: ${escapeHtml(formatDisplayDate(chk.stages?.taxation?.date) || '-')}</div>
+            <div style="font-size:8px;color:#64748b;">Type: ${escapeHtml(chk.stages?.taxation?.taxType || 'CIT / ITR')}</div>
+          </div>
+          <div class="stage-card ${['Completed', 'Acknowledged'].includes(chk.stages?.irdSubmission?.status) ? 'done' : ''}">
+            <div style="font-size:8px;color:#64748b;font-weight:700;text-transform:uppercase;">Stage 4 • IRD Submission</div>
+            <div style="font-weight:700;font-size:10.5px;margin-top:2px;">${escapeHtml(chk.stages?.irdSubmission?.status || 'Pending')}</div>
+            <div style="font-size:8.5px;color:#475569;margin-top:2px;">Filed: ${escapeHtml(formatDisplayDate(chk.stages?.irdSubmission?.date) || '-')}</div>
+            <div style="font-size:8px;color:#64748b;">Ref: ${escapeHtml(chk.stages?.irdSubmission?.refNo || '-')}</div>
+          </div>
+        </div>
+
+        <div class="sec-title">3. Statutory Financial Deliverables Checklist (7 Core Components)</div>
+        <table class="chk-table">
+          <thead>
+            <tr>
+              <th style="width:30px;text-align:center;">#</th>
+              <th style="width:36%;">Statutory Deliverable</th>
+              <th style="width:16%;text-align:center;">Status</th>
+              <th style="width:15%;text-align:center;">Date</th>
+              <th style="width:28%;">Reference / Audit Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${checklistRowsHtml}
+          </tbody>
+        </table>
+
+        <div class="sec-title">4. Filing Status Log & Compliance Notes</div>
+        <div style="border:1px solid #cbd5e1;border-radius:6px;padding:8px 10px;background:#f8fafc;min-height:44px;">
+          <div><strong>Filing History:</strong> ${escapeHtml(r.filingStatus || 'No filing history recorded.')}</div>
+          ${r.notes ? `<div style="margin-top:4px;color:#475569;"><strong>Register Notes:</strong> ${escapeHtml(r.notes)}</div>` : ''}
+          ${chk.customNotes ? `<div style="margin-top:4px;color:#475569;"><strong>Internal Compliance Notes:</strong> ${escapeHtml(chk.customNotes)}</div>` : ''}
+        </div>
+
+        <div style="margin-top:24px;padding-top:10px;border-top:1px solid #cbd5e1;display:grid;grid-template-columns:1fr 1fr;gap:40px;font-size:9px;">
+          <div>
+            <div style="color:#64748b;text-transform:uppercase;font-size:8px;">Prepared By:</div>
+            <div style="font-weight:700;margin-top:2px;">${escapeHtml(prepBy)}</div>
+            <div style="margin-top:22px;border-top:1px dotted #94a3b8;padding-top:3px;">Tax / Accounts Officer Signature & Date</div>
+          </div>
+          <div>
+            <div style="color:#64748b;text-transform:uppercase;font-size:8px;">Reviewed & Approved By:</div>
+            <div style="font-weight:700;margin-top:2px;">Director / Partner — Spillburg Holdings (Pvt) Ltd</div>
+            <div style="margin-top:22px;border-top:1px dotted #94a3b8;padding-top:3px;">Authorized Signature & Stamp</div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        window.onload = function() {
+          setTimeout(function() { window.print(); }, 400);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
+}
+
 
 // Lightbox for Photos (with Token Query and Graceful Fallback)
 function openPhotoLightbox(photoFile, caption) {
@@ -6300,7 +7396,10 @@ function openAddFinancialModal() {
   c.innerHTML = `
     <div class="space-y-4 text-xs">
       <div class="flex items-center justify-between pb-3 border-b border-slate-200">
-        <h3 class="font-display font-bold text-base text-slate-900">Add Financial Tax Profile</h3>
+        <div>
+          <h3 class="font-display font-bold text-base text-slate-900">Add Financial Tax Profile</h3>
+          <p class="text-[11px] text-slate-500">Create a complete corporate or individual TIN, RAMIS IRD, and SSID profile.</p>
+        </div>
         <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
 
@@ -6310,7 +7409,15 @@ function openAddFinancialModal() {
           <input type="text" id="mFinName" required placeholder="e.g. Lanka Prime Logistics Ltd" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Category</label>
+            <select id="mFinCategory" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none">
+              <option value="Corporate" selected>Corporate Entity</option>
+              <option value="Individual">Individual / Director</option>
+              <option value="Bilateral Council">Bilateral Council</option>
+            </select>
+          </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Registration No</label>
             <input type="text" id="mFinRegNo" placeholder="e.g. PV 11488" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
@@ -6324,42 +7431,84 @@ function openAddFinancialModal() {
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Tax ID Number (TIN)</label>
-            <input type="text" id="mFinTin" placeholder="e.g. 101081753" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <input type="text" id="mFinTin" placeholder="e.g. 101081753" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Economic Code</label>
-            <input type="text" id="mFinEcon" placeholder="e.g. 5229" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <input type="text" id="mFinEcon" placeholder="e.g. 5229" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">IRD Portal PIN</label>
-            <input type="text" id="mFinIrdPin" placeholder="e.g. remi1753" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <input type="text" id="mFinIrdPin" placeholder="e.g. remi1753" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">IRD Password</label>
-            <input type="text" id="mFinIrdPwd" placeholder="e.g. remi(1)12345" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <input type="text" id="mFinIrdPwd" placeholder="e.g. remi(1)12345" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">IRD Registered Email</label>
+            <input type="text" id="mFinIrdEmail" placeholder="e.g. spillburginfo@gmail.com" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">SSID Number</label>
-            <input type="text" id="mFinSsid" placeholder="e.g. 1519446" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <input type="text" id="mFinSsid" placeholder="e.g. 1519446" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">SSID PIN</label>
-            <input type="text" id="mFinSsidPin" placeholder="e.g. remi1234" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+            <input type="text" id="mFinSsidPin" placeholder="e.g. remi1234" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Director Name</label>
+            <input type="text" id="mFinDirector" placeholder="e.g. Muhammad Ayub" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Director Passport / NIC</label>
+            <input type="text" id="mFinDirectorId" placeholder="e.g. BD1130143 (Pakistan)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Emails</label>
+            <input type="text" id="mFinEmails" placeholder="Comma-separated emails" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Phones</label>
+            <input type="text" id="mFinPhones" placeholder="Comma-separated numbers" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
           </div>
         </div>
 
         <div>
-          <label class="block font-semibold text-slate-700 mb-1">Filing Notes / Submission History</label>
+          <label class="block font-semibold text-slate-700 mb-1">Filing Status / Audit History</label>
           <textarea id="mFinFiling" rows="2" placeholder="Record audited accounts submission dates and officer contacts..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500"></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">General Notes</label>
+            <input type="text" id="mFinNotes" placeholder="Internal compliance notes..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Linked Physical Register Photo</label>
+            <div class="flex items-center gap-1.5">
+              <input type="text" id="mFinPhoto" placeholder="Filename or upload photo..." class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+              <button type="button" onclick="triggerFinancialPhotoUpload('mFinPhoto', 'mFinName')" class="px-2.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-[11px] font-semibold flex items-center gap-1 shrink-0 transition" title="Upload scan/photo of physical register page">
+                <i data-lucide="upload" class="w-3.5 h-3.5"></i> Upload
+              </button>
+            </div>
+          </div>
         </div>
 
         <div class="pt-3 flex justify-end gap-2 border-t border-slate-100">
@@ -6374,19 +7523,73 @@ function openAddFinancialModal() {
   if (window.lucide) lucide.createIcons();
 }
 
+function triggerFinancialPhotoUpload(targetInputId, entityNameInputId) {
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/jpeg,image/png,image/webp';
+  fileInput.onchange = async () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    if (file.size > 12 * 1024 * 1024) {
+      alert('Image file exceeds 12 MB limit.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result;
+      if (!dataUrl) return;
+      const entityName = document.getElementById(entityNameInputId)?.value || 'Entity';
+      try {
+        const res = await fetch('/api/financial-files/upload-photo', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            filename: file.name,
+            entityName,
+            dataUrl
+          })
+        });
+        const data = await res.json();
+        if (data.success && data.photoFile) {
+          const targetInput = document.getElementById(targetInputId);
+          if (targetInput) targetInput.value = data.photoFile;
+          showFinancialCopyToast(`Uploaded: ${data.photoFile}`);
+        } else {
+          alert(data.error || 'Photo upload failed.');
+        }
+      } catch (err) {
+        alert('Photo upload error: ' + err.message);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+  fileInput.click();
+}
+
 async function submitAddFinancial(e) {
   e.preventDefault();
   const payload = {
     entityName: document.getElementById('mFinName').value.trim(),
+    category: document.getElementById('mFinCategory')?.value || 'Corporate',
     regNo: document.getElementById('mFinRegNo') ? document.getElementById('mFinRegNo').value.trim() : '',
     dateOfIncorp: formatDisplayDate(document.getElementById('mFinDateIncorp')?.value),
     tinNo: document.getElementById('mFinTin').value.trim(),
     economicCode: document.getElementById('mFinEcon').value.trim(),
     irdPin: document.getElementById('mFinIrdPin').value.trim(),
     irdPassword: document.getElementById('mFinIrdPwd').value.trim(),
+    irdEmail: document.getElementById('mFinIrdEmail')?.value.trim() || '',
     ssid: document.getElementById('mFinSsid').value.trim(),
     ssidPin: document.getElementById('mFinSsidPin').value.trim(),
-    filingStatus: document.getElementById('mFinFiling').value.trim()
+    directorName: document.getElementById('mFinDirector')?.value.trim() || '',
+    directorPassportOrId: document.getElementById('mFinDirectorId')?.value.trim() || '',
+    emails: document.getElementById('mFinEmails')?.value.trim() || '',
+    phones: document.getElementById('mFinPhones')?.value.trim() || '',
+    filingStatus: document.getElementById('mFinFiling').value.trim(),
+    notes: document.getElementById('mFinNotes')?.value.trim() || '',
+    photoFile: document.getElementById('mFinPhoto')?.value.trim() || ''
   };
 
   try {
@@ -6544,7 +7747,12 @@ function openEditFinancialModal(id) {
           </div>
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Linked Physical Register Photo</label>
-            <input type="text" id="mEditFinPhoto" value="${r.photoFile || ''}" placeholder="e.g. Register_01_Remi_Dream_Lanka.jpeg" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+            <div class="flex items-center gap-1.5">
+              <input type="text" id="mEditFinPhoto" value="${r.photoFile || ''}" placeholder="e.g. Register_01_Remi_Dream_Lanka.jpeg" class="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:outline-none focus:border-emerald-500 font-mono">
+              <button type="button" onclick="triggerFinancialPhotoUpload('mEditFinPhoto', 'mEditFinName')" class="px-2.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-[11px] font-semibold flex items-center gap-1 shrink-0 transition" title="Upload scan/photo of physical register page">
+                <i data-lucide="upload" class="w-3.5 h-3.5"></i> Upload
+              </button>
+            </div>
           </div>
         </div>
 
@@ -6642,9 +7850,40 @@ const FILING_CHECKLIST_ITEMS = [
   { key: 'notesToAccount', label: 'Notes to Accounts', subtitle: 'Disclosures, Fixed Asset & Ledger Schedules', icon: 'file-text' }
 ];
 
-function getFilingChecklist(r) {
-  if (r && r.filingChecklist && typeof r.filingChecklist === 'object' && r.filingChecklist.items) {
-    return r.filingChecklist;
+function getFilingChecklist(r, targetYear = null) {
+  const raw = (r && r.filingChecklist && typeof r.filingChecklist === 'object') ? r.filingChecklist : null;
+  if (raw) {
+    if (targetYear && raw.byYear && typeof raw.byYear === 'object' && raw.byYear[targetYear] && raw.byYear[targetYear].items) {
+      return { ...raw.byYear[targetYear], assessmentYear: targetYear };
+    }
+    if (!targetYear && raw.items) {
+      return raw;
+    }
+    if (targetYear && raw.assessmentYear === targetYear && raw.items) {
+      return raw;
+    }
+    if (targetYear && (!raw.byYear || !raw.byYear[targetYear])) {
+      // Return fresh blank checklist for a newly switched assessment year that has no saved history yet
+      return {
+        assessmentYear: targetYear,
+        stages: {
+          draftAccounts: { status: "Pending", date: "", notes: "" },
+          audit: { status: "Pending", date: "", auditor: "" },
+          taxation: { status: "Pending", date: "", taxType: "CIT / ITR" },
+          irdSubmission: { status: "Pending", date: "", refNo: "" }
+        },
+        items: {
+          balanceSheet: { checked: false, status: "Pending", date: "", notes: "" },
+          pnl: { checked: false, status: "Pending", date: "", notes: "" },
+          qt: { checked: false, status: "Pending", date: "", notes: "" },
+          cashFlow: { checked: false, status: "Pending", date: "", notes: "" },
+          policies: { checked: false, status: "Pending", date: "", notes: "" },
+          taxation: { checked: false, status: "Pending", date: "", notes: "" },
+          notesToAccount: { checked: false, status: "Pending", date: "", notes: "" }
+        },
+        customNotes: ""
+      };
+    }
   }
 
   // Intelligent auto-detection from existing filingStatus text if available
@@ -6655,7 +7894,7 @@ function getFilingChecklist(r) {
   const isTaxDone = text.includes('tax') || text.includes('itr') || text.includes('ita') || text.includes('set') || text.includes('wht') || isIrdSubmitted;
 
   return {
-    assessmentYear: "2024/2025",
+    assessmentYear: targetYear || "2024/2025",
     stages: {
       draftAccounts: { status: isDraftDone ? "Completed" : "Pending", date: "", notes: "" },
       audit: { status: isAudited ? "Completed" : (isIrdSubmitted ? "Completed" : "Pending"), date: "", auditor: "" },
@@ -6675,8 +7914,8 @@ function getFilingChecklist(r) {
   };
 }
 
-function getFilingChecklistStats(r) {
-  const chk = getFilingChecklist(r);
+function getFilingChecklistStats(r, targetYear = null) {
+  const chk = getFilingChecklist(r, targetYear);
   let completed = 0;
   FILING_CHECKLIST_ITEMS.forEach(it => {
     if (chk.items && chk.items[it.key] && chk.items[it.key].checked) {
@@ -6692,7 +7931,7 @@ function getFilingChecklistStats(r) {
   let icon = 'list-checks';
   let badgeText = `${completed}/${total} Ready`;
 
-  if (chk.stages && chk.stages.irdSubmission && chk.stages.irdSubmission.status === 'Completed') {
+  if (chk.stages && chk.stages.irdSubmission && (chk.stages.irdSubmission.status === 'Completed' || chk.stages.irdSubmission.status === 'Acknowledged')) {
     stage = 'IRD Submitted';
   } else if (chk.stages && chk.stages.taxation && chk.stages.taxation.status === 'Completed') {
     stage = 'Tax Finalized';
@@ -6714,19 +7953,29 @@ function getFilingChecklistStats(r) {
     icon = 'clipboard-check';
   }
 
-  return { completedCount: completed, total, percent, stage, badgeClass, icon, badgeText };
+  return {
+    completedCount: completed,
+    total,
+    percent,
+    stage,
+    badgeClass,
+    icon,
+    badgeText,
+    assessmentYear: chk.assessmentYear || '2024/2025'
+  };
 }
 
-function openFilingChecklistModal(recordId) {
+function openFilingChecklistModal(recordId, selectedYear = '') {
   const r = financialRecords.find(x => x.id === recordId);
   if (!r) {
     alert('Financial entity not found.');
     return;
   }
 
-  const chk = getFilingChecklist(r);
+  const targetYear = selectedYear || (finAssessmentYearFilter || null);
+  const chk = getFilingChecklist(r, targetYear);
   const isEditor = canEdit('financial_files');
-  const stats = getFilingChecklistStats(r);
+  const stats = getFilingChecklistStats(r, targetYear);
 
   const modalContent = document.getElementById('modalContent');
   modalContent.className = "bg-white border border-slate-200 rounded-2xl w-full max-w-4xl max-h-[92vh] overflow-y-auto p-5 md:p-8 shadow-2xl relative fade-in";
@@ -6763,9 +8012,14 @@ function openFilingChecklistModal(recordId) {
             </p>
           </div>
         </div>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="printSingleFinancialEntityDossier('${r.id}')" class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-1.5 transition" title="Print / Save as PDF Dossier for this entity">
+            <i data-lucide="printer" class="w-3.5 h-3.5 text-slate-600"></i> Print / PDF Dossier
+          </button>
+          <button onclick="closeModal()" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
       </div>
 
       <!-- Executive Compliance & Progress Meter Card -->
@@ -6775,7 +8029,7 @@ function openFilingChecklistModal(recordId) {
             <div class="flex items-center gap-2 mb-1">
               <span class="text-emerald-400 text-xs font-bold uppercase tracking-wider">Statutory Financial Filing</span>
               <span class="text-slate-400 text-xs">&bull;</span>
-              <span class="text-slate-300 text-xs font-medium">Compliance Pipeline</span>
+              <span class="text-slate-300 text-xs font-medium">Multi-Year Compliance Pipeline</span>
             </div>
             <div class="text-xl md:text-2xl font-bold flex items-center gap-3">
               <span id="chkProgressText">${stats.completedCount} of 7 Deliverables Ready</span>
@@ -6787,10 +8041,10 @@ function openFilingChecklistModal(recordId) {
 
           <div class="flex items-center gap-3 bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-xl border border-white/10">
             <label class="text-xs font-semibold text-slate-300">Assessment Year:</label>
-            <select id="chkAssessmentYear" ${!isEditor ? 'disabled' : ''} class="bg-slate-800 text-white border border-slate-600 rounded-lg px-2.5 py-1 text-xs font-semibold focus:outline-none focus:border-emerald-400">
+            <select id="chkAssessmentYear" onchange="handleChecklistYearSwitch('${r.id}', this.value)" class="bg-slate-800 text-white border border-slate-600 rounded-lg px-2.5 py-1 text-xs font-semibold focus:outline-none focus:border-emerald-400">
+              <option value="2025/2026" ${chk.assessmentYear === '2025/2026' ? 'selected' : ''}>Year 2025/2026</option>
               <option value="2024/2025" ${chk.assessmentYear === '2024/2025' ? 'selected' : ''}>Year 2024/2025</option>
               <option value="2023/2024" ${chk.assessmentYear === '2023/2024' ? 'selected' : ''}>Year 2023/2024</option>
-              <option value="2025/2026" ${chk.assessmentYear === '2025/2026' ? 'selected' : ''}>Year 2025/2026</option>
               <option value="2022/2023" ${chk.assessmentYear === '2022/2023' ? 'selected' : ''}>Year 2022/2023</option>
             </select>
           </div>
@@ -7230,6 +8484,10 @@ function handleAutoGenerateSummary(recordId) {
   }
 }
 
+function handleChecklistYearSwitch(recordId, newYear) {
+  openFilingChecklistModal(recordId, newYear);
+}
+
 async function submitFilingChecklist(recordId) {
   if (!canEdit('financial_files')) {
     alert('Editor privileges required to update statutory filing checklist.');
@@ -7277,13 +8535,33 @@ async function submitFilingChecklist(recordId) {
   const customNotes = document.getElementById('mChkCustomNotes')?.value.trim() || '';
   const filingStatus = document.getElementById('mChkFilingStatus')?.value.trim() || '';
 
-  const filingChecklist = {
+  const rec = financialRecords.find(x => x.id === recordId);
+  const existingRaw = (rec && rec.filingChecklist && typeof rec.filingChecklist === 'object') ? rec.filingChecklist : {};
+  const existingByYear = (existingRaw.byYear && typeof existingRaw.byYear === 'object') ? { ...existingRaw.byYear } : {};
+  if (existingRaw.assessmentYear && existingRaw.items && !existingByYear[existingRaw.assessmentYear]) {
+    existingByYear[existingRaw.assessmentYear] = {
+      assessmentYear: existingRaw.assessmentYear,
+      stages: existingRaw.stages,
+      items: existingRaw.items,
+      customNotes: existingRaw.customNotes || '',
+      updatedAt: existingRaw.updatedAt,
+      updatedBy: existingRaw.updatedBy
+    };
+  }
+
+  const yearSnapshot = {
     assessmentYear,
     stages,
     items,
     customNotes,
     updatedAt: new Date().toISOString(),
     updatedBy: currentUser?.username || 'editor'
+  };
+  existingByYear[assessmentYear] = yearSnapshot;
+
+  const filingChecklist = {
+    ...yearSnapshot,
+    byYear: existingByYear
   };
 
   try {
@@ -7301,23 +8579,17 @@ async function submitFilingChecklist(recordId) {
 
     const data = await res.json();
     if (data.success) {
-      // Update local cache
-      const rec = financialRecords.find(x => x.id === recordId);
       if (rec) {
         rec.filingChecklist = filingChecklist;
         rec.filingStatus = filingStatus;
       }
 
       closeModal();
-      // Re-render table
-      const tbl = document.getElementById('financialTableContainer');
-      if (tbl) {
-        tbl.innerHTML = renderFinancialTable(getFilteredFinancialRecords());
-      } else {
+      if (currentView === 'financial_files') {
         renderFinancialFiles(document.getElementById('mainContent'));
       }
       if (window.lucide) lucide.createIcons();
-      alert('Statutory filing checklist and status updated successfully.');
+      alert(`Statutory filing checklist (${assessmentYear}) and status updated successfully.`);
     } else {
       alert(data.error || 'Failed to save filing checklist.');
     }

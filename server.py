@@ -2386,6 +2386,31 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             })
             return
 
+        elif path == "/api/financial-files/export-xlsx":
+            user = self.require_permission("financial_files", "viewer")
+            if not user: return
+            sync_financials_from_disk()
+
+            mask_pwd = query.get("maskPasswords", ["false"])[0].lower() in ("true", "1", "yes")
+            assessment_year = query.get("assessmentYear", [""])[0]
+            xlsx_bytes = payroll_excel.generate_financial_files_xlsx(
+                FINANCIAL_RECORDS,
+                customer_records=CUSTOMER_RECORDS,
+                options={
+                    "maskPasswords": mask_pwd,
+                    "assessmentYear": assessment_year,
+                    "filterSummary": f"Full Register ({len(FINANCIAL_RECORDS)} profiles)"
+                }
+            )
+            filename = f"Spillburg_Financial_Tax_Register_{time.strftime('%Y-%m-%d')}.xlsx"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(xlsx_bytes)))
+            self.end_headers()
+            self.wfile.write(xlsx_bytes)
+            return
+
         elif path.startswith("/api/financial-files/photos/"):
             photo_raw = path.replace("/api/financial-files/photos/", "")
             photo_name = os.path.basename(urllib.parse.unquote(photo_raw))
@@ -3311,6 +3336,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/financial-files":
             user = self.require_permission("financial_files", "editor")
             if not user: return
+            sync_financials_from_disk()
 
             rec_id = f"fin_{uuid.uuid4().hex[:6]}"
             new_rec = {
@@ -3339,6 +3365,76 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             save_json_file("financial_records_active.json", FINANCIAL_RECORDS)
             save_json_file("financial_records.json", FINANCIAL_RECORDS)
             self.send_json({"success": True, "record": new_rec})
+            return
+
+        elif path == "/api/financial-files/export-xlsx":
+            user = self.require_permission("financial_files", "viewer")
+            if not user: return
+            sync_financials_from_disk()
+
+            req_ids = body.get("recordIds")
+            if isinstance(req_ids, list) and len(req_ids) > 0:
+                id_map = {str(r.get("id")): r for r in FINANCIAL_RECORDS}
+                export_records = [id_map[str(rid)] for rid in req_ids if str(rid) in id_map]
+            else:
+                export_records = list(FINANCIAL_RECORDS)
+
+            mask_pwd = bool(body.get("maskPasswords", False))
+            assessment_year = str(body.get("assessmentYear") or "")
+            filter_summary = str(body.get("filterSummary") or f"Filtered View ({len(export_records)} profiles)")
+
+            xlsx_bytes = payroll_excel.generate_financial_files_xlsx(
+                export_records,
+                customer_records=CUSTOMER_RECORDS,
+                options={
+                    "maskPasswords": mask_pwd,
+                    "assessmentYear": assessment_year,
+                    "filterSummary": filter_summary
+                }
+            )
+            filename = f"Spillburg_Financial_Tax_Register_{time.strftime('%Y-%m-%d')}.xlsx"
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            self.send_header("Content-Length", str(len(xlsx_bytes)))
+            self.end_headers()
+            self.wfile.write(xlsx_bytes)
+            return
+
+        elif path == "/api/financial-files/upload-photo":
+            user = self.require_permission("financial_files", "editor")
+            if not user: return
+
+            file_name = body.get("name", "register_page.jpg")
+            file_data = body.get("data", "")
+            if not file_data:
+                self.send_json({"error": "No file data provided"}, 400)
+                return
+
+            import base64
+            if "," in file_data:
+                _, base64_str = file_data.split(",", 1)
+            else:
+                base64_str = file_data
+
+            try:
+                raw_bytes = base64.b64decode(base64_str)
+            except Exception as e:
+                self.send_json({"error": f"Invalid base64 encoding: {e}"}, 400)
+                return
+
+            safe_base = "".join(c if c.isalnum() else "_" for c in os.path.splitext(file_name)[0]).strip("_") or "Register_Photo"
+            orig_ext = os.path.splitext(file_name)[1].lower()
+            if orig_ext not in [".jpg", ".jpeg", ".png"]:
+                orig_ext = ".jpg"
+
+            os.makedirs(FINANCIAL_PHOTOS_DIR, exist_ok=True)
+            out_filename = f"{safe_base}_{uuid.uuid4().hex[:6]}{orig_ext}"
+            out_path = os.path.join(FINANCIAL_PHOTOS_DIR, out_filename)
+            with open(out_path, "wb") as f:
+                f.write(raw_bytes)
+
+            self.send_json({"success": True, "photoFile": out_filename})
             return
 
         # 7. Customer Files: Add Single Record (Editor, Admin, Director)
