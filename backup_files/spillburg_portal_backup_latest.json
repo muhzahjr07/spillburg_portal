@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-12T07:23:47Z",
+  "exportTimestamp": "2026-11-12T07:24:39Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6156,16 +6156,16 @@
         "etfExtraMembers": [
           {
             "name": "RAVINDRALAL MAHINDA WIJEWEERA",
-            "nic": "718601657V",
-            "memberNo": "13",
-            "rs": "1,200",
+            "nic": "601810948V",
+            "memberNo": "11",
+            "rs": "750",
             "cts": "00"
           },
           {
             "name": "RAVINDRALAL MAHINDA WIJEWEERA",
-            "nic": "601810948V",
-            "memberNo": "11",
-            "rs": "750",
+            "nic": "718601657V",
+            "memberNo": "13",
+            "rs": "1,200",
             "cts": "00"
           }
         ]
@@ -7070,7 +7070,7 @@
         "invoiceNo": "SBH001",
         "bankCharges": 0.0,
         "epfChequeNo": "",
-        "etfChequeNo": "DIRECT DEBIT / SLIPS",
+        "etfChequeNo": "",
         "checkedBy": "Hemanthi Basnayake",
         "checkedTitle": null,
         "authorizedSignatory": "..........................................",
@@ -7262,16 +7262,16 @@
         "etfExtraMembers": [
           {
             "name": "RAVINDRALAL MAHINDA WIJEWEERA",
-            "nic": "718601657V",
-            "memberNo": "13",
-            "rs": "1,200",
+            "nic": "601810948V",
+            "memberNo": "11",
+            "rs": "750",
             "cts": "00"
           },
           {
             "name": "RAVINDRALAL MAHINDA WIJEWEERA",
-            "nic": "601810948V",
-            "memberNo": "11",
-            "rs": "750",
+            "nic": "718601657V",
+            "memberNo": "13",
+            "rs": "1,200",
             "cts": "00"
           }
         ],
@@ -7293,25 +7293,25 @@
         "etfStaffOverrides": {
           "emp_8655bf": {
             "name": "",
-            "nic": "601810948V",
-            "memberNo": "11",
-            "rs": "750",
-            "cts": "00"
+            "nic": "",
+            "memberNo": "",
+            "rs": "",
+            "cts": ""
           },
           "emp_358738": {
             "name": "",
-            "nic": "718601657V",
-            "memberNo": "13",
-            "rs": "1,200",
-            "cts": "00"
+            "nic": "",
+            "memberNo": "",
+            "rs": "",
+            "cts": ""
           }
         },
         "etfHeaderOverrides": {
           "monthYear": "OCTOBER 2026",
           "empCount": "4",
-          "contrib": "3,900.00",
-          "total": "3,900.00",
-          "totRs": "3,900",
+          "contrib": "1,950.00",
+          "total": "1,950.00",
+          "totRs": "1,950",
           "totCts": "00",
           "phone": "+94 11 233 6116",
           "email": "info@spillburg.com",
