@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-12T07:10:54Z",
+  "exportTimestamp": "2026-11-12T07:12:23Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6138,22 +6138,37 @@
             "name": "RAVINDRALAL MAHINDA WIJEWEERA",
             "idNo": "601810948V",
             "memberNo": "11",
-            "epf20": "",
-            "epf12": "",
-            "epf8": "",
-            "totalEarnings": ""
+            "epf20": "5,000.00",
+            "epf12": "3,000.00",
+            "epf8": "2,000.00",
+            "totalEarnings": "25,000.00"
           },
           {
             "name": "M. A. S. R. HEMANTHI",
             "idNo": "718601657V",
             "memberNo": "13",
-            "epf20": "",
-            "epf12": "",
-            "epf8": "",
-            "totalEarnings": ""
+            "epf20": "8,000.00",
+            "epf12": "4,800.00",
+            "epf8": "3,200.00",
+            "totalEarnings": "40,000.00"
           }
         ],
-        "etfExtraMembers": []
+        "etfExtraMembers": [
+          {
+            "name": "M. A. S. R. HEMANTHI",
+            "nic": "718601657V",
+            "memberNo": "13",
+            "rs": "1,200",
+            "cts": "00"
+          },
+          {
+            "name": "RAVINDRALAL MAHINDA WIJEWEERA",
+            "nic": "601810948V",
+            "memberNo": "11",
+            "rs": "750",
+            "cts": "00"
+          }
+        ]
       },
       {
         "id": "comp_5eea88",
@@ -7206,22 +7221,22 @@
         "epfEmployerCustom": "SPILLBURG HOLDINGS (PVT) LTD.\nOffice 14, Basement Level, Cinnamon Lakeside Hotel, No 115, Sir Chittampalam A Gardiner Mawatha, Colombo 2, Sri Lanka.",
         "epfStaffOverrides": {
           "emp_8655bf": {
-            "name": "RAVINDRALAL MAHINDA WIJEWEERA",
+            "name": "",
             "idNo": "",
             "memberNo": "",
-            "epf20": "5,000.00",
-            "epf12": "3,000.00",
-            "epf8": "2,000.00",
-            "totalEarnings": "25,000.00"
+            "epf20": "",
+            "epf12": "",
+            "epf8": "",
+            "totalEarnings": ""
           },
           "emp_358738": {
-            "name": "M. A. S. R. HEMANTHI",
+            "name": "",
             "idNo": "",
             "memberNo": "",
-            "epf20": "8,000.00",
-            "epf12": "4,800.00",
-            "epf8": "3,200.00",
-            "totalEarnings": "40,000.00"
+            "epf20": "",
+            "epf12": "",
+            "epf8": "",
+            "totalEarnings": ""
           }
         },
         "epfExtraMembers": [
@@ -7229,22 +7244,37 @@
             "name": "RAVINDRALAL MAHINDA WIJEWEERA",
             "idNo": "601810948V",
             "memberNo": "11",
-            "epf20": "",
-            "epf12": "",
-            "epf8": "",
-            "totalEarnings": ""
+            "epf20": "5,000.00",
+            "epf12": "3,000.00",
+            "epf8": "2,000.00",
+            "totalEarnings": "25,000.00"
           },
           {
             "name": "M. A. S. R. HEMANTHI",
             "idNo": "718601657V",
             "memberNo": "13",
-            "epf20": "",
-            "epf12": "",
-            "epf8": "",
-            "totalEarnings": ""
+            "epf20": "8,000.00",
+            "epf12": "4,800.00",
+            "epf8": "3,200.00",
+            "totalEarnings": "40,000.00"
           }
         ],
-        "etfExtraMembers": [],
+        "etfExtraMembers": [
+          {
+            "name": "M. A. S. R. HEMANTHI",
+            "nic": "718601657V",
+            "memberNo": "13",
+            "rs": "1,200",
+            "cts": "00"
+          },
+          {
+            "name": "RAVINDRALAL MAHINDA WIJEWEERA",
+            "nic": "601810948V",
+            "memberNo": "11",
+            "rs": "750",
+            "cts": "00"
+          }
+        ],
         "epfHeaderOverrides": {
           "monthYear": "OCTOBER 2026",
           "totalContrib": "13,000.00",
