@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-12T07:25:46Z",
+  "exportTimestamp": "2026-11-12T07:26:07Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -7295,23 +7295,23 @@
             "name": "SHAAMEEL  MOHIDEEN",
             "nic": "770731313V",
             "memberNo": "8",
-            "rs": "",
-            "cts": ""
+            "rs": "3,000",
+            "cts": "00"
           },
           "emp_358738": {
             "name": "M H K M HAMEEZ",
             "nic": "730370261V",
             "memberNo": "9",
-            "rs": "",
-            "cts": ""
+            "rs": "3,000",
+            "cts": "00"
           }
         },
         "etfHeaderOverrides": {
           "monthYear": "OCTOBER 2026",
           "empCount": "4",
-          "contrib": "1,950.00",
-          "total": "1,950.00",
-          "totRs": "1,950",
+          "contrib": "7,950.00",
+          "total": "7,950.00",
+          "totRs": "7,950",
           "totCts": "00",
           "phone": "+94 11 233 6116",
           "email": "info@spillburg.com",
