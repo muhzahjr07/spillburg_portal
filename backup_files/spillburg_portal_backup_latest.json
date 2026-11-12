@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-12T07:16:59Z",
+  "exportTimestamp": "2026-11-12T07:17:28Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -7225,18 +7225,18 @@
             "idNo": "770731313V",
             "memberNo": "8",
             "epf20": "20,000.00",
-            "epf12": "12000.00",
-            "epf8": "8000.00",
-            "totalEarnings": ""
+            "epf12": "12,000.00",
+            "epf8": "8,000.00",
+            "totalEarnings": "100,000.00"
           },
           "emp_358738": {
             "name": "M.H.K.M. HAMEEZ",
             "idNo": "730370261V",
             "memberNo": "9",
-            "epf20": "12,000.00",
-            "epf12": "12000.00",
-            "epf8": "",
-            "totalEarnings": ""
+            "epf20": "20,000.00",
+            "epf12": "12,000.00",
+            "epf8": "8,000.00",
+            "totalEarnings": "100,000.00"
           }
         },
         "epfExtraMembers": [
@@ -7277,11 +7277,11 @@
         ],
         "epfHeaderOverrides": {
           "monthYear": "OCTOBER 2026",
-          "totalContrib": "45,000.00",
-          "totalRemittance": "45,000.00",
-          "totalTot": "45,000.00",
+          "totalContrib": "53,000.00",
+          "totalRemittance": "53,000.00",
+          "totalTot": "53,000.00",
           "totalEr": "31,800.00",
-          "totalEe": "13,200.00",
+          "totalEe": "21,200.00",
           "phone": "+94 11 233 6116",
           "date": "09.11.2026"
         },
