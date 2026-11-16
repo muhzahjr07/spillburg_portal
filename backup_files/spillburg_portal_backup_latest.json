@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-14T03:56:44Z",
+  "exportTimestamp": "2026-11-16T06:20:33Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6296,6 +6296,57 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Went to Cargills Food City bought drinking water 500ml & 5lit 1 to offer use"
+    },
+    {
+      "id": "ops_a0bfde",
+      "no": 231,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Cleaned the office furniture & inside the office",
+      "requestedBy": "Mr. Shaameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Office Operations",
+      "type": "Field / Office Operations",
+      "taskedDate": "14-Nov-2026",
+      "completedDate": "14-Nov-2026",
+      "status": "Completed",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Cleaned the office furniture & inside the office"
+    },
+    {
+      "id": "ops_0e8cab",
+      "no": 232,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Key cutter, cut 2 keys for office doors SH",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Office Operations",
+      "type": "Field / Office Operations",
+      "taskedDate": "14-Nov-2026",
+      "completedDate": "14-Nov-2026",
+      "status": "Completed",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Went to Key cutter, cut 2 keys for office doors SH"
+    },
+    {
+      "id": "ops_64690d",
+      "no": 233,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Prepared the list of the customers, pending BO's to be submitted to ROC on Monday",
+      "requestedBy": "Mr. Shaameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Corporate Secretarial & ROC",
+      "type": "ROC / Statutory Filing",
+      "taskedDate": "14-Nov-2026",
+      "completedDate": "14-Nov-2026",
+      "status": "Completed",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Prepared the list of the customers, pending BO's to be submitted to ROC on Monday"
     }
   ],
   "payroll": {
