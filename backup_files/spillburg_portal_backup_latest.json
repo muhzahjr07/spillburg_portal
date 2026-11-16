@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-16T06:20:33Z",
+  "exportTimestamp": "2026-11-16T07:50:26Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6347,6 +6347,23 @@
       "priority": "High",
       "estimatedCost": "",
       "notes": "Prepared the list of the customers, pending BO's to be submitted to ROC on Monday"
+    },
+    {
+      "id": "ops_dafef0",
+      "no": 81,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Renew Spillburg Logistics Domain",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Procurement",
+      "type": "Operational Task",
+      "taskedDate": "16-Nov-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "High",
+      "estimatedCost": "USD 19.49",
+      "notes": "Renew the Spillburg Logistics domain through the registrar."
     }
   ],
   "payroll": {
