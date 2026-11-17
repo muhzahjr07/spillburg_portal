@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-16T07:51:04Z",
+  "exportTimestamp": "2026-11-17T06:14:03Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6381,6 +6381,74 @@
       "priority": "High",
       "estimatedCost": "USD 19.49",
       "notes": "Renew the Weamirdeens domain through the registrar."
+    },
+    {
+      "id": "ops_a80845",
+      "no": 234,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "ROC with Bilal. Submitted PV s 13 to Cc level, among 12 of PV s could have get approvals...",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Corporate Secretarial & ROC",
+      "type": "ROC / Statutory Filing",
+      "taskedDate": "16-Nov-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Went to ROC with Bilal. Submitted PV s 13 to Cc level, among 12 of PV s could have get approvals from Assistant Registrar Mrs. Harshanee. PVs 5 of Recomende for the approvals, were re submitted, due to do some amendments, advice to me by the subject clerk.To be follow up"
+    },
+    {
+      "id": "ops_c30d49",
+      "no": 235,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Follow-Up: ROC Level 3 Final Approvals with Assistant Registrar Mrs. Harshanee",
+      "requestedBy": "Muhammad Zaharan",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Corporate Secretarial & ROC",
+      "type": "Follow-Up Action",
+      "taskedDate": "16-Nov-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Auto-detected follow-up from work log: Went to ROC with Bilal. Submitted PV s 13 to Cc level, among 12 of PV s could have get approvals from Assistant Registrar Mrs. Harshanee. PVs 5 of Recomende for the approvals, were re submitted, due to do some amendments, advice to me by the subject clerk.To be follow up"
+    },
+    {
+      "id": "ops_0f1ea4",
+      "no": 236,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Ms.Chrishanthi's office collect some mails, handed over to Mr.Shameel",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Corporate Secretarial & ROC",
+      "type": "ROC / Statutory Filing",
+      "taskedDate": "16-Nov-2026",
+      "completedDate": "16-Nov-2026",
+      "status": "Completed",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Went to Ms.Chrishanthi's office collect some mails,handed over to Mr.Shameel"
+    },
+    {
+      "id": "ops_edf549",
+      "no": 237,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Shehans office handed over 3 reports of Year Assessment 2026 to get the signatures. After...",
+      "requestedBy": "Miss Hemanthi",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Accounting & Audit",
+      "type": "Accounting & Tax Compliance",
+      "taskedDate": "16-Nov-2026",
+      "completedDate": "16-Nov-2026",
+      "status": "Completed",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Went to Shehans office handed over 3 reports of Year Assessment 2026 to get the signatures. After signing handed over to Hemanthi his previous payment 90,000/ handed over to Shehan"
     }
   ],
   "payroll": {
