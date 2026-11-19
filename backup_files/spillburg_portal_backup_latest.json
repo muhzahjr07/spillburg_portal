@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-19T10:42:30Z",
+  "exportTimestamp": "2026-11-19T11:49:14Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6636,6 +6636,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Went to Cargills Food City purchased office needs"
+    },
+    {
+      "id": "ops_da5f17",
+      "no": 86,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Create a backdrop banner for SLFBC Event",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Designing & Editing",
+      "type": "Operational Task",
+      "taskedDate": "19-Nov-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Need to design a backdrop \nCheckered board\n10 x 8"
     }
   ],
   "payroll": {
