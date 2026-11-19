@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-18T12:11:45Z",
+  "exportTimestamp": "2026-11-19T05:31:20Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6585,6 +6585,57 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Design business card for Redesign Destination Consultancy Visiting Card for Mr. Azad"
+    },
+    {
+      "id": "ops_ddaafb",
+      "no": 243,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "ROC with Bilal Given the re submitted BO 7, after amending could have approved 3 of to Cc...",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Corporate Secretarial & ROC",
+      "type": "ROC / Statutory Filing",
+      "taskedDate": "18-Nov-2026",
+      "completedDate": "18-Nov-2026",
+      "status": "Completed",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Went to ROC with Bilal Given the re submitted BO 7, after amending could have approved 3 of to Cc level, & refer to Cc record book to get approvals from Assistant Registrar. Among Gaia Ella was re submitted due to not submitting owner's Residence Visa. Coconut Hut again re submitted BO 2 on 16/11/2026 due to not entering 2nd share holders name in properly. & form 6 also re submitted again, entering un authorized director on board resolution.To be amended & re submitted Among could have got approved Bo 7, Royalty MSB Investments, & Quantract Holdings"
+    },
+    {
+      "id": "ops_e37a17",
+      "no": 244,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Trigital World – Collect Visiting Cards for Mr.Shameel",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Office Operations",
+      "type": "Field / Office Operations",
+      "taskedDate": "18-Nov-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Went to Trigital World Order to make visiting cards 1000 Mr.Shameel's request they will give a proof & quotation on 19/11/2026 to be follow up"
+    },
+    {
+      "id": "ops_4dc181",
+      "no": 245,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Cargills Food City purchased office needs",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Office Operations",
+      "type": "Field / Office Operations",
+      "taskedDate": "18-Nov-2026",
+      "completedDate": "18-Nov-2026",
+      "status": "Completed",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Went to Cargills Food City purchased office needs"
     }
   ],
   "payroll": {
