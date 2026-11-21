@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-20T10:53:26Z",
+  "exportTimestamp": "2026-11-21T06:37:52Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6608,17 +6608,17 @@
       "no": 244,
       "userId": "usr_6b04a953",
       "ownerUsername": "ravi",
-      "title": "Trigital World – Collect Visiting Cards for Mr.Shameel",
-      "requestedBy": "Mr. Shameel",
+      "title": "Trigital World – Collect Visiting Cards for Shameel",
+      "requestedBy": "Muhammad Zaharan",
       "assignedTo": "Ravindralal Mahinda Wijeweera",
       "workstream": "Office Operations",
       "type": "Field / Office Operations",
-      "taskedDate": "18-Nov-2026",
-      "completedDate": "",
-      "status": "In Progress",
+      "taskedDate": "20-Nov-2021",
+      "completedDate": "20-Nov-2021",
+      "status": "Completed",
       "priority": "Medium",
       "estimatedCost": "",
-      "notes": "Went to Trigital World Order to make visiting cards 1000 Mr.Shameel's request they will give a proof & quotation on 19/11/2026 to be follow up"
+      "notes": "Went to Trigital World to check whether to collect visiting card,it is not ready, ask me to come on 21/11/2026 around 11.30am"
     },
     {
       "id": "ops_4dc181",
@@ -6670,6 +6670,57 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Create a database sheet for SLAITO membership details"
+    },
+    {
+      "id": "ops_35cf4c",
+      "no": 246,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "NTB bank deposited cash to Amex CR card Mr.Hameez",
+      "requestedBy": "Mr. Hameez",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Banking & Treasury",
+      "type": "Banking & Fund Transfer",
+      "taskedDate": "20-Nov-2021",
+      "completedDate": "20-Nov-2021",
+      "status": "Completed",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Went to NTB bank deposited cash to Amex CR card Mr.Hameez"
+    },
+    {
+      "id": "ops_9b86ed",
+      "no": 247,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Comm Bank deposited cash to Comm Bank CR card Mr.Hameez",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Banking & Treasury",
+      "type": "Banking & Fund Transfer",
+      "taskedDate": "20-Nov-2021",
+      "completedDate": "20-Nov-2021",
+      "status": "Completed",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Went to Comm Bank deposited cash to Comm Bank CR card Mr.Hameez"
+    },
+    {
+      "id": "ops_852ed9",
+      "no": 248,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Chartered Secretary Institute collect the certificate, handed over to Mr.Shameel",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Office Operations",
+      "type": "Field / Office Operations",
+      "taskedDate": "20-Nov-2021",
+      "completedDate": "20-Nov-2021",
+      "status": "Completed",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Went to Chartered Secretary Institute collect the certificate,handed over to Mr.Shameel"
     }
   ],
   "payroll": {
