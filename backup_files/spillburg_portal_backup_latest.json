@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-23T04:04:01Z",
+  "exportTimestamp": "2026-11-23T12:26:55Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6721,6 +6721,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Went to Chartered Secretary Institute collect the certificate,handed over to Mr.Shameel"
+    },
+    {
+      "id": "ops_f03eac",
+      "no": 88,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Goodman Laboratories — NMRA & Profitability Analysis (Spillburg Sri Lanka)",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Office Operations",
+      "type": "Operational Task",
+      "taskedDate": "23-Nov-2026",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Prepare and complete Goodman Laboratories — NMRA & Profitability Analysis (Spillburg Sri Lanka)"
     }
   ],
   "payroll": {
