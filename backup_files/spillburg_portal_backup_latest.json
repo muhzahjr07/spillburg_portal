@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-23T12:26:55Z",
+  "exportTimestamp": "2026-11-23T12:28:09Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6738,6 +6738,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Prepare and complete Goodman Laboratories — NMRA & Profitability Analysis (Spillburg Sri Lanka)"
+    },
+    {
+      "id": "ops_710ea9",
+      "no": 89,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Research and Report on Doctorate Awarding Universities from UGC",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "R&D",
+      "type": "Operational Task",
+      "taskedDate": "23-Nov-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Research and Report on Doctorate Awarding Universities from UGC and compile key findings & comparison"
     }
   ],
   "payroll": {
