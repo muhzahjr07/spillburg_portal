@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-25T05:13:28Z",
+  "exportTimestamp": "2026-11-25T05:14:08Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -8390,7 +8390,7 @@
             "earnedLkr": 0.0,
             "workDays": "",
             "earnedGbp": 786.93,
-            "bankAccountNo": "202020086518",
+            "bankAccountNo": "202020086518 (HNB)",
             "bankCode": "",
             "bankBranch": "HATTON NATIONAL BANK PLC -HIKKADUWA",
             "tinNo": "170145712",
