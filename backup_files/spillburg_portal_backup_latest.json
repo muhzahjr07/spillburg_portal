@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-25T05:26:41Z",
+  "exportTimestamp": "2026-11-25T05:27:57Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -8291,11 +8291,15 @@
             "tinNo": "189585837",
             "idNo": "936160328V",
             "dateJoined": "17.08.2026",
-            "specialAllowance": 0,
+            "specialAllowance": 30.0,
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": 89752.0
+            "apit": 89752.0,
+            "lkrSalary": 0.0,
+            "earnedLkr": 0.0,
+            "fixedAllowance": 0.0,
+            "otherDeductions": 0.0
           },
           {
             "id": "emp_8aabeb",
