@@ -27,6 +27,13 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
     employees = enriched_period.get("employees", [])
     totals = enriched_period.get("totals", {})
 
+    if enriched_period.get("includeDecimals") is not None:
+        include_decimals = bool(enriched_period.get("includeDecimals"))
+    elif comp.get("includeDecimals") is not None:
+        include_decimals = bool(comp.get("includeDecimals"))
+    else:
+        include_decimals = False
+
     rate_disp = int(rate) if rate == int(rate) else rate
 
     sheet_rows = []
@@ -321,8 +328,8 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
             if c_type == "num":
                 try:
                     num_val = float(val) if val != "" else 0
-                    if num_val == int(num_val) and s_idx in (11, 12, 16):
-                        sheet_xml_lines.append(f'      <c r="{cell_ref}" s="{s_idx}"><v>{int(num_val)}</v></c>')
+                    if not include_decimals or (num_val == int(num_val) and s_idx in (11, 12, 16)):
+                        sheet_xml_lines.append(f'      <c r="{cell_ref}" s="{s_idx}"><v>{int(round(num_val))}</v></c>')
                     else:
                         sheet_xml_lines.append(f'      <c r="{cell_ref}" s="{s_idx}"><v>{num_val:.2f}</v></c>')
                 except (ValueError, TypeError):
@@ -337,11 +344,13 @@ def generate_payroll_xlsx(enriched_period, company_info=None):
     sheet_xml_lines.append('</worksheet>')
     sheet_xml = '\n'.join(sheet_xml_lines)
 
+    amt_fmt_code = "#,##0.00" if include_decimals else "#,##0"
+
     # Stylesheet with Calibri size 8 across ALL elements
-    styles_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    styles_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <numFmts count="2">
-    <numFmt numFmtId="164" formatCode="#,##0.00"/>
+    <numFmt numFmtId="164" formatCode="{amt_fmt_code}"/>
     <numFmt numFmtId="165" formatCode="#,##0"/>
   </numFmts>
   <fonts count="4">
@@ -858,6 +867,13 @@ def generate_payslips_xlsx(enriched_period, company_info=None, single_emp_id=Non
     foreign_curr = comp.get('foreignCurrency') or enriched_period.get('baseCurrency') or 'GBP'
     rate = float(enriched_period.get('exchangeRate', 440.0) or 440.0)
 
+    if enriched_period.get('includeDecimals') is not None:
+        include_decimals = bool(enriched_period.get('includeDecimals'))
+    elif comp.get('includeDecimals') is not None:
+        include_decimals = bool(comp.get('includeDecimals'))
+    else:
+        include_decimals = False
+
     addr1 = comp.get('addressLine1') or comp.get('address') or 'Office 14, Basement Level'
     addr2 = comp.get('addressLine2') or 'Cinnamon Lakeside Hotel - Colombo 02'
 
@@ -899,7 +915,10 @@ def generate_payslips_xlsx(enriched_period, company_info=None, single_emp_id=Non
                 basic_label = 'Basic Pay'
             else:
                 earned_f = float(emp.get('earnedGbp') or emp.get('gbpSalary') or 0.0)
-                basic_label = f"Basic Pay ({foreign_curr} {earned_f:,.2f} @{rate:,.2f})"
+                if include_decimals:
+                    basic_label = f"Basic Pay ({foreign_curr} {earned_f:,.2f} @{rate:,.2f})"
+                else:
+                    basic_label = f"Basic Pay ({foreign_curr} {earned_f:,.0f} @{rate:,.0f})"
 
             # 1. Company Name (merged across lbl & val)
             v_rows.append(('title', 28, [
@@ -1086,7 +1105,9 @@ def generate_payslips_xlsx(enriched_period, company_info=None, single_emp_id=Non
             if c_type == 'empty':
                 c_xmls.append(f'<c r="{cell_ref}" s="{s_idx}"/>')
             elif c_type == 'num':
-                c_xmls.append(f'<c r="{cell_ref}" s="{s_idx}"><v>{val}</v></c>')
+                num_v = float(val or 0.0)
+                v_str = f"{num_v:.2f}" if include_decimals else f"{int(round(num_v))}"
+                c_xmls.append(f'<c r="{cell_ref}" s="{s_idx}"><v>{v_str}</v></c>')
             elif c_type == 'inlineStr':
                 esc_val = escape_xml(val)
                 c_xmls.append(f'<c r="{cell_ref}" s="{s_idx}" t="inlineStr"><is><t>{esc_val}</t></is></c>')
@@ -1121,10 +1142,12 @@ def generate_payslips_xlsx(enriched_period, company_info=None, single_emp_id=Non
   <pageSetup orientation="landscape" paperSize="9"/>
 </worksheet>"""
 
-    styles_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    amt_fmt_code = "#,##0.00" if include_decimals else "#,##0"
+
+    styles_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <numFmts count="2">
-    <numFmt numFmtId="164" formatCode="#,##0.00"/>
+    <numFmt numFmtId="164" formatCode="{amt_fmt_code}"/>
     <numFmt numFmtId="165" formatCode="#,##0"/>
   </numFmts>
   <fonts count="7">

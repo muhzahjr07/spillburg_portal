@@ -10474,6 +10474,205 @@ function formatMoney(num, decimals = 2) {
   });
 }
 
+function isPayrollDecimalsEnabled(periodObj = null, compObj = null) {
+  const p = periodObj || activePayrollPeriod;
+  const comp = compObj || (payrollData?.companies || []).find(c => c.id === (p?.companyId || selectedPayrollCompanyId));
+  if (p && p.includeDecimals !== undefined && p.includeDecimals !== null) {
+    return Boolean(p.includeDecimals);
+  }
+  if (comp && comp.includeDecimals !== undefined && comp.includeDecimals !== null) {
+    return Boolean(comp.includeDecimals);
+  }
+  return false;
+}
+
+function getPayrollDecimals(periodObj = null, compObj = null) {
+  return isPayrollDecimalsEnabled(periodObj, compObj) ? 2 : 0;
+}
+
+function formatPayrollMoney(num, periodObj = null, compObj = null) {
+  return formatMoney(num, getPayrollDecimals(periodObj, compObj));
+}
+
+function renderPayrollDecimalModeSelector(periodObj = null, compObj = null) {
+  const incDec = isPayrollDecimalsEnabled(periodObj, compObj);
+  return `
+    <div class="inline-flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs shadow-2xs select-none" title="Toggle between Rounded Whole Numbers (No Decimals) and Exact Decimals (.00)">
+      <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2 hidden sm:inline">Decimals:</span>
+      <button type="button" onclick="handlePayrollDecimalModeChange(false)"
+        class="px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer ${!incDec ? 'bg-white text-teal-800 shadow-2xs font-bold border border-teal-200' : 'text-slate-600 hover:text-slate-900'}">
+        <span>No Decimals (Rounded)</span>
+      </button>
+      <button type="button" onclick="handlePayrollDecimalModeChange(true)"
+        class="px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 cursor-pointer ${incDec ? 'bg-white text-teal-800 shadow-2xs font-bold border border-teal-200' : 'text-slate-600 hover:text-slate-900'}">
+        <span>Include Decimals (.00)</span>
+      </button>
+    </div>
+  `;
+}
+
+function recomputePeriodLocallyForDecimalMode(p, includeDecimals) {
+  if (!p) return;
+  const incDec = Boolean(includeDecimals);
+  p.includeDecimals = incDec;
+  const comp = (payrollData?.companies || []).find(c => c.id === p.companyId) || {};
+  comp.includeDecimals = incDec;
+  const isSingle = (comp.currencyMode === 'single') || (p.currencyMode === 'single');
+  const rate = Number(p.exchangeRate) || (isSingle ? 1 : 440);
+  const rVal = (v) => incDec ? (Math.round((Number(v) || 0) * 100) / 100) : Math.round(Number(v) || 0);
+
+  let sumGbpSalary = 0, sumEarnedGbp = 0, sumTotalEarnedGbp = 0, sumFixedAllowanceGbp = 0, sumSpecialAllowanceGbp = 0;
+  let sumOtherDeductionsGbp = 0, sumEpf12Gbp = 0, sumEtf3Gbp = 0, sumTotalGbp = 0;
+  let sumLkrGross = 0, sumTotalGrossLkr = 0, sumFixedAllowanceLkr = 0, sumSpecialAllowanceLkr = 0;
+  let sumEpf8Lkr = 0, sumEpf12Lkr = 0, sumEtf3Lkr = 0, sumApitLkr = 0, sumOtherDeductionsLkr = 0, sumDeductionsLkr = 0, sumNetSalaryLkr = 0;
+
+  (p.employees || []).forEach(emp => {
+    if (isSingle) {
+      const rawLkr = Number(emp.rawLkrSalary ?? emp.lkrSalary ?? emp.baseSalaryLkr ?? emp.lkrGross ?? emp.earnedLkr ?? 0);
+      emp.rawLkrSalary = rawLkr;
+      emp.lkrSalary = rVal(rawLkr);
+      emp.earnedLkr = emp.lkrSalary;
+      emp.lkrGross = emp.lkrSalary;
+      emp.fixedAllowance = rVal(emp.fixedAllowance || 0);
+      emp.specialAllowance = rVal(emp.specialAllowance || 0);
+      emp.totalGrossLkr = rVal(emp.lkrGross + emp.fixedAllowance + emp.specialAllowance);
+      emp.earnedSalaryLkr = emp.totalGrossLkr;
+      emp.epf8Lkr = rVal(emp.lkrGross * 0.08);
+      emp.epf12Lkr = rVal(emp.lkrGross * 0.12);
+      emp.epf20Lkr = rVal(emp.epf8Lkr + emp.epf12Lkr);
+      emp.etf3Lkr = rVal(emp.lkrGross * 0.03);
+      emp.apit = emp.apit !== null && emp.apit !== undefined && String(emp.apit).trim() !== '' ? rVal(emp.apit) : 0;
+      emp.otherDeductions = emp.otherDeductions !== null && emp.otherDeductions !== undefined && String(emp.otherDeductions).trim() !== ''
+        ? rVal(emp.otherDeductions)
+        : rVal((emp.advance || 0) + (emp.loan || 0));
+      emp.totalDeductions = rVal(emp.epf8Lkr + emp.apit + emp.otherDeductions);
+      emp.netSalaryLkr = rVal(emp.totalGrossLkr - emp.totalDeductions);
+      emp.totalEmployerLkr = rVal(emp.totalGrossLkr + emp.epf12Lkr + emp.etf3Lkr - emp.otherDeductions);
+    } else {
+      const rawGbp = Number(emp.rawGbpSalary ?? emp.gbpSalary ?? 0);
+      const rawEarned = Number(emp.rawEarnedGbp ?? ((emp.earnedGbp !== undefined && emp.earnedGbp !== null && String(emp.earnedGbp).trim() !== '') ? emp.earnedGbp : rawGbp));
+      emp.rawGbpSalary = rawGbp;
+      emp.rawEarnedGbp = rawEarned;
+      emp.gbpSalary = rVal(rawGbp);
+      emp.earnedGbp = rVal(rawEarned);
+      emp.fixedAllowance = rVal(emp.fixedAllowance || 0);
+      emp.specialAllowance = rVal(emp.specialAllowance || 0);
+      emp.fixedAllowanceGbp = rate ? rVal(emp.fixedAllowance / rate) : 0;
+      emp.specialAllowanceGbp = rate ? rVal(emp.specialAllowance / rate) : 0;
+      emp.totalEarnedGbp = rVal(emp.earnedGbp + emp.fixedAllowanceGbp + emp.specialAllowanceGbp);
+      emp.epf12Gbp = rVal(rawEarned * 0.12);
+      emp.etf3Gbp = rVal(rawEarned * 0.03);
+      emp.lkrGross = rVal(rawEarned * rate);
+      emp.totalGrossLkr = rVal(emp.lkrGross + emp.fixedAllowance + emp.specialAllowance);
+      emp.earnedSalaryLkr = emp.totalGrossLkr;
+      emp.epf8Lkr = rVal(emp.lkrGross * 0.08);
+      emp.epf12Lkr = rVal(emp.lkrGross * 0.12);
+      emp.epf20Lkr = rVal(emp.epf8Lkr + emp.epf12Lkr);
+      emp.etf3Lkr = rVal(emp.lkrGross * 0.03);
+      emp.apit = emp.apit !== null && emp.apit !== undefined && String(emp.apit).trim() !== '' ? rVal(emp.apit) : 0;
+      emp.otherDeductions = emp.otherDeductions !== null && emp.otherDeductions !== undefined && String(emp.otherDeductions).trim() !== ''
+        ? rVal(emp.otherDeductions)
+        : rVal((emp.advance || 0) + (emp.loan || 0));
+      emp.otherDeductionsGbp = rate ? rVal(emp.otherDeductions / rate) : 0;
+      emp.totalGbp = rVal(emp.totalEarnedGbp + emp.epf12Gbp + emp.etf3Gbp - emp.otherDeductionsGbp);
+      emp.totalDeductions = rVal(emp.epf8Lkr + emp.apit + emp.otherDeductions);
+      emp.netSalaryLkr = rVal(emp.totalGrossLkr - emp.totalDeductions);
+      emp.totalEmployerLkr = rVal(emp.totalGrossLkr + emp.epf12Lkr + emp.etf3Lkr - emp.otherDeductions);
+    }
+
+    sumGbpSalary += emp.gbpSalary || 0;
+    sumEarnedGbp += emp.earnedGbp || 0;
+    sumTotalEarnedGbp += emp.totalEarnedGbp || 0;
+    sumFixedAllowanceGbp += emp.fixedAllowanceGbp || 0;
+    sumSpecialAllowanceGbp += emp.specialAllowanceGbp || 0;
+    sumOtherDeductionsGbp += emp.otherDeductionsGbp || 0;
+    sumEpf12Gbp += emp.epf12Gbp || 0;
+    sumEtf3Gbp += emp.etf3Gbp || 0;
+    sumTotalGbp += emp.totalGbp || 0;
+    sumLkrGross += emp.lkrGross || 0;
+    sumTotalGrossLkr += emp.totalGrossLkr || 0;
+    sumFixedAllowanceLkr += emp.fixedAllowance || 0;
+    sumSpecialAllowanceLkr += emp.specialAllowance || 0;
+    sumEpf8Lkr += emp.epf8Lkr || 0;
+    sumEpf12Lkr += emp.epf12Lkr || 0;
+    sumEtf3Lkr += emp.etf3Lkr || 0;
+    sumApitLkr += emp.apit || 0;
+    sumOtherDeductionsLkr += emp.otherDeductions || 0;
+    sumDeductionsLkr += emp.totalDeductions || 0;
+    sumNetSalaryLkr += emp.netSalaryLkr || 0;
+  });
+
+  p.totals = {
+    ...(p.totals || {}),
+    totalEmployees: (p.employees || []).length,
+    sumGbpSalary: rVal(sumGbpSalary),
+    sumEarnedGbp: rVal(sumEarnedGbp),
+    sumTotalEarnedGbp: rVal(sumTotalEarnedGbp),
+    sumFixedAllowanceGbp: rVal(sumFixedAllowanceGbp),
+    sumSpecialAllowanceGbp: rVal(sumSpecialAllowanceGbp),
+    sumOtherDeductionsGbp: rVal(sumOtherDeductionsGbp),
+    sumEpf12Gbp: rVal(sumEpf12Gbp),
+    sumEtf3Gbp: rVal(sumEtf3Gbp),
+    sumTotalGbp: rVal(sumTotalGbp),
+    sumLkrGross: rVal(sumLkrGross),
+    sumTotalGrossLkr: rVal(sumTotalGrossLkr),
+    sumGrossSalaryLkr: rVal(sumTotalGrossLkr),
+    sumFixedAllowanceLkr: rVal(sumFixedAllowanceLkr),
+    sumSpecialAllowanceLkr: rVal(sumSpecialAllowanceLkr),
+    sumEpf8Lkr: rVal(sumEpf8Lkr),
+    sumEpf12Lkr: rVal(sumEpf12Lkr),
+    sumEtf3Lkr: rVal(sumEtf3Lkr),
+    sumTotalEmployerLkr: rVal(sumLkrGross + sumFixedAllowanceLkr + sumSpecialAllowanceLkr + sumEpf12Lkr + sumEtf3Lkr - sumOtherDeductionsLkr),
+    sumApitLkr: rVal(sumApitLkr),
+    sumOtherDeductionsLkr: rVal(sumOtherDeductionsLkr),
+    sumDeductionsLkr: rVal(sumDeductionsLkr),
+    sumNetSalaryLkr: rVal(sumNetSalaryLkr)
+  };
+}
+
+async function handlePayrollDecimalModeChange(includeDecimals) {
+  const incDec = Boolean(includeDecimals);
+  if (activePayrollPeriod) {
+    recomputePeriodLocallyForDecimalMode(activePayrollPeriod, incDec);
+    const pSummary = (payrollData?.periods || []).find(per => per.id === activePayrollPeriod.id);
+    if (pSummary) {
+      pSummary.includeDecimals = incDec;
+      pSummary.totals = activePayrollPeriod.totals;
+      pSummary.totalNetRemittance = activePayrollPeriod.totals?.sumNetSalaryLkr || 0;
+    }
+  }
+  const mainCont = document.getElementById('mainContent');
+  if (mainCont && currentView === 'payroll') {
+    await renderPayroll(mainCont);
+  }
+  if (activePayrollPeriod && canEdit('payroll')) {
+    try {
+      const res = await fetch('/api/payroll/period', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({
+          id: activePayrollPeriod.id,
+          includeDecimals: incDec
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.period) {
+          activePayrollPeriod = data.period;
+          if (mainCont && currentView === 'payroll') {
+            await renderPayroll(mainCont);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error syncing decimal mode:', err);
+    }
+  }
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)
@@ -10744,6 +10943,9 @@ async function renderPayroll(container) {
               </div>
             `}
 
+            <!-- Decimal / Rounding Selector -->
+            ${renderPayrollDecimalModeSelector(p, selectedComp)}
+
             <!-- Month/Period Selector (Filtered to this company) -->
             <div class="relative">
               <select id="payrollPeriodSelect" onchange="handlePayrollPeriodChange(this.value)"
@@ -10800,7 +11002,7 @@ async function renderPayroll(container) {
               <i data-lucide="landmark" class="w-4 h-4 text-emerald-600"></i>
             </div>
             <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
-              Rs ${formatMoney(totals.sumNetSalaryLkr, 2)}
+              Rs ${formatPayrollMoney(totals.sumNetSalaryLkr, p, selectedComp)}
             </div>
             <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
               <span>Net Staff Pay (${p?.employees?.length || 0} Members)</span>
@@ -10816,12 +11018,12 @@ async function renderPayroll(container) {
             </div>
             <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
               ${selectedComp.currencyMode === 'single'
-                ? `Rs ${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), 2)}`
-                : `&pound; ${formatMoney(totals.sumTotalEarnedGbp ?? (Number(totals.sumEarnedGbp || 0) + Number(totals.sumFixedAllowanceGbp || 0) + Number(totals.sumSpecialAllowanceGbp || 0)), 2)}`}
+                ? `Rs ${formatPayrollMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), p, selectedComp)}`
+                : `&pound; ${formatPayrollMoney(totals.sumTotalEarnedGbp ?? (Number(totals.sumEarnedGbp || 0) + Number(totals.sumFixedAllowanceGbp || 0) + Number(totals.sumSpecialAllowanceGbp || 0)), p, selectedComp)}`}
             </div>
             <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
               <span>Basic + Allowances</span>
-              <span class="font-medium text-slate-700">${selectedComp.currencyMode === 'single' ? `Basic Rs ${formatMoney(totals.sumLkrGross || 0, 2)}` : `Basic &pound; ${formatMoney(totals.sumEarnedGbp || 0, 2)}`}</span>
+              <span class="font-medium text-slate-700">${selectedComp.currencyMode === 'single' ? `Basic Rs ${formatPayrollMoney(totals.sumLkrGross || 0, p, selectedComp)}` : `Basic &pound; ${formatPayrollMoney(totals.sumEarnedGbp || 0, p, selectedComp)}`}</span>
             </div>
           </div>
 
@@ -10832,11 +11034,11 @@ async function renderPayroll(container) {
               <i data-lucide="receipt" class="w-4 h-4 text-amber-600"></i>
             </div>
             <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
-              Rs ${formatMoney(totals.sumDeductionsLkr, 2)}
+              Rs ${formatPayrollMoney(totals.sumDeductionsLkr, p, selectedComp)}
             </div>
             <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>EPF 8%: Rs ${formatMoney(totals.sumEpf8Lkr, 0)}</span>
-              <span class="font-medium text-amber-700">APIT: Rs ${formatMoney(totals.sumApitLkr, 0)}</span>
+              <span>EPF 8%: Rs ${formatPayrollMoney(totals.sumEpf8Lkr, p, selectedComp)}</span>
+              <span class="font-medium text-amber-700">APIT: Rs ${formatPayrollMoney(totals.sumApitLkr, p, selectedComp)}</span>
             </div>
           </div>
 
@@ -10847,11 +11049,11 @@ async function renderPayroll(container) {
               <i data-lucide="shield-check" class="w-4 h-4 text-indigo-600"></i>
             </div>
             <div class="text-xl md:text-2xl font-bold font-display text-slate-900 tracking-tight">
-              Rs ${formatMoney((totals.sumEpf12Lkr || 0) + (totals.sumEtf3Lkr || 0), 2)}
+              Rs ${formatPayrollMoney((totals.sumEpf12Lkr || 0) + (totals.sumEtf3Lkr || 0), p, selectedComp)}
             </div>
             <div class="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>EPF 12%: Rs ${formatMoney(totals.sumEpf12Lkr, 0)}</span>
-              <span class="font-medium text-indigo-700">ETF 3%: Rs ${formatMoney(totals.sumEtf3Lkr, 0)}</span>
+              <span>EPF 12%: Rs ${formatPayrollMoney(totals.sumEpf12Lkr, p, selectedComp)}</span>
+              <span class="font-medium text-indigo-700">ETF 3%: Rs ${formatPayrollMoney(totals.sumEtf3Lkr, p, selectedComp)}</span>
             </div>
           </div>
         </div>
@@ -10963,15 +11165,19 @@ function renderPayrollSheet(container) {
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
   const isSingleCurrency = (currentComp.currencyMode === 'single');
   const foreignCurr = currentComp.foreignCurrency || 'GBP';
+  const dec = getPayrollDecimals(p, currentComp);
 
   container.innerHTML = `
     <div class="space-y-4 fade-in">
       
       <!-- Toolbar -->
       <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-bold text-slate-800">Master Sheet:</span>
-          <span class="text-xs text-slate-600 font-medium">${escapeHtml(p.month)} ${isSingleCurrency ? '(LKR Single Currency)' : `(Dual ${escapeHtml(foreignCurr)} &amp; LKR Tables)`}</span>
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-slate-800">Master Sheet:</span>
+            <span class="text-xs text-slate-600 font-medium">${escapeHtml(p.month)} ${isSingleCurrency ? '(LKR Single Currency)' : `(Dual ${escapeHtml(foreignCurr)} &amp; LKR Tables)`}</span>
+          </div>
+          ${renderPayrollDecimalModeSelector(p, currentComp)}
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
@@ -11041,11 +11247,11 @@ function renderPayrollSheet(container) {
                   <td style="text-align: center;">${e.no}</td>
                   <td style="font-weight: 600; text-align: left;">${escapeHtml((e.name || '').toUpperCase())}</td>
                   <td style="text-align: left; color: #475569;">${escapeHtml(e.position)}</td>
-                  <td style="text-align: right;">${formatMoney(e.lkrSalary || e.lkrGross || 0, 2)}</td>
+                  <td style="text-align: right;">${formatMoney(e.lkrSalary || e.lkrGross || 0, dec)}</td>
                   <td style="text-align: right; padding: 2px 4px;">
                     <input type="number" step="0.01" min="0"
-                      value="${Number(e.fixedAllowance || 0) ? Number(e.fixedAllowance).toFixed(2) : ''}"
-                      placeholder="0.00"
+                      value="${Number(e.fixedAllowance || 0) ? Number(e.fixedAllowance).toFixed(dec) : ''}"
+                      placeholder="${dec === 2 ? '0.00' : '0'}"
                       title="Fixed Allowance (LKR) - Adds to Remittance &amp; Staff Cost, excluded from EPF/ETF. Press Enter to save."
                       class="font-mono text-right text-teal-700 font-semibold bg-transparent hover:bg-teal-50 focus:bg-white focus:ring-1 focus:ring-teal-500 border border-transparent hover:border-teal-200 rounded px-1 py-0.5 transition"
                       style="width: 88px;"
@@ -11055,8 +11261,8 @@ function renderPayrollSheet(container) {
                   </td>
                   <td style="text-align: right; padding: 2px 4px;">
                     <input type="number" step="0.01" min="0"
-                      value="${Number(e.specialAllowance || 0) ? Number(e.specialAllowance).toFixed(2) : ''}"
-                      placeholder="0.00"
+                      value="${Number(e.specialAllowance || 0) ? Number(e.specialAllowance).toFixed(dec) : ''}"
+                      placeholder="${dec === 2 ? '0.00' : '0'}"
                       title="Special Allowance (LKR) - Adds to Remittance &amp; Staff Cost, excluded from EPF/ETF. Press Enter to save."
                       class="font-mono text-right text-teal-700 font-semibold bg-transparent hover:bg-teal-50 focus:bg-white focus:ring-1 focus:ring-teal-500 border border-transparent hover:border-teal-200 rounded px-1 py-0.5 transition"
                       style="width: 88px;"
@@ -11075,13 +11281,13 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
-                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || e.earnedLkr || e.lkrSalary || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}</td>
-                  <td style="text-align: right;">${formatMoney(e.epf8Lkr, 2)}</td>
-                  <td style="text-align: right;">${formatMoney(e.epf12Lkr, 2)}</td>
-                  <td style="text-align: right;">${formatMoney(e.etf3Lkr, 2)}</td>
+                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || e.earnedLkr || e.lkrSalary || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), dec)}</td>
+                  <td style="text-align: right;">${formatMoney(e.epf8Lkr, dec)}</td>
+                  <td style="text-align: right;">${formatMoney(e.epf12Lkr, dec)}</td>
+                  <td style="text-align: right;">${formatMoney(e.etf3Lkr, dec)}</td>
                   <td style="text-align: right; padding: 2px 4px;">
                     <input type="number" step="0.01" min="0"
-                      value="${Number(e.apit || 0) ? Number(e.apit) : 0}"
+                      value="${Number(e.apit || 0) ? Number(e.apit).toFixed(dec) : 0}"
                       title="APIT Tax (LKR) - Editable. Press Enter to recalculate."
                       class="font-mono text-right text-red-600 font-semibold bg-transparent hover:bg-red-50 focus:bg-white focus:ring-1 focus:ring-red-400 border border-transparent hover:border-red-200 rounded px-1 py-0.5 transition"
                       style="width: 82px;"
@@ -11091,7 +11297,7 @@ function renderPayrollSheet(container) {
                   </td>
                   <td style="text-align: right; padding: 2px 4px;">
                     <input type="number" step="0.01" min="0"
-                      value="${Number(e.otherDeductions || 0) ? Number(e.otherDeductions) : ''}"
+                      value="${Number(e.otherDeductions || 0) ? Number(e.otherDeductions).toFixed(dec) : ''}"
                       placeholder="0"
                       title="Other Deductions (LKR) - Directly editable. Press Enter to recalculate."
                       class="font-mono text-right text-amber-700 font-semibold bg-transparent hover:bg-amber-50 focus:bg-white focus:ring-1 focus:ring-amber-400 border border-transparent hover:border-amber-200 rounded px-1 py-0.5 transition"
@@ -11100,7 +11306,7 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
-                  <td style="text-align: right; font-weight: 700; color: #047857; font-size: 11.5px;">${formatMoney(e.netSalaryLkr, 2)}</td>
+                  <td style="text-align: right; font-weight: 700; color: #047857; font-size: 11.5px;">${formatMoney(e.netSalaryLkr, dec)}</td>
                   <td style="text-align: left; font-family: monospace;">${escapeHtml(e.bankAccountNo)}${e.bankCode ? `(${escapeHtml(e.bankCode)})` : ''}</td>
                   <td style="text-align: center;">${escapeHtml(e.tinNo || '-')}</td>
                   <td style="text-align: center;">${escapeHtml(e.idNo || '-')}</td>
@@ -11115,17 +11321,17 @@ function renderPayrollSheet(container) {
 
               <tr class="totals-row">
                 <td colspan="3" style="text-align: center; font-weight: bold;">TOTAL</td>
-                <td style="text-align: right;">${formatMoney(totals.sumLkrGross || 0, 2)}</td>
-                <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumFixedAllowanceLkr || 0, 2)}</td>
-                <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumSpecialAllowanceLkr || 0, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumLkrGross || 0, dec)}</td>
+                <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumFixedAllowanceLkr || 0, dec)}</td>
+                <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumSpecialAllowanceLkr || 0, dec)}</td>
                 <td></td>
-                <td style="text-align: right;">${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), 2)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEpf8Lkr, 2)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, 2)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 2)}</td>
-                <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, 2)}</td>
-                <td style="text-align: right; color: #b45309; font-weight: 700;">${formatMoney(totals.sumOtherDeductionsLkr || 0, 2)}</td>
-                <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 400;">${formatMoney(totals.sumNetSalaryLkr, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), dec)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEpf8Lkr, dec)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, dec)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, dec)}</td>
+                <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, dec)}</td>
+                <td style="text-align: right; color: #b45309; font-weight: 700;">${formatMoney(totals.sumOtherDeductionsLkr || 0, dec)}</td>
+                <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 400;">${formatMoney(totals.sumNetSalaryLkr, dec)}</td>
                 <td colspan="5"></td>
               </tr>
             </tbody>
@@ -11176,11 +11382,11 @@ function renderPayrollSheet(container) {
                   <td style="text-align: center;">${e.no}</td>
                   <td style="font-weight: 600; text-align: left;">${escapeHtml((e.name || '').toUpperCase())}</td>
                   <td style="text-align: left; color: #475569;">${escapeHtml(e.position)}</td>
-                  <td style="text-align: right;">${formatMoney(e.gbpSalary, 2)}</td>
+                  <td style="text-align: right;">${formatMoney(e.gbpSalary, dec)}</td>
                   <td style="text-align: right; padding: 2px 4px;">
                     <input type="number" step="0.01" min="0"
-                      value="${Number(e.fixedAllowanceGbp || 0) ? Number(e.fixedAllowanceGbp).toFixed(2) : ''}"
-                      placeholder="0.00"
+                      value="${Number(e.fixedAllowanceGbp || 0) ? Number(e.fixedAllowanceGbp).toFixed(dec) : ''}"
+                      placeholder="${dec === 2 ? '0.00' : '0'}"
                       title="Fixed Allowance (${foreignCurr}) - Adds to Remittance &amp; Staff Cost, excluded from EPF/ETF. Press Enter to save."
                       class="font-mono text-right text-teal-700 font-semibold bg-transparent hover:bg-teal-50 focus:bg-white focus:ring-1 focus:ring-teal-500 border border-transparent hover:border-teal-200 rounded px-1 py-0.5 transition"
                       style="width: 82px;"
@@ -11190,8 +11396,8 @@ function renderPayrollSheet(container) {
                   </td>
                   <td style="text-align: right; padding: 2px 4px;">
                     <input type="number" step="0.01" min="0"
-                      value="${Number(e.specialAllowanceGbp || 0) ? Number(e.specialAllowanceGbp).toFixed(2) : ''}"
-                      placeholder="0.00"
+                      value="${Number(e.specialAllowanceGbp || 0) ? Number(e.specialAllowanceGbp).toFixed(dec) : ''}"
+                      placeholder="${dec === 2 ? '0.00' : '0'}"
                       title="Special Allowance (${foreignCurr}) - Adds to Remittance &amp; Staff Cost, excluded from EPF/ETF. Press Enter to save."
                       class="font-mono text-right text-teal-700 font-semibold bg-transparent hover:bg-teal-50 focus:bg-white focus:ring-1 focus:ring-teal-500 border border-transparent hover:border-teal-200 rounded px-1 py-0.5 transition"
                       style="width: 82px;"
@@ -11210,10 +11416,10 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
-                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.totalEarnedGbp ?? (Number(e.earnedGbp || 0) + Number(e.fixedAllowanceGbp || 0) + Number(e.specialAllowanceGbp || 0)), 2)}</td>
-                  <td style="text-align: right;">${formatMoney(e.epf12Gbp, 2)}</td>
-                  <td style="text-align: right;">${formatMoney(e.etf3Gbp, 2)}</td>
-                  <td style="text-align: right; font-weight: 700; color: #1e3a8a;">${formatMoney(e.totalGbp, 2)}</td>
+                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.totalEarnedGbp ?? (Number(e.earnedGbp || 0) + Number(e.fixedAllowanceGbp || 0) + Number(e.specialAllowanceGbp || 0)), dec)}</td>
+                  <td style="text-align: right;">${formatMoney(e.epf12Gbp, dec)}</td>
+                  <td style="text-align: right;">${formatMoney(e.etf3Gbp, dec)}</td>
+                  <td style="text-align: right; font-weight: 700; color: #1e3a8a;">${formatMoney(e.totalGbp, dec)}</td>
                   <td style="text-align: left; font-family: monospace;">${escapeHtml(e.bankAccountNo)}${e.bankCode ? `(${escapeHtml(e.bankCode)})` : ''}</td>
                   <td style="text-align: center;">${escapeHtml(e.tinNo || '-')}</td>
                   <td style="text-align: center;">${escapeHtml(e.idNo || '-')}</td>
@@ -11229,14 +11435,14 @@ function renderPayrollSheet(container) {
               <!-- Foreign Summary Totals Row -->
               <tr class="totals-row">
                 <td colspan="3" style="text-align: center; font-weight: bold;">TOTAL</td>
-                <td style="text-align: right;">${formatMoney(totals.sumGbpSalary, 2)}</td>
-                <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumFixedAllowanceGbp || 0, 2)}</td>
-                <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumSpecialAllowanceGbp || 0, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumGbpSalary, dec)}</td>
+                <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumFixedAllowanceGbp || 0, dec)}</td>
+                <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumSpecialAllowanceGbp || 0, dec)}</td>
                 <td></td>
-                <td style="text-align: right;">${formatMoney(totals.sumTotalEarnedGbp ?? (Number(totals.sumEarnedGbp || 0) + Number(totals.sumFixedAllowanceGbp || 0) + Number(totals.sumSpecialAllowanceGbp || 0)), 2)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEpf12Gbp, 2)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEtf3Gbp, 2)}</td>
-                <td style="text-align: right; font-size: 11.5px;">${formatMoney(totals.sumTotalGbp, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumTotalEarnedGbp ?? (Number(totals.sumEarnedGbp || 0) + Number(totals.sumFixedAllowanceGbp || 0) + Number(totals.sumSpecialAllowanceGbp || 0)), dec)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEpf12Gbp, dec)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEtf3Gbp, dec)}</td>
+                <td style="text-align: right; font-size: 11.5px;">${formatMoney(totals.sumTotalGbp, dec)}</td>
                 <td colspan="5"></td>
               </tr>
             </tbody>
@@ -11287,7 +11493,7 @@ function renderPayrollSheet(container) {
                   <td style="text-align: center;">${e.no}</td>
                   <td style="font-weight: 600; text-align: left;">${escapeHtml((e.name || '').toUpperCase())}</td>
                   <td style="text-align: left; color: #475569;">${escapeHtml(e.position)}</td>
-                  <td style="text-align: right;">${formatMoney(e.gbpSalary, 2)}</td>
+                  <td style="text-align: right;">${formatMoney(e.gbpSalary, dec)}</td>
                   <td style="text-align: center; padding: 2px 4px;">
                     <input type="text"
                       value="${escapeHtml(e.workDays || '')}"
@@ -11299,12 +11505,12 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
-                  <td style="text-align: right;">${formatMoney(e.earnedGbp, 2)}</td>
-                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.lkrGross, 0)}</td>
+                  <td style="text-align: right;">${formatMoney(e.earnedGbp, dec)}</td>
+                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.lkrGross, dec)}</td>
                   <td style="text-align: right; padding: 2px 4px;">
                     <input type="number" step="0.01" min="0"
-                      value="${Number(e.fixedAllowance || 0) ? Number(e.fixedAllowance).toFixed(2) : ''}"
-                      placeholder="0.00"
+                      value="${Number(e.fixedAllowance || 0) ? Number(e.fixedAllowance).toFixed(dec) : ''}"
+                      placeholder="${dec === 2 ? '0.00' : '0'}"
                       title="Fixed Allowance (LKR) - Adds to Remittance &amp; Staff Cost, excluded from EPF/ETF. Press Enter to save."
                       class="font-mono text-right text-teal-700 font-semibold bg-transparent hover:bg-teal-50 focus:bg-white focus:ring-1 focus:ring-teal-500 border border-transparent hover:border-teal-200 rounded px-1 py-0.5 transition"
                       style="width: 88px;"
@@ -11314,8 +11520,8 @@ function renderPayrollSheet(container) {
                   </td>
                   <td style="text-align: right; padding: 2px 4px;">
                     <input type="number" step="0.01" min="0"
-                      value="${Number(e.specialAllowance || 0) ? Number(e.specialAllowance).toFixed(2) : ''}"
-                      placeholder="0.00"
+                      value="${Number(e.specialAllowance || 0) ? Number(e.specialAllowance).toFixed(dec) : ''}"
+                      placeholder="${dec === 2 ? '0.00' : '0'}"
                       title="Special Allowance (LKR) - Adds to Remittance &amp; Staff Cost, excluded from EPF/ETF. Press Enter to save."
                       class="font-mono text-right text-teal-700 font-semibold bg-transparent hover:bg-teal-50 focus:bg-white focus:ring-1 focus:ring-teal-500 border border-transparent hover:border-teal-200 rounded px-1 py-0.5 transition"
                       style="width: 88px;"
@@ -11323,13 +11529,13 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
-                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}</td>
-                  <td style="text-align: right;">${formatMoney(e.epf8Lkr, 2)}</td>
-                  <td style="text-align: right;">${formatMoney(e.epf12Lkr, 2)}</td>
-                  <td style="text-align: right;">${formatMoney(e.etf3Lkr, 2)}</td>
+                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), dec)}</td>
+                  <td style="text-align: right;">${formatMoney(e.epf8Lkr, dec)}</td>
+                  <td style="text-align: right;">${formatMoney(e.epf12Lkr, dec)}</td>
+                  <td style="text-align: right;">${formatMoney(e.etf3Lkr, dec)}</td>
                   <td style="text-align: right; padding: 2px 4px;">
                     <input type="number" step="0.01" min="0"
-                      value="${Number(e.apit || 0) ? Number(e.apit) : 0}"
+                      value="${Number(e.apit || 0) ? Number(e.apit).toFixed(dec) : 0}"
                       title="APIT Tax (LKR) - Editable. Press Enter to recalculate."
                       class="font-mono text-right text-red-600 font-semibold bg-transparent hover:bg-red-50 focus:bg-white focus:ring-1 focus:ring-red-400 border border-transparent hover:border-red-200 rounded px-1 py-0.5 transition"
                       style="width: 82px;"
@@ -11339,7 +11545,7 @@ function renderPayrollSheet(container) {
                   </td>
                   <td style="text-align: right; padding: 2px 4px;">
                     <input type="number" step="0.01" min="0"
-                      value="${Number(e.otherDeductions || 0) ? Number(e.otherDeductions) : ''}"
+                      value="${Number(e.otherDeductions || 0) ? Number(e.otherDeductions).toFixed(dec) : ''}"
                       placeholder="0"
                       title="Other Deductions (LKR) - Directly editable. Press Enter to recalculate."
                       class="font-mono text-right text-amber-700 font-semibold bg-transparent hover:bg-amber-50 focus:bg-white focus:ring-1 focus:ring-amber-400 border border-transparent hover:border-amber-200 rounded px-1 py-0.5 transition"
@@ -11348,26 +11554,26 @@ function renderPayrollSheet(container) {
                       onkeydown="if(event.key==='Enter'){this.blur();}"
                     />
                   </td>
-                  <td style="text-align: right; font-weight: 700; color: #047857; font-size: 11.5px;">${formatMoney(e.netSalaryLkr, 2)}</td>
+                  <td style="text-align: right; font-weight: 700; color: #047857; font-size: 11.5px;">${formatMoney(e.netSalaryLkr, dec)}</td>
                 </tr>
               `).join('')}
 
               <!-- LKR Summary Totals Row -->
               <tr class="totals-row">
                 <td colspan="3" style="text-align: center; font-weight: bold;">TOTAL</td>
-                <td style="text-align: right;">${formatMoney(totals.sumGbpSalary, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumGbpSalary, dec)}</td>
                 <td></td>
-                <td style="text-align: right;">${formatMoney(totals.sumEarnedGbp, 2)}</td>
-                <td style="text-align: right; font-weight: 700;">${formatMoney(totals.sumLkrGross, 0)}</td>
-                <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumFixedAllowanceLkr || 0, 2)}</td>
-                <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumSpecialAllowanceLkr || 0, 2)}</td>
-                <td style="text-align: right; font-weight: 700;">${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), 2)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEpf8Lkr, 2)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, 2)}</td>
-                <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, 2)}</td>
-                <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, 2)}</td>
-                <td style="text-align: right; color: #b45309; font-weight: 700;">${formatMoney(totals.sumOtherDeductionsLkr || 0, 2)}</td>
-                <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 400;">${formatMoney(totals.sumNetSalaryLkr, 2)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEarnedGbp, dec)}</td>
+                <td style="text-align: right; font-weight: 700;">${formatMoney(totals.sumLkrGross, dec)}</td>
+                <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumFixedAllowanceLkr || 0, dec)}</td>
+                <td style="text-align: right; color: #0f766e; font-weight: 700;">${formatMoney(totals.sumSpecialAllowanceLkr || 0, dec)}</td>
+                <td style="text-align: right; font-weight: 700;">${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), dec)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEpf8Lkr, dec)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEpf12Lkr, dec)}</td>
+                <td style="text-align: right;">${formatMoney(totals.sumEtf3Lkr, dec)}</td>
+                <td style="text-align: right; color: #dc2626; font-weight: 700;">${formatMoney(totals.sumApitLkr, dec)}</td>
+                <td style="text-align: right; color: #b45309; font-weight: 700;">${formatMoney(totals.sumOtherDeductionsLkr || 0, dec)}</td>
+                <td style="text-align: right; font-size: 12px; color: #047857; font-weight: 400;">${formatMoney(totals.sumNetSalaryLkr, dec)}</td>
               </tr>
             </tbody>
           </table>
@@ -11381,86 +11587,81 @@ function renderPayrollSheet(container) {
 
 // ---------------- 1B. STAFF COST SUMMARY (RECHARGE INVOICE) ----------------
 // Resilient calculation helper ensuring all employee fields and period totals are properly calculated
-function getEmployeeCalculatedFields(e, exchangeRate = 440) {
+function getEmployeeCalculatedFields(e, exchangeRate = 440, includeDecimalsOpt = null) {
   const rate = Number(exchangeRate) || 440;
+  const incDec = (includeDecimalsOpt !== null && includeDecimalsOpt !== undefined)
+    ? Boolean(includeDecimalsOpt)
+    : isPayrollDecimalsEnabled();
+  const rVal = (v) => incDec ? (Math.round((Number(v) || 0) * 100) / 100) : Math.round(Number(v) || 0);
 
-  // Basic salary in foreign currency (GBP)
-  let basicGbp = 0;
-  if (e.earnedGbp !== undefined && e.earnedGbp !== null && e.earnedGbp !== '') {
-    basicGbp = Number(e.earnedGbp);
+  // Raw Basic salary in foreign currency (GBP)
+  let rawBasicGbp = 0;
+  if (e.rawEarnedGbp !== undefined && e.rawEarnedGbp !== null && e.rawEarnedGbp !== '') {
+    rawBasicGbp = Number(e.rawEarnedGbp);
+  } else if (e.earnedGbp !== undefined && e.earnedGbp !== null && e.earnedGbp !== '') {
+    rawBasicGbp = Number(e.earnedGbp);
+  } else if (e.rawGbpSalary !== undefined && e.rawGbpSalary !== null && e.rawGbpSalary !== '') {
+    rawBasicGbp = Number(e.rawGbpSalary);
   } else if (e.gbpSalary !== undefined && e.gbpSalary !== null && e.gbpSalary !== '') {
-    basicGbp = Number(e.gbpSalary);
+    rawBasicGbp = Number(e.gbpSalary);
   } else if (e.basicSalaryGbp !== undefined && e.basicSalaryGbp !== null && e.basicSalaryGbp !== '') {
-    basicGbp = Number(e.basicSalaryGbp);
+    rawBasicGbp = Number(e.basicSalaryGbp);
   } else if (e.baseSalaryGbp !== undefined && e.baseSalaryGbp !== null && e.baseSalaryGbp !== '') {
-    basicGbp = Number(e.baseSalaryGbp);
+    rawBasicGbp = Number(e.baseSalaryGbp);
   } else if (e.earnedSalaryForeign !== undefined && e.earnedSalaryForeign !== null && e.earnedSalaryForeign !== '') {
-    basicGbp = Number(e.earnedSalaryForeign);
+    rawBasicGbp = Number(e.earnedSalaryForeign);
   }
+
+  let basicGbp = rVal(rawBasicGbp);
 
   // LKR Gross / basic salary (prioritizing direct LKR figures for single currency companies)
   let lkrGross = 0;
-  if (e.lkrGross !== undefined && e.lkrGross !== null && e.lkrGross !== '') {
-    lkrGross = Number(e.lkrGross);
-  } else if (e.earnedLkr !== undefined && e.earnedLkr !== null && e.earnedLkr !== '') {
-    lkrGross = Number(e.earnedLkr);
-  } else if (e.lkrSalary !== undefined && e.lkrSalary !== null && e.lkrSalary !== '') {
-    lkrGross = Number(e.lkrSalary);
-  } else if (e.baseSalaryLkr !== undefined && e.baseSalaryLkr !== null && e.baseSalaryLkr !== '') {
-    lkrGross = Number(e.baseSalaryLkr);
-  } else if (basicGbp > 0) {
-    lkrGross = Math.round(basicGbp * rate);
+  if (rawBasicGbp > 0) {
+    lkrGross = rVal(rawBasicGbp * rate);
+  } else if (e.rawLkrSalary !== undefined && e.rawLkrSalary !== null && e.rawLkrSalary !== '' && Number(e.rawLkrSalary) > 0) {
+    lkrGross = rVal(e.rawLkrSalary);
+  } else if (e.lkrSalary !== undefined && e.lkrSalary !== null && e.lkrSalary !== '' && Number(e.lkrSalary) > 0) {
+    lkrGross = rVal(e.lkrSalary);
+  } else if (e.earnedLkr !== undefined && e.earnedLkr !== null && e.earnedLkr !== '' && Number(e.earnedLkr) > 0) {
+    lkrGross = rVal(e.earnedLkr);
+  } else if (e.baseSalaryLkr !== undefined && e.baseSalaryLkr !== null && e.baseSalaryLkr !== '' && Number(e.baseSalaryLkr) > 0) {
+    lkrGross = rVal(e.baseSalaryLkr);
+  } else if (e.lkrGross !== undefined && e.lkrGross !== null && e.lkrGross !== '') {
+    lkrGross = rVal(e.lkrGross);
   }
 
   // If basicGbp is 0 but lkrGross is known and rate > 1 (and not an LKR-only salary), derive basicGbp
   if (!basicGbp && lkrGross > 0 && e.lkrGross && !e.lkrSalary && rate > 1) {
-    basicGbp = Number(e.lkrGross) / rate;
+    rawBasicGbp = Number(e.lkrGross) / rate;
+    basicGbp = rVal(rawBasicGbp);
   }
 
   // Fixed & Special Allowances (excluded from EPF/ETF, added to Net Remittance & Staff Cost Summary)
-  let fixedAllowanceLkr = (e.fixedAllowance !== undefined && e.fixedAllowance !== null && e.fixedAllowance !== '') ? Number(e.fixedAllowance) : 0;
-  let specialAllowanceLkr = (e.specialAllowance !== undefined && e.specialAllowance !== null && e.specialAllowance !== '') ? Number(e.specialAllowance) : 0;
-  let fixedAllowanceGbp = (e.fixedAllowanceGbp !== undefined && e.fixedAllowanceGbp !== null && e.fixedAllowanceGbp !== '')
-    ? Number(e.fixedAllowanceGbp)
-    : (rate > 1 ? Math.round((fixedAllowanceLkr / rate) * 100) / 100 : 0);
-  let specialAllowanceGbp = (e.specialAllowanceGbp !== undefined && e.specialAllowanceGbp !== null && e.specialAllowanceGbp !== '')
-    ? Number(e.specialAllowanceGbp)
-    : (rate > 1 ? Math.round((specialAllowanceLkr / rate) * 100) / 100 : 0);
+  let fixedAllowanceLkr = (e.fixedAllowance !== undefined && e.fixedAllowance !== null && e.fixedAllowance !== '') ? rVal(e.fixedAllowance) : 0;
+  let specialAllowanceLkr = (e.specialAllowance !== undefined && e.specialAllowance !== null && e.specialAllowance !== '') ? rVal(e.specialAllowance) : 0;
+  let fixedAllowanceGbp = rate > 1 ? rVal(fixedAllowanceLkr / rate) : 0;
+  let specialAllowanceGbp = rate > 1 ? rVal(specialAllowanceLkr / rate) : 0;
 
   // Other Deductions (subtracted from Net Remittance & Staff Cost Summary Total Employer Cost)
   let otherDeductionsLkr = (e.otherDeductions !== undefined && e.otherDeductions !== null && e.otherDeductions !== '')
-    ? Number(e.otherDeductions)
-    : Number((e.advance || 0) + (e.loan || 0));
-  let otherDeductionsGbp = (e.otherDeductionsGbp !== undefined && e.otherDeductionsGbp !== null && e.otherDeductionsGbp !== '')
-    ? Number(e.otherDeductionsGbp)
-    : (rate > 1 ? Math.round((otherDeductionsLkr / rate) * 100) / 100 : 0);
+    ? rVal(e.otherDeductions)
+    : rVal((e.advance || 0) + (e.loan || 0));
+  let otherDeductionsGbp = rate > 1 ? rVal(otherDeductionsLkr / rate) : 0;
 
-  // EPF 12% in GBP (strictly on Basic Salary)
-  let epf12Gbp = 0;
-  if (e.epf12Gbp !== undefined && e.epf12Gbp !== null && e.epf12Gbp !== '') {
-    epf12Gbp = Number(e.epf12Gbp);
-  } else {
-    epf12Gbp = Math.round(basicGbp * 0.12);
-  }
-
-  // ETF 3% in GBP (strictly on Basic Salary)
-  let etf3Gbp = 0;
-  if (e.etf3Gbp !== undefined && e.etf3Gbp !== null && e.etf3Gbp !== '') {
-    etf3Gbp = Number(e.etf3Gbp);
-  } else {
-    etf3Gbp = Math.round(basicGbp * 0.03);
-  }
+  // EPF 12% & ETF 3% in GBP (strictly on Basic Salary)
+  let epf12Gbp = rVal(rawBasicGbp * 0.12);
+  let etf3Gbp = rVal(rawBasicGbp * 0.03);
 
   // Total Employer Cost in GBP (Basic + Fixed Allowance + Special Allowance + EPF 12% + ETF 3% - Other Deductions)
-  let totalEmployerGbp = Math.round((basicGbp + fixedAllowanceGbp + specialAllowanceGbp + epf12Gbp + etf3Gbp - otherDeductionsGbp) * 100) / 100;
+  let totalEmployerGbp = rVal(basicGbp + fixedAllowanceGbp + specialAllowanceGbp + epf12Gbp + etf3Gbp - otherDeductionsGbp);
 
-  let epf8Lkr = (e.epf8Lkr !== undefined && e.epf8Lkr !== null && e.epf8Lkr !== '') ? Number(e.epf8Lkr) : Math.round(lkrGross * 0.08);
-  let epf12Lkr = (e.epf12Lkr !== undefined && e.epf12Lkr !== null && e.epf12Lkr !== '') ? Number(e.epf12Lkr) : Math.round(lkrGross * 0.12);
-  let epf20Lkr = (e.epf20Lkr !== undefined && e.epf20Lkr !== null && e.epf20Lkr !== '') ? Number(e.epf20Lkr) : (epf8Lkr + epf12Lkr);
-  let etf3Lkr = (e.etf3Lkr !== undefined && e.etf3Lkr !== null && e.etf3Lkr !== '') ? Number(e.etf3Lkr) : Math.round(lkrGross * 0.03);
+  let epf8Lkr = rVal(lkrGross * 0.08);
+  let epf12Lkr = rVal(lkrGross * 0.12);
+  let epf20Lkr = rVal(epf8Lkr + epf12Lkr);
+  let etf3Lkr = rVal(lkrGross * 0.03);
 
   // Total Employer Cost in LKR (Basic + Fixed Allowance + Special Allowance + EPF 12% + ETF 3% - Other Deductions)
-  let totalEmployerLkr = Math.round((lkrGross + fixedAllowanceLkr + specialAllowanceLkr + epf12Lkr + etf3Lkr - otherDeductionsLkr) * 100) / 100;
+  let totalEmployerLkr = rVal(lkrGross + fixedAllowanceLkr + specialAllowanceLkr + epf12Lkr + etf3Lkr - otherDeductionsLkr);
 
   return {
     basicGbp,
@@ -11614,6 +11815,9 @@ function renderStaffCostSummary(container) {
   const foreignCurr = isSingleLkr ? 'LKR' : (currentComp.foreignCurrency || 'GBP');
   const currSign = isSingleLkr ? 'Rs.' : (foreignCurr === 'GBP' ? '\u00A3' : (foreignCurr === 'USD' ? '$' : (foreignCurr === 'EUR' ? '\u20AC' : foreignCurr + ' ')));
   const rate = Number(p.exchangeRate) || (isSingleLkr ? 1 : 440);
+  const dec = getPayrollDecimals(p, currentComp);
+  const incDec = (dec === 2);
+  const rVal = (v) => incDec ? (Math.round((Number(v) || 0) * 100) / 100) : Math.round(Number(v) || 0);
 
   let sumBasic = 0;
   let sumFixedAllow = 0;
@@ -11624,7 +11828,7 @@ function renderStaffCostSummary(container) {
   let sumTotalCost = 0;
 
   const empRows = emps.map((e, idx) => {
-    const calc = getEmployeeCalculatedFields(e, rate);
+    const calc = getEmployeeCalculatedFields(e, rate, incDec);
     const empCost = isSingleLkr ? calc.totalEmployerLkr : calc.totalEmployerGbp;
     const empBasic = isSingleLkr ? calc.lkrGross : calc.basicGbp;
     const empFixed = isSingleLkr ? calc.fixedAllowanceLkr : calc.fixedAllowanceGbp;
@@ -11658,28 +11862,17 @@ function renderStaffCostSummary(container) {
     };
   });
 
-  if (isSingleLkr) {
-    if (totals.sumLkrGross !== undefined) sumBasic = Number(totals.sumLkrGross);
-    if (totals.sumFixedAllowanceLkr !== undefined) sumFixedAllow = Number(totals.sumFixedAllowanceLkr);
-    if (totals.sumSpecialAllowanceLkr !== undefined) sumSpecialAllow = Number(totals.sumSpecialAllowanceLkr);
-    if (totals.sumOtherDeductionsLkr !== undefined) sumOtherDed = Number(totals.sumOtherDeductionsLkr);
-    if (totals.sumEpf12Lkr !== undefined) sumEpf12 = Number(totals.sumEpf12Lkr);
-    if (totals.sumEtf3Lkr !== undefined) sumEtf3 = Number(totals.sumEtf3Lkr);
-    sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3 - sumOtherDed) * 100) / 100;
-  } else {
-    if (totals.sumEarnedGbp !== undefined) sumBasic = Number(totals.sumEarnedGbp);
-    else if (totals.sumGbpSalary !== undefined) sumBasic = Number(totals.sumGbpSalary);
-    if (totals.sumFixedAllowanceGbp !== undefined) sumFixedAllow = Number(totals.sumFixedAllowanceGbp);
-    if (totals.sumSpecialAllowanceGbp !== undefined) sumSpecialAllow = Number(totals.sumSpecialAllowanceGbp);
-    if (totals.sumOtherDeductionsGbp !== undefined) sumOtherDed = Number(totals.sumOtherDeductionsGbp);
-    if (totals.sumEpf12Gbp !== undefined) sumEpf12 = Number(totals.sumEpf12Gbp);
-    if (totals.sumEtf3Gbp !== undefined) sumEtf3 = Number(totals.sumEtf3Gbp);
-    sumTotalCost = Math.round((sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3 - sumOtherDed) * 100) / 100;
-  }
+  sumBasic = rVal(sumBasic);
+  sumFixedAllow = rVal(sumFixedAllow);
+  sumSpecialAllow = rVal(sumSpecialAllow);
+  sumOtherDed = rVal(sumOtherDed);
+  sumEpf12 = rVal(sumEpf12);
+  sumEtf3 = rVal(sumEtf3);
+  sumTotalCost = rVal(sumBasic + sumFixedAllow + sumSpecialAllow + sumEpf12 + sumEtf3 - sumOtherDed);
 
   const defaultBankCharges = isSingleLkr ? 0.00 : 50.00;
-  const bankCharges = p.bankCharges !== undefined ? Number(p.bankCharges) : defaultBankCharges;
-  const withBankCharges = sumTotalCost + bankCharges;
+  const bankCharges = rVal(p.bankCharges !== undefined ? Number(p.bankCharges) : defaultBankCharges);
+  const withBankCharges = rVal(sumTotalCost + bankCharges);
   const invoiceNo = p.invoiceNo || (isSingleLkr ? `SBH-${p.monthCode || 'OCT26'}` : 'SBH007');
   const invoiceDate = p.letterDate || p.date || '31.10.2026';
   const periodMonth = (p.month || 'September 2026').toUpperCase();
@@ -11698,6 +11891,7 @@ function renderStaffCostSummary(container) {
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+          ${renderPayrollDecimalModeSelector(p, currentComp)}
           <!-- Dynamic Letterhead Selector & Toggle -->
           ${renderLetterheadSelector(activeLhUrl)}
           <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition border border-slate-200 select-none">
@@ -11772,12 +11966,12 @@ function renderStaffCostSummary(container) {
                   <tr style="border-bottom: 1px solid #f1f5f9;">
                     <td style="padding: 2.2px 6px; color: #000;">${r.no}</td>
                     <td style="padding: 2.2px 6px; color: #000; font-weight: 600;">${escapeHtml(r.name)}</td>
-                    <td style="padding: 2.2px 8px; text-align: right; color: #000; font-variant-numeric: tabular-nums;">${formatMoney(r.totalEmployerCost, 2)}</td>
+                    <td style="padding: 2.2px 8px; text-align: right; color: #000; font-variant-numeric: tabular-nums;">${formatMoney(r.totalEmployerCost, dec)}</td>
                   </tr>
                 `).join('')}
                 <tr style="border-top: 1.5px solid #000; border-bottom: 3px double #000; font-weight: 400;">
                   <td colspan="2" style="padding: 4px 6px; font-size: 11.5px;">Total</td>
-                  <td style="padding: 4px 8px; text-align: right; font-size: 11.5px; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
+                  <td style="padding: 4px 8px; text-align: right; font-size: 11.5px; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, dec)}</td>
                 </tr>
               </tbody>
             </table>
@@ -11797,48 +11991,48 @@ function renderStaffCostSummary(container) {
               <tbody>
                 <tr>
                   <td style="padding: 2px 6px;">Total Basic Salaries</td>
-                  <td style="padding: 2px 8px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums;">${formatMoney(sumBasic, 2)}</td>
+                  <td style="padding: 2px 8px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums;">${formatMoney(sumBasic, dec)}</td>
                 </tr>
                 ${sumFixedAllow > 0 ? `
                 <tr>
                   <td style="padding: 2px 6px;">Total Fixed Allowances</td>
-                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumFixedAllow, 2)}</td>
+                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumFixedAllow, dec)}</td>
                 </tr>
                 ` : ''}
                 ${sumSpecialAllow > 0 ? `
                 <tr>
                   <td style="padding: 2px 6px;">Total Special Allowances</td>
-                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumSpecialAllow, 2)}</td>
+                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumSpecialAllow, dec)}</td>
                 </tr>
                 ` : ''}
                 <tr>
                   <td style="padding: 2px 6px;">Employer EPF (12%)</td>
-                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEpf12, 2)}</td>
+                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEpf12, dec)}</td>
                 </tr>
                 <tr style="${sumOtherDed > 0 ? '' : 'border-bottom: 1px solid #000;'}">
                   <td style="padding: 2px 6px;">Employer ETF (3%)</td>
-                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEtf3, 2)}</td>
+                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEtf3, dec)}</td>
                 </tr>
                 ${sumOtherDed > 0 ? `
                 <tr style="border-bottom: 1px solid #000;">
                   <td style="padding: 2px 6px;">Less: Other Deductions</td>
-                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">(${formatMoney(sumOtherDed, 2)})</td>
+                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">(${formatMoney(sumOtherDed, dec)})</td>
                 </tr>
                 ` : ''}
                 <tr style="border-bottom: 2px solid #000; font-weight: 400;">
                   <td style="padding: 3px 6px;">Total Employer Cost</td>
-                  <td style="padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
+                  <td style="padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, dec)}</td>
                 </tr>
                 <tr>
                   <td colspan="2" style="padding-top: 5px; font-weight: 400; font-size: 10px;">ADD</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #000;">
                   <td style="padding: 2px 6px;">Bank charges</td>
-                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(bankCharges, 2)}</td>
+                  <td style="padding: 2px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(bankCharges, dec)}</td>
                 </tr>
                 <tr style="border-bottom: 3px double #000; font-weight: 400;">
                   <td style="padding: 3px 6px;">With Bank charges</td>
-                  <td style="padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(withBankCharges, 2)}</td>
+                  <td style="padding: 3px 8px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(withBankCharges, dec)}</td>
                 </tr>
               </tbody>
             </table>
@@ -12151,6 +12345,7 @@ function getEpfEligibleStaff(p, rate) {
 
 function buildEpfFormState(p, currentComp) {
   const rate = Number(p?.exchangeRate) || 440;
+  const dec = getPayrollDecimals(p, currentComp);
   const eligibleStaff = getEpfEligibleStaff(p, rate);
   const staffOverrides = p?.epfStaffOverrides || {};
   const extraMembers = Array.isArray(p?.epfExtraMembers)
@@ -12170,10 +12365,10 @@ function buildEpfFormState(p, currentComp) {
     const defaultName = (e.name || '').toUpperCase();
     const defaultIdNo = e.idNo || e.tinNo || '';
     const defaultMemNo = e.epfNo || String(idx + 1).padStart(2, '0');
-    const defaultEarn = formatMoney(calc.lkrGross, 2);
-    const defaultTot = formatMoney(calc.epf20Lkr, 2);
-    const defaultEr = formatMoney(calc.epf12Lkr, 2);
-    const defaultEe = formatMoney(calc.epf8Lkr, 2);
+    const defaultEarn = formatMoney(calc.lkrGross, dec);
+    const defaultTot = formatMoney(calc.epf20Lkr, dec);
+    const defaultEr = formatMoney(calc.epf12Lkr, dec);
+    const defaultEe = formatMoney(calc.epf8Lkr, dec);
 
     const name = ov.name !== undefined ? String(ov.name) : defaultName;
     const idNo = ov.idNo !== undefined ? String(ov.idNo) : defaultIdNo;
@@ -12246,7 +12441,7 @@ function buildEpfFormState(p, currentComp) {
     : 'DIRECT DEBIT / SLIPS';
   const epfSurchargesStr = (p.epfSurcharges !== undefined && p.epfSurcharges !== null)
     ? String(p.epfSurcharges)
-    : formatMoney(0, 2);
+    : formatMoney(0, dec);
   const epfSurchargesNum = parseFloat(String(epfSurchargesStr).replace(/,/g, '')) || 0;
   const bankName = p.bankName || currentComp.bankName || 'Nations Trust Bank PLC';
   const bankBranch = p.bankBranch || currentComp.bankBranch || 'Borella Branch';
@@ -12262,19 +12457,19 @@ function buildEpfFormState(p, currentComp) {
 
   const totalContribStr = headerOverrides.totalContrib !== undefined
     ? String(headerOverrides.totalContrib)
-    : formatMoney(sumEpf20, 2);
+    : formatMoney(sumEpf20, dec);
   const totalRemittanceStr = headerOverrides.totalRemittance !== undefined
     ? String(headerOverrides.totalRemittance)
-    : formatMoney(sumEpf20 + epfSurchargesNum, 2);
+    : formatMoney(sumEpf20 + epfSurchargesNum, dec);
   const totalTotStr = headerOverrides.totalTot !== undefined
     ? String(headerOverrides.totalTot)
-    : formatMoney(sumEpf20, 2);
+    : formatMoney(sumEpf20, dec);
   const totalErStr = headerOverrides.totalEr !== undefined
     ? String(headerOverrides.totalEr)
-    : formatMoney(sumEpf12, 2);
+    : formatMoney(sumEpf12, dec);
   const totalEeStr = headerOverrides.totalEe !== undefined
     ? String(headerOverrides.totalEe)
-    : formatMoney(sumEpf8, 2);
+    : formatMoney(sumEpf8, dec);
 
   return {
     eligibleStaff,
@@ -12304,6 +12499,7 @@ function exportEpfFormCCsv() {
   const p = activePayrollPeriod;
   if (!p) return;
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const dec = getPayrollDecimals(p, currentComp);
   const state = buildEpfFormState(p, currentComp);
   const regNoEl = document.getElementById('epf_c_reg_no');
   const epfRegNo = regNoEl ? regNoEl.value.trim() : state.epfRegNo;
@@ -12345,10 +12541,10 @@ function exportEpfFormCCsv() {
     sumTot += totVal;
     sumEr += erVal;
     sumEe += eeVal;
-    csv += `"${rowCount}","${memNo}","${idNo}","${name.toUpperCase().replace(/"/g, '""')}","${earnVal.toFixed(2)}","${totVal.toFixed(2)}","${erVal.toFixed(2)}","${eeVal.toFixed(2)}"\n`;
+    csv += `"${rowCount}","${memNo}","${idNo}","${name.toUpperCase().replace(/"/g, '""')}","${earnVal.toFixed(dec)}","${totVal.toFixed(dec)}","${erVal.toFixed(dec)}","${eeVal.toFixed(dec)}"\n`;
   }
 
-  csv += `"Total","","","","${sumGross.toFixed(2)}","${sumTot.toFixed(2)}","${sumEr.toFixed(2)}","${sumEe.toFixed(2)}"\n`;
+  csv += `"Total","","","","${sumGross.toFixed(dec)}","${sumTot.toFixed(dec)}","${sumEr.toFixed(dec)}","${sumEe.toFixed(dec)}"\n`;
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -12747,6 +12943,7 @@ function getEtfEligibleStaff(p, rate) {
 
 function buildEtfFormState(p, currentComp) {
   const rate = Number(p?.exchangeRate) || 440;
+  const dec = getPayrollDecimals(p, currentComp);
   const eligibleStaff = getEtfEligibleStaff(p, rate);
   const staffOverrides = p?.etfStaffOverrides || {};
   const extraMembers = Array.isArray(p?.etfExtraMembers)
@@ -12832,10 +13029,10 @@ function buildEtfFormState(p, currentComp) {
     : 'DIRECT DEBIT / SLIPS';
   const etfSurchargeStr = (p.etfSurcharge !== undefined && p.etfSurcharge !== null)
     ? String(p.etfSurcharge)
-    : formatMoney(0, 2);
+    : formatMoney(0, dec);
   const etfBankChargesStr = (p.etfBankCharges !== undefined && p.etfBankCharges !== null)
     ? String(p.etfBankCharges)
-    : formatMoney(0, 2);
+    : formatMoney(0, dec);
   const etfSurchargeNum = parseFloat(String(etfSurchargeStr).replace(/,/g, '')) || 0;
   const etfBankChargesNum = parseFloat(String(etfBankChargesStr).replace(/,/g, '')) || 0;
 
@@ -12860,10 +13057,10 @@ function buildEtfFormState(p, currentComp) {
 
   const contribStr = headerOverrides.contrib !== undefined
     ? String(headerOverrides.contrib)
-    : formatMoney(sumEtf3, 2);
+    : formatMoney(sumEtf3, dec);
   const totalRemittanceStr = headerOverrides.total !== undefined
     ? String(headerOverrides.total)
-    : formatMoney(sumEtf3 + etfSurchargeNum + etfBankChargesNum, 2);
+    : formatMoney(sumEtf3 + etfSurchargeNum + etfBankChargesNum, dec);
   const totRsStr = headerOverrides.totRs !== undefined
     ? String(headerOverrides.totRs)
     : formatMoney(totalRs, 0);
@@ -13070,6 +13267,7 @@ function renderBankRequestLetter(container) {
   const totals = p.totals || {};
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
   const activeLhUrl = getActiveLetterheadUrl();
+  const dec = getPayrollDecimals(p, currentComp);
 
   container.innerHTML = `
     <div class="space-y-4 fade-in">
@@ -13082,6 +13280,7 @@ function renderBankRequestLetter(container) {
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+          ${renderPayrollDecimalModeSelector(p, currentComp)}
           <!-- Letterhead Selector & Toggle -->
           ${renderLetterheadSelector(activeLhUrl)}
           <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl transition border border-slate-200">
@@ -13146,14 +13345,14 @@ function renderBankRequestLetter(container) {
                   <td>${escapeHtml(e.idNo)}</td>
                   <td style="font-family: monospace;">${escapeHtml(e.bankAccountNo)}</td>
                   <td>${escapeHtml(e.bankBranch)}</td>
-                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.netSalaryLkr, 2)}</td>
+                  <td style="text-align: right; font-weight: 600;">${formatMoney(e.netSalaryLkr, dec)}</td>
                 </tr>
               `).join('')}
 
               <tr class="letter-total-row">
                 <td colspan="4" style="text-align: right; font-weight: 700; padding-right: 25px;">Total</td>
                 <td style="text-align: right;" class="double-underline">
-                  Rs ${formatMoney(totals.sumNetSalaryLkr, 2)}
+                  Rs ${formatMoney(totals.sumNetSalaryLkr, dec)}
                 </td>
               </tr>
             </tbody>
@@ -13198,22 +13397,24 @@ function renderIndividualPayslips(container) {
   const isSingle = (currentComp.currencyMode === 'single') || (p.currencyMode === 'single');
   const foreignCurr = currentComp.foreignCurrency || 'GBP';
   const currPrefix = isSingle ? 'Rs ' : (foreignCurr === 'GBP' ? '&pound;' : `${escapeHtml(foreignCurr)} `);
+  const dec = getPayrollDecimals(p, currentComp);
 
   container.innerHTML = `
     <div class="space-y-4 fade-in">
       
       <!-- Top Action Bar -->
       <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <span class="text-xs font-bold text-slate-800">Select Employee:</span>
           <select onchange="selectPayslipEmployee(this.value)"
             class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500">
             ${emps.map(e => `
               <option value="${e.id}" ${e.id === selectedEmp.id ? 'selected' : ''}>
-                ${e.no}. ${escapeHtml((e.name || '').toUpperCase())} (${currPrefix}${formatMoney(isSingle ? (e.totalGrossLkr || e.lkrGross || e.lkrSalary || 0) : (e.totalEarnedGbp || e.earnedGbp || e.gbpSalary || 0), 2)})
+                ${e.no}. ${escapeHtml((e.name || '').toUpperCase())} (${currPrefix}${formatMoney(isSingle ? (e.totalGrossLkr || e.lkrGross || e.lkrSalary || 0) : (e.totalEarnedGbp || e.earnedGbp || e.gbpSalary || 0), dec)})
               </option>
             `).join('')}
           </select>
+          ${renderPayrollDecimalModeSelector(p, currentComp)}
         </div>
 
         <!-- Print Controls & Layout Options -->
@@ -13310,7 +13511,8 @@ function exportPayslipsExcel(empId) {
     else alert('No active payroll period found');
     return;
   }
-  let url = `/api/payroll/export-payslips-xlsx?periodId=${encodeURIComponent(p.id)}`;
+  const incDec = isPayrollDecimalsEnabled(p);
+  let url = `/api/payroll/export-payslips-xlsx?periodId=${encodeURIComponent(p.id)}&includeDecimals=${incDec ? 'true' : 'false'}`;
   if (empId) {
     url += `&empId=${encodeURIComponent(empId)}`;
   }
@@ -13319,6 +13521,7 @@ function exportPayslipsExcel(empId) {
 
 function generatePayslipHtml(emp, period) {
   const comp = (payrollData?.companies || []).find(c => c.id === period.companyId) || { name: 'APADMI SL (PRIVATE) LIMITED' };
+  const dec = getPayrollDecimals(period, comp);
   return `
     <div class="payslip-voucher p-4 bg-white shadow-md">
       <table>
@@ -13344,62 +13547,62 @@ function generatePayslipHtml(emp, period) {
           <td style="font-weight: bold; text-align: right; background: #f1f5f9;">LKR</td>
         </tr>
         <tr>
-          <td>${comp.currencyMode === 'single' ? 'Basic Pay' : `Basic Pay (${escapeHtml(comp.foreignCurrency || 'GBP')} ${formatMoney(emp.earnedGbp, 2)} @${formatMoney(period.exchangeRate, 2)})`}</td>
-          <td style="text-align: right;">${formatMoney(emp.lkrGross, 2)}</td>
+          <td>${comp.currencyMode === 'single' ? 'Basic Pay' : `Basic Pay (${escapeHtml(comp.foreignCurrency || 'GBP')} ${formatMoney(emp.earnedGbp, dec)} @${formatMoney(period.exchangeRate, dec)})`}</td>
+          <td style="text-align: right;">${formatMoney(emp.lkrGross, dec)}</td>
         </tr>
         <tr>
           <td>Fixed Allowance</td>
-          <td style="text-align: right;">${emp.fixedAllowance ? formatMoney(emp.fixedAllowance, 2) : '-'}</td>
+          <td style="text-align: right;">${emp.fixedAllowance ? formatMoney(emp.fixedAllowance, dec) : '-'}</td>
         </tr>
         <tr>
           <td>Special Allowance</td>
-          <td style="text-align: right;">${emp.specialAllowance ? formatMoney(emp.specialAllowance, 2) : '-'}</td>
+          <td style="text-align: right;">${emp.specialAllowance ? formatMoney(emp.specialAllowance, dec) : '-'}</td>
         </tr>
         <tr style="font-weight: bold; background: #f8fafc;">
           <td>Earned Salary (Gross)</td>
-          <td style="text-align: right;">${formatMoney(emp.totalGrossLkr, 2)}</td>
+          <td style="text-align: right;">${formatMoney(emp.totalGrossLkr, dec)}</td>
         </tr>
         <tr>
           <td>(-) EPF 8%</td>
-          <td style="text-align: right;">${formatMoney(emp.epf8Lkr, 2)}</td>
+          <td style="text-align: right;">${formatMoney(emp.epf8Lkr, dec)}</td>
         ${emp.otherDeductions ? `
           <tr>
             <td>(-) Other Deductions</td>
-            <td style="text-align: right; color: #b45309;">${formatMoney(emp.otherDeductions, 2)}</td>
+            <td style="text-align: right; color: #b45309;">${formatMoney(emp.otherDeductions, dec)}</td>
           </tr>
         ` : `
           ${emp.advance ? `
             <tr>
               <td>(-) Advance</td>
-              <td style="text-align: right;">${formatMoney(emp.advance, 2)}</td>
+              <td style="text-align: right;">${formatMoney(emp.advance, dec)}</td>
             </tr>
           ` : ''}
           ${emp.loan ? `
             <tr>
               <td>(-) Loan</td>
-              <td style="text-align: right;">${formatMoney(emp.loan, 2)}</td>
+              <td style="text-align: right;">${formatMoney(emp.loan, dec)}</td>
             </tr>
           ` : ''}
         `}
         <tr>
           <td>(-) APIT</td>
-          <td style="text-align: right; color: #dc2626;">${formatMoney(emp.apit, 2)}</td>
+          <td style="text-align: right; color: #dc2626;">${formatMoney(emp.apit, dec)}</td>
         </tr>
         <tr style="font-weight: bold; background: #fef2f2;">
           <td>Total Deduction</td>
-          <td style="text-align: right; color: #dc2626;">${formatMoney(emp.totalDeductions, 2)}</td>
+          <td style="text-align: right; color: #dc2626;">${formatMoney(emp.totalDeductions, dec)}</td>
         </tr>
         <tr style="font-weight: 400; font-size: 12.5px; background: #ecfdf5;">
           <td style="color: #065f46;">Balance Pay</td>
-          <td style="text-align: right; color: #065f46;">${formatMoney(emp.netSalaryLkr, 2)}</td>
+          <td style="text-align: right; color: #065f46;">${formatMoney(emp.netSalaryLkr, dec)}</td>
         </tr>
         <tr>
           <td>EPF 12%</td>
-          <td style="text-align: right;">${formatMoney(emp.epf12Lkr, 2)}</td>
+          <td style="text-align: right;">${formatMoney(emp.epf12Lkr, dec)}</td>
         </tr>
         <tr>
           <td>ETF 3%</td>
-          <td style="text-align: right;">${formatMoney(emp.etf3Lkr, 2)}</td>
+          <td style="text-align: right;">${formatMoney(emp.etf3Lkr, dec)}</td>
         </tr>
         <tr>
           <td colspan="2" style="border-top: 2px solid #000; padding-top: 10px; font-size: 9.5px; line-height: 1.35;">
@@ -13421,22 +13624,26 @@ function renderPayrollStaffManager(container) {
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
   const isSingle = (currentComp.currencyMode === 'single');
   const foreignCurr = currentComp.foreignCurrency || 'GBP';
+  const dec = getPayrollDecimals(p, currentComp);
 
   container.innerHTML = `
     <div class="space-y-4 fade-in">
       
       <!-- Toolbar -->
-      <div class="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+      <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
         <div>
           <h3 class="text-xs font-bold text-slate-800">Managed Staff Directory</h3>
           <p class="text-[11px] text-slate-500">Configure bank accounts, TIN numbers, national IDs &amp; ${isSingle ? 'basic staff salaries (LKR)' : `contracted ${escapeHtml(foreignCurr)} salaries`}</p>
         </div>
 
-        <button onclick="openAddEmployeeModal()"
-          class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
-          <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
-          <span>Add New Staff</span>
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+          ${renderPayrollDecimalModeSelector(p, currentComp)}
+          <button onclick="openAddEmployeeModal()"
+            class="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+            <span>Add New Staff</span>
+          </button>
+        </div>
       </div>
 
       <!-- Staff Cards Table -->
@@ -13470,22 +13677,22 @@ function renderPayrollStaffManager(container) {
                     <div class="text-[11px] text-slate-400">EPF No: ${escapeHtml(e.epfNo || e.no)}</div>
                   </td>
                   <td class="p-3 font-medium text-slate-700">${escapeHtml(e.position)}</td>
-                  <td class="p-3 text-right font-bold text-slate-900">${isSingle ? `Rs ${formatMoney(e.lkrSalary || e.lkrGross || 0, 2)}` : `${foreignCurr === 'GBP' ? '&pound;' : foreignCurr} ${formatMoney(e.gbpSalary, 2)}`}</td>
+                  <td class="p-3 text-right font-bold text-slate-900">${isSingle ? `Rs ${formatMoney(e.lkrSalary || e.lkrGross || 0, dec)}` : `${foreignCurr === 'GBP' ? '&pound;' : foreignCurr} ${formatMoney(e.gbpSalary, dec)}`}</td>
                   <td class="p-3 text-center font-semibold text-amber-700">${escapeHtml(e.workDays || '-')}</td>
                   <td class="p-3 text-right font-mono font-semibold text-teal-700">
-                    ${e.fixedAllowance ? `Rs ${formatMoney(e.fixedAllowance, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
+                    ${e.fixedAllowance ? `Rs ${formatMoney(e.fixedAllowance, dec)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
                   </td>
                   <td class="p-3 text-right font-mono font-semibold text-teal-700">
-                    ${e.specialAllowance ? `Rs ${formatMoney(e.specialAllowance, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
+                    ${e.specialAllowance ? `Rs ${formatMoney(e.specialAllowance, dec)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
                   </td>
                   <td class="p-3 text-right font-mono font-bold text-slate-800">
-                    Rs ${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || e.lkrSalary || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}
+                    Rs ${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || e.lkrSalary || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), dec)}
                   </td>
                   <td class="p-3 text-right font-mono font-semibold text-red-600">
-                    ${Number(e.apit || 0) ? `Rs ${formatMoney(e.apit, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">0</span>'}
+                    ${Number(e.apit || 0) ? `Rs ${formatMoney(e.apit, dec)}` : '<span class="text-slate-400 italic font-sans text-[11px]">0</span>'}
                   </td>
                   <td class="p-3 text-right font-mono font-semibold text-amber-700">
-                    ${e.otherDeductions ? `Rs ${formatMoney(e.otherDeductions, 2)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
+                    ${e.otherDeductions ? `Rs ${formatMoney(e.otherDeductions, dec)}` : '<span class="text-slate-400 italic font-sans text-[11px]">-</span>'}
                   </td>
                   <td class="p-3">
                     <div class="font-mono font-medium text-slate-800">${escapeHtml(e.bankAccountNo)}</div>
@@ -15359,10 +15566,19 @@ function openEditPeriodModal(periodId) {
           </div>
         </div>
 
-        <div>
-          <label class="block font-semibold text-slate-700 mb-1">Remittance Letter Date</label>
-          <input type="text" id="editPeriodLetterDate" value="${escapeHtml(per.letterDate || '30.09.2026')}" required
-            class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Remittance Letter Date</label>
+            <input type="text" id="editPeriodLetterDate" value="${escapeHtml(per.letterDate || '30.09.2026')}" required
+              class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Decimal / Rounding Mode</label>
+            <select id="editPeriodIncludeDecimals" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:bg-white focus:outline-none focus:border-teal-500">
+              <option value="false" ${!isPayrollDecimalsEnabled(per, comp) ? 'selected' : ''}>No Decimals (Rounded Whole Numbers)</option>
+              <option value="true" ${isPayrollDecimalsEnabled(per, comp) ? 'selected' : ''}>Include Decimals (.00 Cents / Pence)</option>
+            </select>
+          </div>
         </div>
 
         <!-- Bank Letter & Signatory Overrides -->
@@ -15434,6 +15650,7 @@ async function submitEditPeriod(e, periodId) {
     yearPeriod: document.getElementById('editPeriodYearPeriod').value.trim(),
     status: document.getElementById('editPeriodStatus').value,
     letterDate: document.getElementById('editPeriodLetterDate').value.trim(),
+    includeDecimals: document.getElementById('editPeriodIncludeDecimals') ? document.getElementById('editPeriodIncludeDecimals').value === 'true' : isPayrollDecimalsEnabled(),
     bankName: document.getElementById('editPeriodBankName').value.trim(),
     bankBranch: document.getElementById('editPeriodBankBranch').value.trim(),
     bankAddress: document.getElementById('editPeriodBankAddress').value.trim(),
@@ -15535,7 +15752,7 @@ function openNewPeriodModal(targetCompanyId, cloneFromId) {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label class="block font-semibold text-slate-700 mb-1">Remittance Letter Date</label>
             <input type="text" id="newPeriodLetterDate" value="31.10.2026" required
@@ -15547,6 +15764,13 @@ function openNewPeriodModal(targetCompanyId, cloneFromId) {
               <option value="Draft" selected>Draft</option>
               <option value="Under Review">Under Review</option>
               <option value="Approved">Approved</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-700 mb-1">Decimal / Rounding Mode</label>
+            <select id="newPeriodIncludeDecimals" class="w-full px-3 py-2 border border-slate-200 rounded-xl font-semibold">
+              <option value="false" ${!isPayrollDecimalsEnabled(activePayrollPeriod, comp) ? 'selected' : ''}>No Decimals (Rounded)</option>
+              <option value="true" ${isPayrollDecimalsEnabled(activePayrollPeriod, comp) ? 'selected' : ''}>Include Decimals (.00)</option>
             </select>
           </div>
         </div>
@@ -15601,6 +15825,7 @@ async function submitNewPeriod(e, compId) {
   const yearPeriod = document.getElementById('newPeriodYearPeriod').value.trim();
   const letterDate = document.getElementById('newPeriodLetterDate').value.trim();
   const status = document.getElementById('newPeriodStatus').value;
+  const includeDecimals = document.getElementById('newPeriodIncludeDecimals') ? document.getElementById('newPeriodIncludeDecimals').value === 'true' : isPayrollDecimalsEnabled();
   const cloneFromId = document.getElementById('newPeriodCloneSelect').value;
   const setActive = document.getElementById('newPeriodSetActive').checked;
 
@@ -15614,6 +15839,7 @@ async function submitNewPeriod(e, compId) {
     yearPeriod: yearPeriod,
     letterDate: letterDate,
     status: status,
+    includeDecimals: includeDecimals,
     cloneFromId: cloneFromId || null,
     cloneFromPeriodId: cloneFromId || null,
     setActive: setActive
@@ -16131,6 +16357,7 @@ function printMasterSalarySheet() {
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
   const isSingle = (currentComp.currencyMode === 'single');
   const foreignCurr = currentComp.foreignCurrency || 'GBP';
+  const dec = getPayrollDecimals(p, currentComp);
 
   const printWin = window.open('', '_blank');
   if (!printWin) {
@@ -16231,17 +16458,17 @@ function printMasterSalarySheet() {
                 <td class="text-center">${e.no}</td>
                 <td class="text-left bold">${escapeHtml((e.name || '').toUpperCase())}</td>
                 <td class="text-left">${escapeHtml(e.position)}</td>
-                <td class="text-right">${formatMoney(e.lkrSalary || e.lkrGross || 0, 2)}</td>
-                <td class="text-right">${e.fixedAllowance ? formatMoney(e.fixedAllowance, 2) : '-'}</td>
-                <td class="text-right">${e.specialAllowance ? formatMoney(e.specialAllowance, 2) : '-'}</td>
+                <td class="text-right">${formatMoney(e.lkrSalary || e.lkrGross || 0, dec)}</td>
+                <td class="text-right">${e.fixedAllowance ? formatMoney(e.fixedAllowance, dec) : '-'}</td>
+                <td class="text-right">${e.specialAllowance ? formatMoney(e.specialAllowance, dec) : '-'}</td>
                 <td class="text-center bold">${escapeHtml(e.workDays || '')}</td>
-                <td class="text-right bold">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || e.earnedLkr || e.lkrSalary || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}</td>
-                <td class="text-right">${formatMoney(e.epf8Lkr, 0)}</td>
-                <td class="text-right">${formatMoney(e.epf12Lkr, 0)}</td>
-                <td class="text-right">${formatMoney(e.etf3Lkr, 0)}</td>
-                <td class="text-right">${formatMoney(e.apit, 0)}</td>
-                <td class="text-right">${e.otherDeductions ? formatMoney(e.otherDeductions, 2) : '-'}</td>
-                <td class="text-right bold">${formatMoney(e.netSalaryLkr, 0)}</td>
+                <td class="text-right bold">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || e.earnedLkr || e.lkrSalary || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), dec)}</td>
+                <td class="text-right">${formatMoney(e.epf8Lkr, dec)}</td>
+                <td class="text-right">${formatMoney(e.epf12Lkr, dec)}</td>
+                <td class="text-right">${formatMoney(e.etf3Lkr, dec)}</td>
+                <td class="text-right">${formatMoney(e.apit, dec)}</td>
+                <td class="text-right">${e.otherDeductions ? formatMoney(e.otherDeductions, dec) : '-'}</td>
+                <td class="text-right bold">${formatMoney(e.netSalaryLkr, dec)}</td>
                 <td class="text-left" style="font-family: monospace;">${escapeHtml(e.bankAccountNo)}${e.bankCode ? `(${escapeHtml(e.bankCode)})` : ''}</td>
                 <td class="text-center">${escapeHtml(e.tinNo || '-')}</td>
                 <td class="text-center">${escapeHtml(e.idNo || '-')}</td>
@@ -16250,17 +16477,17 @@ function printMasterSalarySheet() {
             `).join('')}
             <tr class="totals-row">
               <td colspan="3" class="text-center bold">TOTAL</td>
-              <td class="text-right">${formatMoney(totals.sumLkrGross || 0, 2)}</td>
-              <td class="text-right">${formatMoney(totals.sumFixedAllowanceLkr || 0, 2)}</td>
-              <td class="text-right">${formatMoney(totals.sumSpecialAllowanceLkr || 0, 2)}</td>
+              <td class="text-right">${formatMoney(totals.sumLkrGross || 0, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumFixedAllowanceLkr || 0, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumSpecialAllowanceLkr || 0, dec)}</td>
               <td></td>
-              <td class="text-right">${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), 2)}</td>
-              <td class="text-right">${formatMoney(totals.sumEpf8Lkr, 0)}</td>
-              <td class="text-right">${formatMoney(totals.sumEpf12Lkr, 0)}</td>
-              <td class="text-right">${formatMoney(totals.sumEtf3Lkr, 0)}</td>
-              <td class="text-right bold">${formatMoney(totals.sumApitLkr, 0)}</td>
-              <td class="text-right">${formatMoney(totals.sumOtherDeductionsLkr || 0, 2)}</td>
-              <td class="text-right bold">${formatMoney(totals.sumNetSalaryLkr, 0)}</td>
+              <td class="text-right">${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumEpf8Lkr, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumEpf12Lkr, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumEtf3Lkr, dec)}</td>
+              <td class="text-right bold">${formatMoney(totals.sumApitLkr, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumOtherDeductionsLkr || 0, dec)}</td>
+              <td class="text-right bold">${formatMoney(totals.sumNetSalaryLkr, dec)}</td>
               <td colspan="4"></td>
             </tr>
           </tbody>
@@ -16306,14 +16533,14 @@ function printMasterSalarySheet() {
                 <td class="text-center">${e.no}</td>
                 <td class="text-left bold">${escapeHtml((e.name || '').toUpperCase())}</td>
                 <td class="text-left">${escapeHtml(e.position)}</td>
-                <td class="text-right">${formatMoney(e.gbpSalary, 2)}</td>
-                <td class="text-right">${e.fixedAllowanceGbp ? formatMoney(e.fixedAllowanceGbp, 2) : '-'}</td>
-                <td class="text-right">${e.specialAllowanceGbp ? formatMoney(e.specialAllowanceGbp, 2) : '-'}</td>
+                <td class="text-right">${formatMoney(e.gbpSalary, dec)}</td>
+                <td class="text-right">${e.fixedAllowanceGbp ? formatMoney(e.fixedAllowanceGbp, dec) : '-'}</td>
+                <td class="text-right">${e.specialAllowanceGbp ? formatMoney(e.specialAllowanceGbp, dec) : '-'}</td>
                 <td class="text-center bold">${escapeHtml(e.workDays || '')}</td>
-                <td class="text-right bold">${formatMoney(e.totalEarnedGbp ?? (Number(e.earnedGbp || 0) + Number(e.fixedAllowanceGbp || 0) + Number(e.specialAllowanceGbp || 0)), 2)}</td>
-                <td class="text-right">${formatMoney(e.epf12Gbp, 0)}</td>
-                <td class="text-right">${formatMoney(e.etf3Gbp, 0)}</td>
-                <td class="text-right bold">${formatMoney(e.totalGbp, 2)}</td>
+                <td class="text-right bold">${formatMoney(e.totalEarnedGbp ?? (Number(e.earnedGbp || 0) + Number(e.fixedAllowanceGbp || 0) + Number(e.specialAllowanceGbp || 0)), dec)}</td>
+                <td class="text-right">${formatMoney(e.epf12Gbp, dec)}</td>
+                <td class="text-right">${formatMoney(e.etf3Gbp, dec)}</td>
+                <td class="text-right bold">${formatMoney(e.totalGbp, dec)}</td>
                 <td class="text-left" style="font-family: monospace;">${escapeHtml(e.bankAccountNo)}${e.bankCode ? `(${escapeHtml(e.bankCode)})` : ''}</td>
                 <td class="text-center">${escapeHtml(e.tinNo || '-')}</td>
                 <td class="text-center">${escapeHtml(e.idNo || '-')}</td>
@@ -16322,14 +16549,14 @@ function printMasterSalarySheet() {
             `).join('')}
             <tr class="totals-row">
               <td colspan="3" class="text-center bold">TOTAL</td>
-              <td class="text-right">${formatMoney(totals.sumGbpSalary, 2)}</td>
-              <td class="text-right">${formatMoney(totals.sumFixedAllowanceGbp || 0, 2)}</td>
-              <td class="text-right">${formatMoney(totals.sumSpecialAllowanceGbp || 0, 2)}</td>
+              <td class="text-right">${formatMoney(totals.sumGbpSalary, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumFixedAllowanceGbp || 0, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumSpecialAllowanceGbp || 0, dec)}</td>
               <td></td>
-              <td class="text-right">${formatMoney(totals.sumTotalEarnedGbp ?? (Number(totals.sumEarnedGbp || 0) + Number(totals.sumFixedAllowanceGbp || 0) + Number(totals.sumSpecialAllowanceGbp || 0)), 2)}</td>
-              <td class="text-right">${formatMoney(totals.sumEpf12Gbp, 0)}</td>
-              <td class="text-right">${formatMoney(totals.sumEtf3Gbp, 0)}</td>
-              <td class="text-right bold">${formatMoney(totals.sumTotalGbp, 2)}</td>
+              <td class="text-right">${formatMoney(totals.sumTotalEarnedGbp ?? (Number(totals.sumEarnedGbp || 0) + Number(totals.sumFixedAllowanceGbp || 0) + Number(totals.sumSpecialAllowanceGbp || 0)), dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumEpf12Gbp, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumEtf3Gbp, dec)}</td>
+              <td class="text-right bold">${formatMoney(totals.sumTotalGbp, dec)}</td>
               <td colspan="4"></td>
             </tr>
           </tbody>
@@ -16376,36 +16603,36 @@ function printMasterSalarySheet() {
                 <td class="text-center">${e.no}</td>
                 <td class="text-left bold">${escapeHtml((e.name || '').toUpperCase())}</td>
                 <td class="text-left">${escapeHtml(e.position)}</td>
-                <td class="text-right">${formatMoney(e.gbpSalary, 2)}</td>
+                <td class="text-right">${formatMoney(e.gbpSalary, dec)}</td>
                 <td class="text-center bold">${escapeHtml(e.workDays || '')}</td>
-                <td class="text-right bold">${formatMoney(e.earnedGbp, 2)}</td>
-                <td class="text-right bold">${formatMoney(e.lkrGross, 0)}</td>
-                <td class="text-right">${e.fixedAllowance ? formatMoney(e.fixedAllowance, 2) : '-'}</td>
-                <td class="text-right">${e.specialAllowance ? formatMoney(e.specialAllowance, 2) : '-'}</td>
-                <td class="text-right bold">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), 2)}</td>
-                <td class="text-right">${formatMoney(e.epf8Lkr, 0)}</td>
-                <td class="text-right">${formatMoney(e.epf12Lkr, 0)}</td>
-                <td class="text-right">${formatMoney(e.etf3Lkr, 0)}</td>
-                <td class="text-right">${formatMoney(e.apit, 0)}</td>
-                <td class="text-right">${e.otherDeductions ? formatMoney(e.otherDeductions, 2) : '-'}</td>
-                <td class="text-right bold">${formatMoney(e.netSalaryLkr, 0)}</td>
+                <td class="text-right bold">${formatMoney(e.earnedGbp, dec)}</td>
+                <td class="text-right bold">${formatMoney(e.lkrGross, dec)}</td>
+                <td class="text-right">${e.fixedAllowance ? formatMoney(e.fixedAllowance, dec) : '-'}</td>
+                <td class="text-right">${e.specialAllowance ? formatMoney(e.specialAllowance, dec) : '-'}</td>
+                <td class="text-right bold">${formatMoney(e.totalGrossLkr ?? ((Number(e.lkrGross || 0)) + Number(e.fixedAllowance || 0) + Number(e.specialAllowance || 0)), dec)}</td>
+                <td class="text-right">${formatMoney(e.epf8Lkr, dec)}</td>
+                <td class="text-right">${formatMoney(e.epf12Lkr, dec)}</td>
+                <td class="text-right">${formatMoney(e.etf3Lkr, dec)}</td>
+                <td class="text-right">${formatMoney(e.apit, dec)}</td>
+                <td class="text-right">${e.otherDeductions ? formatMoney(e.otherDeductions, dec) : '-'}</td>
+                <td class="text-right bold">${formatMoney(e.netSalaryLkr, dec)}</td>
               </tr>
             `).join('')}
             <tr class="totals-row">
               <td colspan="3" class="text-center bold">TOTAL</td>
-              <td class="text-right">${formatMoney(totals.sumGbpSalary, 2)}</td>
+              <td class="text-right">${formatMoney(totals.sumGbpSalary, dec)}</td>
               <td></td>
-              <td class="text-right">${formatMoney(totals.sumEarnedGbp, 2)}</td>
-              <td class="text-right bold">${formatMoney(totals.sumLkrGross, 0)}</td>
-              <td class="text-right">${formatMoney(totals.sumFixedAllowanceLkr || 0, 2)}</td>
-              <td class="text-right">${formatMoney(totals.sumSpecialAllowanceLkr || 0, 2)}</td>
-              <td class="text-right bold">${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), 2)}</td>
-              <td class="text-right">${formatMoney(totals.sumEpf8Lkr, 0)}</td>
-              <td class="text-right">${formatMoney(totals.sumEpf12Lkr, 0)}</td>
-              <td class="text-right">${formatMoney(totals.sumEtf3Lkr, 0)}</td>
-              <td class="text-right bold">${formatMoney(totals.sumApitLkr, 0)}</td>
-              <td class="text-right">${formatMoney(totals.sumOtherDeductionsLkr || 0, 2)}</td>
-              <td class="text-right bold">${formatMoney(totals.sumNetSalaryLkr, 0)}</td>
+              <td class="text-right">${formatMoney(totals.sumEarnedGbp, dec)}</td>
+              <td class="text-right bold">${formatMoney(totals.sumLkrGross, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumFixedAllowanceLkr || 0, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumSpecialAllowanceLkr || 0, dec)}</td>
+              <td class="text-right bold">${formatMoney(totals.sumTotalGrossLkr ?? ((Number(totals.sumLkrGross || 0)) + Number(totals.sumFixedAllowanceLkr || 0) + Number(totals.sumSpecialAllowanceLkr || 0)), dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumEpf8Lkr, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumEpf12Lkr, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumEtf3Lkr, dec)}</td>
+              <td class="text-right bold">${formatMoney(totals.sumApitLkr, dec)}</td>
+              <td class="text-right">${formatMoney(totals.sumOtherDeductionsLkr || 0, dec)}</td>
+              <td class="text-right bold">${formatMoney(totals.sumNetSalaryLkr, dec)}</td>
             </tr>
           </tbody>
         </table>
@@ -16430,6 +16657,7 @@ function printBankRequestLetter() {
   const totals = p.totals || {};
   const currentComp = (payrollData?.companies || []).find(c => c.id === p.companyId) || (payrollData?.companies && payrollData.companies[0]) || { name: 'APADMI SL (PRIVATE) LIMITED' };
   const activeLhUrl = getActiveLetterheadUrl();
+  const dec = getPayrollDecimals(p, currentComp);
 
   const printWin = window.open('', '_blank');
   if (!printWin) {
@@ -16657,14 +16885,14 @@ function printBankRequestLetter() {
                         <td>${escapeHtml(e.idNo)}</td>
                         <td style="font-family: monospace;">${escapeHtml(e.bankAccountNo)}</td>
                         <td>${escapeHtml(e.bankBranch)}</td>
-                        <td style="text-align: right; font-weight: 600;">${formatMoney(e.netSalaryLkr, 2)}</td>
+                        <td style="text-align: right; font-weight: 600;">${formatMoney(e.netSalaryLkr, dec)}</td>
                       </tr>
                     `).join('')}
 
                     <tr class="total-row">
                       <td colspan="4" style="text-align: right; padding-right: 15px;">Total</td>
                       <td style="text-align: right;" class="double-underline">
-                        Rs ${formatMoney(totals.sumNetSalaryLkr, 2)}
+                        Rs ${formatMoney(totals.sumNetSalaryLkr, dec)}
                       </td>
                     </tr>
                   </tbody>
@@ -17119,12 +17347,14 @@ function printAllPayslips(layoutMode) {
 // ---------------- EXPORT HANDLERS ----------------
 function exportPayrollExcel() {
   if (!activePayrollPeriod) return;
-  window.location.href = `/api/payroll/export-xlsx?periodId=${encodeURIComponent(activePayrollPeriod.id)}`;
+  const incDec = isPayrollDecimalsEnabled() ? 'true' : 'false';
+  window.location.href = `/api/payroll/export-xlsx?periodId=${encodeURIComponent(activePayrollPeriod.id)}&includeDecimals=${incDec}`;
 }
 
 function exportPayrollCsv() {
   if (!activePayrollPeriod) return;
-  window.location.href = `/api/payroll/export-csv?periodId=${encodeURIComponent(activePayrollPeriod.id)}`;
+  const incDec = isPayrollDecimalsEnabled() ? 'true' : 'false';
+  window.location.href = `/api/payroll/export-csv?periodId=${encodeURIComponent(activePayrollPeriod.id)}&includeDecimals=${incDec}`;
 }
 
 // ---------------- STAFF COST SUMMARY PRINT & EXPORT ----------------
@@ -17139,6 +17369,7 @@ function printStaffCostSummary() {
   const foreignCurr = isSingleLkr ? 'LKR' : (currentComp.foreignCurrency || 'GBP');
   const currSign = isSingleLkr ? 'Rs.' : (foreignCurr === 'GBP' ? '\u00A3' : (foreignCurr === 'USD' ? '$' : (foreignCurr === 'EUR' ? '\u20AC' : foreignCurr + ' ')));
   const rate = Number(p.exchangeRate) || (isSingleLkr ? 1 : 440);
+  const dec = getPayrollDecimals(p, currentComp);
 
   let sumBasic = 0, sumFixedAllow = 0, sumSpecialAllow = 0, sumOtherDed = 0, sumEpf12 = 0, sumEtf3 = 0, sumTotalCost = 0;
 
@@ -17308,12 +17539,12 @@ function printStaffCostSummary() {
                 <tr style="border-bottom: 1px solid #e5e7eb;">
                   <td style="padding: 1.5px 4px;">${r.no}</td>
                   <td style="padding: 1.5px 4px; font-weight: bold;">${escapeHtml(r.name)}</td>
-                  <td style="padding: 1.5px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(r.totalEmployerCost, 2)}</td>
+                  <td style="padding: 1.5px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(r.totalEmployerCost, dec)}</td>
                 </tr>
               `).join('')}
               <tr class="single-top double-bottom" style="font-weight: bold;">
                 <td colspan="2" style="padding: 2.5px 4px; font-size: 8pt;">Total</td>
-                <td style="padding: 2.5px 4px; text-align: right; font-size: 8pt; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
+                <td style="padding: 2.5px 4px; text-align: right; font-size: 8pt; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, dec)}</td>
               </tr>
             </tbody>
           </table>
@@ -17333,48 +17564,48 @@ function printStaffCostSummary() {
             <tbody>
               <tr>
                 <td style="padding: 1.4px 4px;">Total Basic Salaries</td>
-                <td style="padding: 1.4px 4px; text-align: right; font-weight: bold; font-variant-numeric: tabular-nums;">${formatMoney(sumBasic, 2)}</td>
+                <td style="padding: 1.4px 4px; text-align: right; font-weight: bold; font-variant-numeric: tabular-nums;">${formatMoney(sumBasic, dec)}</td>
               </tr>
               ${sumFixedAllow > 0 ? `
               <tr>
                 <td style="padding: 1.4px 4px;">Total Fixed Allowances</td>
-                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumFixedAllow, 2)}</td>
+                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumFixedAllow, dec)}</td>
               </tr>
               ` : ''}
               ${sumSpecialAllow > 0 ? `
               <tr>
                 <td style="padding: 1.4px 4px;">Total Special Allowances</td>
-                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumSpecialAllow, 2)}</td>
+                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumSpecialAllow, dec)}</td>
               </tr>
               ` : ''}
               <tr>
                 <td style="padding: 1.4px 4px;">Employer EPF (12%)</td>
-                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEpf12, 2)}</td>
+                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEpf12, dec)}</td>
               </tr>
               <tr style="${sumOtherDed > 0 ? '' : 'border-bottom: 1px solid #000;'}">
                 <td style="padding: 1.4px 4px;">Employer ETF (3%)</td>
-                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEtf3, 2)}</td>
+                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumEtf3, dec)}</td>
               </tr>
               ${sumOtherDed > 0 ? `
               <tr style="border-bottom: 1px solid #000;">
                 <td style="padding: 1.4px 4px;">Less: Other Deductions</td>
-                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">(${formatMoney(sumOtherDed, 2)})</td>
+                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">(${formatMoney(sumOtherDed, dec)})</td>
               </tr>
               ` : ''}
               <tr style="border-bottom: 1.5px solid #000; font-weight: bold;">
                 <td style="padding: 2px 4px;">Total Employer Cost</td>
-                <td style="padding: 2px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, 2)}</td>
+                <td style="padding: 2px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(sumTotalCost, dec)}</td>
               </tr>
               <tr>
                 <td colspan="2" style="padding-top: 2.5px; font-weight: bold; font-size: 7.2pt;">ADD</td>
               </tr>
               <tr style="border-bottom: 1px solid #000;">
                 <td style="padding: 1.4px 4px;">Bank charges</td>
-                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(bankCharges, 2)}</td>
+                <td style="padding: 1.4px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(bankCharges, dec)}</td>
               </tr>
               <tr class="double-bottom" style="font-weight: bold;">
                 <td style="padding: 2px 4px;">With Bank charges</td>
-                <td style="padding: 2px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(withBankCharges, 2)}</td>
+                <td style="padding: 2px 4px; text-align: right; font-variant-numeric: tabular-nums;">${formatMoney(withBankCharges, dec)}</td>
               </tr>
             </tbody>
           </table>
@@ -17459,6 +17690,7 @@ function exportStaffCostCsv() {
   const isSingleLkr = (currentComp.currencyMode === 'single') || (p.currencyMode === 'single') || (!currentComp.foreignCurrency && currentComp.baseCurrency === 'LKR') || (currentComp.foreignCurrency === 'LKR');
   const currCode = isSingleLkr ? 'LKR' : (currentComp.foreignCurrency || 'GBP');
   const rate = Number(p.exchangeRate) || (isSingleLkr ? 1 : 440);
+  const dec = getPayrollDecimals(p, currentComp);
 
   let csvContent = `No,Employee,Total Employer Cost (${currCode})\n`;
   let totalCost = 0;
@@ -17469,10 +17701,10 @@ function exportStaffCostCsv() {
     totalCost += empCost;
     const rawName = e.shortName || e.name || '';
     const formattedName = rawName.toLowerCase().replace(/\b[a-z]/g, ch => ch.toUpperCase());
-    csvContent += `${e.no || (idx + 1)},"${formattedName.replace(/"/g, '""')}",${empCost.toFixed(2)}\n`;
+    csvContent += `${e.no || (idx + 1)},"${formattedName.replace(/"/g, '""')}",${empCost.toFixed(dec)}\n`;
   });
 
-  csvContent += `Total,,${totalCost.toFixed(2)}\n`;
+  csvContent += `Total,,${totalCost.toFixed(dec)}\n`;
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);

@@ -1062,58 +1062,67 @@ def save_payroll_records():
     global PAYROLL_RECORDS
     save_json_file("payroll_records.json", PAYROLL_RECORDS)
 
-def calculate_apit_tax(gross_lkr):
+def calculate_apit_tax(gross_lkr, include_decimals=False):
     g = float(gross_lkr or 0.0)
     if g <= 150000.0:
-        return 0.0
+        val = 0.0
     elif g <= 191666.67:
-        return round((g - 150000.0) * 0.06)
+        val = (g - 150000.0) * 0.06
     elif g <= 233333.33:
-        return round(g * 0.12 - 11500.0)
+        val = g * 0.12 - 11500.0
     elif g <= 275000.0:
-        return round(g * 0.18 - 25500.0)
+        val = g * 0.18 - 25500.0
     elif g <= 316666.67:
-        return round(g * 0.24 - 42000.0)
+        val = g * 0.24 - 42000.0
     elif g <= 358333.33:
-        return round(g * 0.30 - 61000.0)
+        val = g * 0.30 - 61000.0
     else:
-        return round(g * 0.36 - 94000.0)
+        val = g * 0.36 - 94000.0
+    return round(val, 2) if include_decimals else float(round(val))
 
-def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
+def compute_employee_payroll(emp, exchange_rate, currency_mode='dual', include_decimals=False):
+    def r_val(v):
+        val = float(v or 0.0)
+        return round(val, 2) if include_decimals else float(round(val))
+
     if currency_mode == 'single':
-        lkr_salary = float(emp.get('lkrSalary') or emp.get('baseSalaryLkr') or emp.get('lkrGross') or emp.get('earnedLkr') or emp.get('gbpSalary') or 0.0)
+        raw_lkr_salary = float(emp.get('lkrSalary') or emp.get('baseSalaryLkr') or emp.get('lkrGross') or emp.get('earnedLkr') or emp.get('gbpSalary') or 0.0)
+        lkr_salary = r_val(raw_lkr_salary)
         earned_lkr = lkr_salary
-        lkr_gross = round(lkr_salary, 2)
-        fixed_allowance = float(emp.get('fixedAllowance') or 0.0)
-        special_allowance = float(emp.get('specialAllowance') or 0.0)
-        total_gross_lkr = round(lkr_gross + fixed_allowance + special_allowance, 2)
+        lkr_gross = lkr_salary
+        fixed_allowance = r_val(emp.get('fixedAllowance') or 0.0)
+        special_allowance = r_val(emp.get('specialAllowance') or 0.0)
+        total_gross_lkr = r_val(lkr_gross + fixed_allowance + special_allowance)
         
         no_pay_late = 0.0
         net_total_gross = total_gross_lkr
         
         # EPF & ETF are calculated strictly on Basic Salary (lkr_gross), excluding Fixed & Special Allowances
-        epf8_lkr = round(lkr_gross * 0.08)
-        epf12_lkr = round(lkr_gross * 0.12)
-        etf3_lkr = round(lkr_gross * 0.03)
+        epf8_lkr = r_val(lkr_gross * 0.08)
+        epf12_lkr = r_val(lkr_gross * 0.12)
+        etf3_lkr = r_val(lkr_gross * 0.03)
         
         if emp.get('apit') is not None and str(emp.get('apit')).strip() != '':
-            apit = float(emp.get('apit'))
+            apit = r_val(emp.get('apit'))
         else:
             apit = 0.0
             
-        advance = float(emp.get('advance') or 0.0)
-        loan = float(emp.get('loan') or 0.0)
+        advance = r_val(emp.get('advance') or 0.0)
+        loan = r_val(emp.get('loan') or 0.0)
         if emp.get('otherDeductions') is not None and str(emp.get('otherDeductions')).strip() != '':
-            other_deductions = float(emp.get('otherDeductions'))
+            other_deductions = r_val(emp.get('otherDeductions'))
         else:
-            other_deductions = float(advance + loan)
+            other_deductions = r_val(advance + loan)
         
-        total_deductions = round(epf8_lkr + apit + other_deductions, 2)
-        net_salary_lkr = round(net_total_gross - total_deductions, 2)
-        total_employer_lkr = round(total_gross_lkr + epf12_lkr + etf3_lkr - other_deductions, 2)
+        total_deductions = r_val(epf8_lkr + apit + other_deductions)
+        net_salary_lkr = r_val(net_total_gross - total_deductions)
+        total_employer_lkr = r_val(total_gross_lkr + epf12_lkr + etf3_lkr - other_deductions)
         
         return {
             **emp,
+            'rawLkrSalary': raw_lkr_salary,
+            'rawGbpSalary': 0.0,
+            'rawEarnedGbp': 0.0,
             'lkrSalary': lkr_salary,
             'earnedLkr': earned_lkr,
             'earnedSalaryLkr': total_gross_lkr,
@@ -1134,7 +1143,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             'netTotalGross': net_total_gross,
             'epf8Lkr': epf8_lkr,
             'epf12Lkr': epf12_lkr,
-            'epf20Lkr': round(epf8_lkr + epf12_lkr, 2),
+            'epf20Lkr': r_val(epf8_lkr + epf12_lkr),
             'etf3Lkr': etf3_lkr,
             'totalEmployerLkr': total_employer_lkr,
             'apit': apit,
@@ -1145,51 +1154,56 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             'netSalaryLkr': net_salary_lkr
         }
     else:
-        gbp_salary = float(emp.get('gbpSalary') or 0.0)
-        earned_gbp = float(emp.get('earnedGbp') if (emp.get('earnedGbp') is not None and str(emp.get('earnedGbp')).strip() != '') else gbp_salary)
+        raw_gbp_salary = float(emp.get('gbpSalary') or 0.0)
+        raw_earned_gbp = float(emp.get('earnedGbp') if (emp.get('earnedGbp') is not None and str(emp.get('earnedGbp')).strip() != '') else raw_gbp_salary)
+        gbp_salary = r_val(raw_gbp_salary)
+        earned_gbp = r_val(raw_earned_gbp)
         rate = float(exchange_rate or 440.0)
         
-        fixed_allowance = float(emp.get('fixedAllowance') or 0.0)
-        special_allowance = float(emp.get('specialAllowance') or 0.0)
-        fixed_allowance_gbp = round(fixed_allowance / rate, 2) if rate else 0.0
-        special_allowance_gbp = round(special_allowance / rate, 2) if rate else 0.0
-        total_earned_gbp = round(earned_gbp + fixed_allowance_gbp + special_allowance_gbp, 2)
+        fixed_allowance = r_val(emp.get('fixedAllowance') or 0.0)
+        special_allowance = r_val(emp.get('specialAllowance') or 0.0)
+        fixed_allowance_gbp = r_val(fixed_allowance / rate) if rate else 0.0
+        special_allowance_gbp = r_val(special_allowance / rate) if rate else 0.0
+        total_earned_gbp = r_val(earned_gbp + fixed_allowance_gbp + special_allowance_gbp)
         
-        # EPF & ETF are calculated strictly on Basic Salary (earned_gbp / lkr_gross), excluding Fixed & Special Allowances
-        epf12_gbp = round(earned_gbp * 0.12)
-        etf3_gbp = round(earned_gbp * 0.03)
+        # EPF & ETF are calculated strictly on Basic Salary (raw_earned_gbp / lkr_gross), excluding Fixed & Special Allowances
+        epf12_gbp = r_val(raw_earned_gbp * 0.12)
+        etf3_gbp = r_val(raw_earned_gbp * 0.03)
         
-        lkr_gross = round(earned_gbp * rate)
-        total_gross_lkr = round(lkr_gross + fixed_allowance + special_allowance, 2)
+        lkr_gross = r_val(raw_earned_gbp * rate)
+        total_gross_lkr = r_val(lkr_gross + fixed_allowance + special_allowance)
         
         no_pay_late = 0.0
         net_total_gross = total_gross_lkr
         
-        epf8_lkr = round(lkr_gross * 0.08)
-        epf12_lkr = round(lkr_gross * 0.12)
-        etf3_lkr = round(lkr_gross * 0.03)
+        epf8_lkr = r_val(lkr_gross * 0.08)
+        epf12_lkr = r_val(lkr_gross * 0.12)
+        etf3_lkr = r_val(lkr_gross * 0.03)
         
         if emp.get('apit') is not None and str(emp.get('apit')).strip() != '':
-            apit = float(emp.get('apit'))
+            apit = r_val(emp.get('apit'))
         else:
             apit = 0.0
             
-        advance = float(emp.get('advance') or 0.0)
-        loan = float(emp.get('loan') or 0.0)
+        advance = r_val(emp.get('advance') or 0.0)
+        loan = r_val(emp.get('loan') or 0.0)
         if emp.get('otherDeductions') is not None and str(emp.get('otherDeductions')).strip() != '':
-            other_deductions = float(emp.get('otherDeductions'))
+            other_deductions = r_val(emp.get('otherDeductions'))
         else:
-            other_deductions = float(advance + loan)
+            other_deductions = r_val(advance + loan)
         
-        other_deductions_gbp = round(other_deductions / rate, 2) if rate else 0.0
-        total_gbp = round(total_earned_gbp + epf12_gbp + etf3_gbp - other_deductions_gbp, 2)
+        other_deductions_gbp = r_val(other_deductions / rate) if rate else 0.0
+        total_gbp = r_val(total_earned_gbp + epf12_gbp + etf3_gbp - other_deductions_gbp)
         
-        total_deductions = round(epf8_lkr + apit + other_deductions, 2)
-        net_salary_lkr = round(net_total_gross - total_deductions, 2)
-        total_employer_lkr = round(total_gross_lkr + epf12_lkr + etf3_lkr - other_deductions, 2)
+        total_deductions = r_val(epf8_lkr + apit + other_deductions)
+        net_salary_lkr = r_val(net_total_gross - total_deductions)
+        total_employer_lkr = r_val(total_gross_lkr + epf12_lkr + etf3_lkr - other_deductions)
         
         return {
             **emp,
+            'rawGbpSalary': raw_gbp_salary,
+            'rawEarnedGbp': raw_earned_gbp,
+            'rawLkrSalary': 0.0,
             'gbpSalary': gbp_salary,
             'earnedGbp': earned_gbp,
             'totalEarnedGbp': total_earned_gbp,
@@ -1208,7 +1222,7 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             'netTotalGross': net_total_gross,
             'epf8Lkr': epf8_lkr,
             'epf12Lkr': epf12_lkr,
-            'epf20Lkr': round(epf8_lkr + epf12_lkr, 2),
+            'epf20Lkr': r_val(epf8_lkr + epf12_lkr),
             'etf3Lkr': etf3_lkr,
             'totalEmployerLkr': total_employer_lkr,
             'apit': apit,
@@ -1219,17 +1233,30 @@ def compute_employee_payroll(emp, exchange_rate, currency_mode='dual'):
             'netSalaryLkr': net_salary_lkr
         }
 
-def enrich_payroll_period(period):
+def enrich_payroll_period(period, include_decimals_override=None):
     rate = float(period.get('exchangeRate', 440.0) or 440.0)
     employees = period.get('employees', [])
     computed_emps = []
 
-    # Check company currency mode
+    # Check company currency mode & decimal preference
     comp_id = period.get('companyId')
     comp = {}
     if comp_id and "companies" in PAYROLL_RECORDS:
         comp = next((c for c in PAYROLL_RECORDS["companies"] if c.get("id") == comp_id), {})
     currency_mode = comp.get("currencyMode") or period.get("currencyMode") or "dual"
+
+    if include_decimals_override is not None:
+        include_decimals = bool(include_decimals_override)
+    elif period.get("includeDecimals") is not None:
+        include_decimals = bool(period.get("includeDecimals"))
+    elif comp.get("includeDecimals") is not None:
+        include_decimals = bool(comp.get("includeDecimals"))
+    else:
+        include_decimals = False
+
+    def r_tot(v):
+        val = float(v or 0.0)
+        return round(val, 2) if include_decimals else float(round(val))
     
     sum_gbp_salary = 0.0
     sum_earned_gbp = 0.0
@@ -1253,7 +1280,7 @@ def enrich_payroll_period(period):
     sum_other_deductions_gbp = 0.0
     
     for emp in employees:
-        c = compute_employee_payroll(emp, rate, currency_mode)
+        c = compute_employee_payroll(emp, rate, currency_mode, include_decimals=include_decimals)
         computed_emps.append(c)
         sum_gbp_salary += c.get('gbpSalary', 0.0)
         sum_earned_gbp += c.get('earnedGbp', 0.0)
@@ -1279,6 +1306,7 @@ def enrich_payroll_period(period):
     enriched = copy.deepcopy(period)
     enriched['currencyMode'] = currency_mode
     enriched['isSingleCurrency'] = (currency_mode == 'single')
+    enriched['includeDecimals'] = include_decimals
     if enriched.get('epfRegNo') is None and comp.get('epfRegNo'):
         enriched['epfRegNo'] = comp.get('epfRegNo')
     if enriched.get('etfRegNo') is None and comp.get('etfRegNo'):
@@ -1294,28 +1322,28 @@ def enrich_payroll_period(period):
     enriched['employees'] = computed_emps
     enriched['totals'] = {
         'totalEmployees': len(computed_emps),
-        'sumGbpSalary': round(sum_gbp_salary, 2),
-        'sumEarnedGbp': round(sum_earned_gbp, 2),
-        'sumTotalEarnedGbp': round(sum_total_earned_gbp, 2),
-        'sumFixedAllowanceGbp': round(sum_fixed_allowance_gbp, 2),
-        'sumSpecialAllowanceGbp': round(sum_special_allowance_gbp, 2),
-        'sumOtherDeductionsGbp': round(sum_other_deductions_gbp, 2),
-        'sumEpf12Gbp': round(sum_epf12_gbp, 2),
-        'sumEtf3Gbp': round(sum_etf3_gbp, 2),
-        'sumTotalGbp': round(sum_total_gbp, 2),
-        'sumLkrGross': round(sum_lkr_gross, 2),
-        'sumTotalGrossLkr': round(sum_total_gross_lkr, 2),
-        'sumGrossSalaryLkr': round(sum_total_gross_lkr, 2),
-        'sumFixedAllowanceLkr': round(sum_fixed_allowance_lkr, 2),
-        'sumSpecialAllowanceLkr': round(sum_special_allowance_lkr, 2),
-        'sumEpf8Lkr': round(sum_epf8_lkr, 2),
-        'sumEpf12Lkr': round(sum_epf12_lkr, 2),
-        'sumEtf3Lkr': round(sum_etf3_lkr, 2),
-        'sumTotalEmployerLkr': round(sum_lkr_gross + sum_fixed_allowance_lkr + sum_special_allowance_lkr + sum_epf12_lkr + sum_etf3_lkr - sum_other_deductions_lkr, 2),
-        'sumApitLkr': round(sum_apit_lkr, 2),
-        'sumOtherDeductionsLkr': round(sum_other_deductions_lkr, 2),
-        'sumDeductionsLkr': round(sum_deductions_lkr, 2),
-        'sumNetSalaryLkr': round(sum_net_salary_lkr, 2)
+        'sumGbpSalary': r_tot(sum_gbp_salary),
+        'sumEarnedGbp': r_tot(sum_earned_gbp),
+        'sumTotalEarnedGbp': r_tot(sum_total_earned_gbp),
+        'sumFixedAllowanceGbp': r_tot(sum_fixed_allowance_gbp),
+        'sumSpecialAllowanceGbp': r_tot(sum_special_allowance_gbp),
+        'sumOtherDeductionsGbp': r_tot(sum_other_deductions_gbp),
+        'sumEpf12Gbp': r_tot(sum_epf12_gbp),
+        'sumEtf3Gbp': r_tot(sum_etf3_gbp),
+        'sumTotalGbp': r_tot(sum_total_gbp),
+        'sumLkrGross': r_tot(sum_lkr_gross),
+        'sumTotalGrossLkr': r_tot(sum_total_gross_lkr),
+        'sumGrossSalaryLkr': r_tot(sum_total_gross_lkr),
+        'sumFixedAllowanceLkr': r_tot(sum_fixed_allowance_lkr),
+        'sumSpecialAllowanceLkr': r_tot(sum_special_allowance_lkr),
+        'sumEpf8Lkr': r_tot(sum_epf8_lkr),
+        'sumEpf12Lkr': r_tot(sum_epf12_lkr),
+        'sumEtf3Lkr': r_tot(sum_etf3_lkr),
+        'sumTotalEmployerLkr': r_tot(sum_lkr_gross + sum_fixed_allowance_lkr + sum_special_allowance_lkr + sum_epf12_lkr + sum_etf3_lkr - sum_other_deductions_lkr),
+        'sumApitLkr': r_tot(sum_apit_lkr),
+        'sumOtherDeductionsLkr': r_tot(sum_other_deductions_lkr),
+        'sumDeductionsLkr': r_tot(sum_deductions_lkr),
+        'sumNetSalaryLkr': r_tot(sum_net_salary_lkr)
     }
     return enriched
 
@@ -1369,14 +1397,25 @@ def generate_payroll_csv(enriched_period, company_info=None):
     employees = enriched_period.get("employees", [])
     totals = enriched_period.get("totals", {})
 
+    if enriched_period.get("includeDecimals") is not None:
+        include_decimals = bool(enriched_period.get("includeDecimals"))
+    elif comp.get("includeDecimals") is not None:
+        include_decimals = bool(comp.get("includeDecimals"))
+    else:
+        include_decimals = False
+
+    def fmt_n(v):
+        val = float(v or 0.0)
+        return f"{val:.2f}" if include_decimals else f"{int(round(val))}"
+
     lines = []
     if currency_mode == "dual":
         lines.append(f'SALARY SHEET (IN {base_curr}) - {month.upper()}')
         lines.append(f'No,Employee Name,POSITION,{base_curr} Salary,Fixed Allowance ({base_curr}),Special Allowance ({base_curr}),Working Days,Earned Salary ({base_curr}),EPF (12%),ETF (3%),Total Employer Cost ({base_curr}),BANK ACCOUNT NO,TIN NO,IDNO,Date Joined')
         for e in employees:
             bank_str = f"{e.get('bankAccountNo','')}({e.get('bankCode','')})" if e.get('bankCode') else str(e.get('bankAccountNo',''))
-            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{e.get("gbpSalary",0)},{e.get("fixedAllowanceGbp",0)},{e.get("specialAllowanceGbp",0)},"{e.get("workDays","")}",{e.get("totalEarnedGbp", e.get("earnedGbp",0))},{e.get("epf12Gbp",0)},{e.get("etf3Gbp",0)},{e.get("totalGbp",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
-        lines.append(f',,,{totals.get("sumGbpSalary",0)},{totals.get("sumFixedAllowanceGbp",0)},{totals.get("sumSpecialAllowanceGbp",0)},,{totals.get("sumTotalEarnedGbp", totals.get("sumEarnedGbp",0))},{totals.get("sumEpf12Gbp",0)},{totals.get("sumEtf3Gbp",0)},{totals.get("sumTotalGbp",0)},,,,')
+            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{fmt_n(e.get("gbpSalary",0))},{fmt_n(e.get("fixedAllowanceGbp",0))},{fmt_n(e.get("specialAllowanceGbp",0))},"{e.get("workDays","")}",{fmt_n(e.get("totalEarnedGbp", e.get("earnedGbp",0)))},{fmt_n(e.get("epf12Gbp",0))},{fmt_n(e.get("etf3Gbp",0))},{fmt_n(e.get("totalGbp",0))},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
+        lines.append(f',,,{fmt_n(totals.get("sumGbpSalary",0))},{fmt_n(totals.get("sumFixedAllowanceGbp",0))},{fmt_n(totals.get("sumSpecialAllowanceGbp",0))},,{fmt_n(totals.get("sumTotalEarnedGbp", totals.get("sumEarnedGbp",0)))},{fmt_n(totals.get("sumEpf12Gbp",0))},{fmt_n(totals.get("sumEtf3Gbp",0))},{fmt_n(totals.get("sumTotalGbp",0))},,,,')
         lines.append('')
         lines.append(f'Checked by: {enriched_period.get("checkedBy","")},{enriched_period.get("checkedTitle","Accountant")},,,Authorized by: {enriched_period.get("authorizedSignatory","")},{enriched_period.get("authorizedCompany","")}')
         lines.append('')
@@ -1384,16 +1423,16 @@ def generate_payroll_csv(enriched_period, company_info=None):
         lines.append(f'SALARY SHEET (IN LKR) - {month.upper()} @ {rate_disp}')
         lines.append(f'No,Employee Name,POSITION,{base_curr} Salary,Working Days,Earned Base ({base_curr}),Basic Salary (LKR),Fixed Allowance (LKR),Special Allowance (LKR),Earned Salary (LKR),EPF 8%,EPF12%,ETF 3%,APIT,Other Deductions,Net Remittance (LKR)')
         for e in employees:
-            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{e.get("gbpSalary",0)},"{e.get("workDays","")}",{e.get("earnedGbp",0)},{e.get("lkrGross",0)},{e.get("fixedAllowance",0)},{e.get("specialAllowance",0)},{e.get("totalGrossLkr", e.get("lkrGross",0))},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},{e.get("otherDeductions",0)},{e.get("netSalaryLkr",0)}')
-        lines.append(f',,,{totals.get("sumGbpSalary",0)},,{totals.get("sumEarnedGbp",0)},{totals.get("sumLkrGross",0)},{totals.get("sumFixedAllowanceLkr",0)},{totals.get("sumSpecialAllowanceLkr",0)},{totals.get("sumTotalGrossLkr", totals.get("sumLkrGross",0))},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},{totals.get("sumOtherDeductionsLkr",0)},{totals.get("sumNetSalaryLkr",0)}')
+            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{fmt_n(e.get("gbpSalary",0))},"{e.get("workDays","")}",{fmt_n(e.get("earnedGbp",0))},{fmt_n(e.get("lkrGross",0))},{fmt_n(e.get("fixedAllowance",0))},{fmt_n(e.get("specialAllowance",0))},{fmt_n(e.get("totalGrossLkr", e.get("lkrGross",0)))},{fmt_n(e.get("epf8Lkr",0))},{fmt_n(e.get("epf12Lkr",0))},{fmt_n(e.get("etf3Lkr",0))},{fmt_n(e.get("apit",0))},{fmt_n(e.get("otherDeductions",0))},{fmt_n(e.get("netSalaryLkr",0))}')
+        lines.append(f',,,{fmt_n(totals.get("sumGbpSalary",0))},,{fmt_n(totals.get("sumEarnedGbp",0))},{fmt_n(totals.get("sumLkrGross",0))},{fmt_n(totals.get("sumFixedAllowanceLkr",0))},{fmt_n(totals.get("sumSpecialAllowanceLkr",0))},{fmt_n(totals.get("sumTotalGrossLkr", totals.get("sumLkrGross",0)))},{fmt_n(totals.get("sumEpf8Lkr",0))},{fmt_n(totals.get("sumEpf12Lkr",0))},{fmt_n(totals.get("sumEtf3Lkr",0))},{fmt_n(totals.get("sumApitLkr",0))},{fmt_n(totals.get("sumOtherDeductionsLkr",0))},{fmt_n(totals.get("sumNetSalaryLkr",0))}')
     else:
         lines.append(f'SALARY SHEET (IN LKR) - {month.upper()}')
         lines.append('No,Employee Name,POSITION,Basic Salary (LKR),Fixed Allowance (LKR),Special Allowance (LKR),Working Days,Earned Salary (LKR),EPF 8%,EPF 12%,ETF 3%,APIT,Other Deductions,Net Remittance (LKR),BANK ACCOUNT NO,TIN NO,IDNO,Date Joined')
         for e in employees:
             bank_str = f"{e.get('bankAccountNo','')}({e.get('bankCode','')})" if e.get('bankCode') else str(e.get('bankAccountNo',''))
             base_sal = e.get("lkrSalary") or e.get("baseSalaryLkr") or e.get("lkrGross", 0)
-            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{base_sal},{e.get("fixedAllowance",0)},{e.get("specialAllowance",0)},"{e.get("workDays","")}",{e.get("totalGrossLkr", e.get("lkrGross",0))},{e.get("epf8Lkr",0)},{e.get("epf12Lkr",0)},{e.get("etf3Lkr",0)},{e.get("apit",0)},{e.get("otherDeductions",0)},{e.get("netSalaryLkr",0)},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
-        lines.append(f',,,{totals.get("sumLkrGross",0)},{totals.get("sumFixedAllowanceLkr",0)},{totals.get("sumSpecialAllowanceLkr",0)},,{totals.get("sumTotalGrossLkr", totals.get("sumLkrGross",0))},{totals.get("sumEpf8Lkr",0)},{totals.get("sumEpf12Lkr",0)},{totals.get("sumEtf3Lkr",0)},{totals.get("sumApitLkr",0)},{totals.get("sumOtherDeductionsLkr",0)},{totals.get("sumNetSalaryLkr",0)},,,,')
+            lines.append(f'"{e.get("no","")}","{str(e.get("name","")).upper()}","{e.get("position","")}",{fmt_n(base_sal)},{fmt_n(e.get("fixedAllowance",0))},{fmt_n(e.get("specialAllowance",0))},"{e.get("workDays","")}",{fmt_n(e.get("totalGrossLkr", e.get("lkrGross",0)))},{fmt_n(e.get("epf8Lkr",0))},{fmt_n(e.get("epf12Lkr",0))},{fmt_n(e.get("etf3Lkr",0))},{fmt_n(e.get("apit",0))},{fmt_n(e.get("otherDeductions",0))},{fmt_n(e.get("netSalaryLkr",0))},"{bank_str}","{e.get("tinNo","")}","{e.get("idNo","")}","{e.get("dateJoined","")}"')
+        lines.append(f',,,{fmt_n(totals.get("sumLkrGross",0))},{fmt_n(totals.get("sumFixedAllowanceLkr",0))},{fmt_n(totals.get("sumSpecialAllowanceLkr",0))},,{fmt_n(totals.get("sumTotalGrossLkr", totals.get("sumLkrGross",0)))},{fmt_n(totals.get("sumEpf8Lkr",0))},{fmt_n(totals.get("sumEpf12Lkr",0))},{fmt_n(totals.get("sumEtf3Lkr",0))},{fmt_n(totals.get("sumApitLkr",0))},{fmt_n(totals.get("sumOtherDeductionsLkr",0))},{fmt_n(totals.get("sumNetSalaryLkr",0))},,,,')
         lines.append('')
         lines.append(f'Checked by: {enriched_period.get("checkedBy","")},{enriched_period.get("checkedTitle","Accountant")},,,Authorized by: {enriched_period.get("authorizedSignatory","")},{enriched_period.get("authorizedCompany","")}')
     return '\n'.join(lines)
@@ -2526,6 +2565,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                     "yearPeriod": p.get("yearPeriod"),
                     "letterDate": p.get("letterDate"),
                     "exchangeRate": p.get("exchangeRate"),
+                    "includeDecimals": enriched.get("includeDecimals", False),
                     "status": p.get("status", "Draft"),
                     "createdAt": p.get("createdAt"),
                     "isActive": (p.get("id") == active_id),
@@ -2585,6 +2625,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             sync_payroll_from_disk()
 
             pid = query.get("id", [""])[0] or query.get("periodId", [""])[0] or PAYROLL_RECORDS.get("activePeriodId", "")
+            inc_dec_param = query.get("includeDecimals", [None])[0]
+            inc_dec_override = (inc_dec_param.lower() in ("true", "1", "yes")) if inc_dec_param is not None else None
             target_period = None
             for p in PAYROLL_RECORDS.get("periods", []):
                 if p.get("id") == pid:
@@ -2598,7 +2640,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             comp_id = target_period.get("companyId")
             target_comp = next((c for c in PAYROLL_RECORDS.get("companies", []) if c.get("id") == comp_id), {})
 
-            enriched = enrich_payroll_period(target_period)
+            enriched = enrich_payroll_period(target_period, include_decimals_override=inc_dec_override)
             csv_content = generate_payroll_csv(enriched, target_comp)
             body = csv_content.encode("utf-8")
 
@@ -2622,6 +2664,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             sync_payroll_from_disk()
 
             pid = query.get("id", [""])[0] or query.get("periodId", [""])[0] or PAYROLL_RECORDS.get("activePeriodId", "")
+            inc_dec_param = query.get("includeDecimals", [None])[0]
+            inc_dec_override = (inc_dec_param.lower() in ("true", "1", "yes")) if inc_dec_param is not None else None
             target_period = None
             for p in PAYROLL_RECORDS.get("periods", []):
                 if p.get("id") == pid:
@@ -2635,7 +2679,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             comp_id = target_period.get("companyId")
             target_comp = next((c for c in PAYROLL_RECORDS.get("companies", []) if c.get("id") == comp_id), {})
 
-            enriched = enrich_payroll_period(target_period)
+            enriched = enrich_payroll_period(target_period, include_decimals_override=inc_dec_override)
             xlsx_bytes = payroll_excel.generate_payroll_xlsx(enriched, target_comp)
 
             raw_comp_code = (target_comp.get("code") or target_comp.get("name", "Payroll")).upper().strip()
@@ -2658,6 +2702,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             sync_payroll_from_disk()
 
             pid = query.get("id", [""])[0] or query.get("periodId", [""])[0] or PAYROLL_RECORDS.get("activePeriodId", "")
+            inc_dec_param = query.get("includeDecimals", [None])[0]
+            inc_dec_override = (inc_dec_param.lower() in ("true", "1", "yes")) if inc_dec_param is not None else None
             target_period = None
             for p in PAYROLL_RECORDS.get("periods", []):
                 if p.get("id") == pid:
@@ -2672,7 +2718,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             target_comp = next((c for c in PAYROLL_RECORDS.get("companies", []) if c.get("id") == comp_id), {})
 
             emp_id = query.get("empId", [""])[0] or query.get("employeeId", [""])[0] or None
-            enriched = enrich_payroll_period(target_period)
+            enriched = enrich_payroll_period(target_period, include_decimals_override=inc_dec_override)
             xlsx_bytes = payroll_excel.generate_payslips_xlsx(enriched, target_comp, single_emp_id=emp_id)
 
             raw_comp_code = (target_comp.get("code") or target_comp.get("name", "Payroll")).upper().strip()
@@ -3530,6 +3576,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "baseCurrency": body.get("baseCurrency") or (comp.get("foreignCurrency") if comp and comp.get("currencyMode") == "dual" else "LKR") or "GBP",
                 "localCurrency": "LKR",
                 "currencyMode": body.get("currencyMode") or (comp.get("currencyMode") if comp else "dual") or "dual",
+                "includeDecimals": bool(body["includeDecimals"]) if "includeDecimals" in body else bool(comp.get("includeDecimals", False) if comp else False),
                 "status": status,
                 "invoiceNo": body.get("invoiceNo", "SBH001"),
                 "bankCharges": float(body.get("bankCharges", 50.0)),
@@ -3612,7 +3659,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             emps.append(new_emp)
             save_payroll_records()
             enriched_p = enrich_payroll_period(target_period)
-            self.send_json({"success": True, "employee": compute_employee_payroll(new_emp, target_period.get("exchangeRate", 440.0), enriched_p.get("currencyMode", "dual")), "period": enriched_p})
+            self.send_json({"success": True, "employee": compute_employee_payroll(new_emp, target_period.get("exchangeRate", 440.0), enriched_p.get("currencyMode", "dual"), include_decimals=enriched_p.get("includeDecimals", False)), "period": enriched_p})
             return
 
         # 11. Payroll: Add or Update Managed Company
@@ -3632,9 +3679,9 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 target_comp = {"id": comp_id}
                 comps.append(target_comp)
             
-            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate", "parentGroup", "parentAddress", "epfRegNo", "etfRegNo", "phone", "email", "swiftCode", "letterheadUrl"]:
+            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate", "includeDecimals", "parentGroup", "parentAddress", "epfRegNo", "etfRegNo", "phone", "email", "swiftCode", "letterheadUrl"]:
                 if k in body:
-                    target_comp[k] = body[k]
+                    target_comp[k] = bool(body[k]) if k == "includeDecimals" else body[k]
             
             save_payroll_records()
             self.send_json({"success": True, "company": target_comp})
@@ -3855,10 +3902,12 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Period not found"}, 404)
                 return
 
-            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "authorizedTitle", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "invoiceNo", "bankCharges", "epfRegNo", "etfRegNo", "epfChequeNo", "etfChequeNo", "epfSurcharges", "etfSurcharge", "etfBankCharges", "epfBankBranchCustom", "etfBankBranchCustom", "epfEmployerCustom", "etfEmployerCustom", "epfStaffOverrides", "etfStaffOverrides", "epfExtraMembers", "etfExtraMembers", "epfHeaderOverrides", "etfHeaderOverrides", "letterheadUrl", "completedDate", "currencyMode", "baseCurrency", "etfClarification", "phone", "email", "notes"]:
+            for k in ["month", "monthCode", "yearPeriod", "letterDate", "exchangeRate", "includeDecimals", "status", "companyId", "checkedBy", "checkedTitle", "authorizedSignatory", "authorizedCompany", "authorizedTitle", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "invoiceNo", "bankCharges", "epfRegNo", "etfRegNo", "epfChequeNo", "etfChequeNo", "epfSurcharges", "etfSurcharge", "etfBankCharges", "epfBankBranchCustom", "etfBankBranchCustom", "epfEmployerCustom", "etfEmployerCustom", "epfStaffOverrides", "etfStaffOverrides", "epfExtraMembers", "etfExtraMembers", "epfHeaderOverrides", "etfHeaderOverrides", "letterheadUrl", "completedDate", "currencyMode", "baseCurrency", "etfClarification", "phone", "email", "notes"]:
                 if k in body:
                     if k in ["exchangeRate", "bankCharges"]:
                         target_period[k] = float(body[k])
+                    elif k == "includeDecimals":
+                        target_period[k] = bool(body[k])
                     else:
                         target_period[k] = body[k]
 
@@ -3867,9 +3916,9 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             if comp_id:
                 for c in PAYROLL_RECORDS.get("companies", []):
                     if c.get("id") == comp_id:
-                        for ck in ["epfRegNo", "etfRegNo", "phone", "email", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "letterheadUrl", "epfExtraMembers", "etfExtraMembers"]:
+                        for ck in ["epfRegNo", "etfRegNo", "phone", "email", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "letterheadUrl", "epfExtraMembers", "etfExtraMembers", "includeDecimals"]:
                             if ck in body and body[ck] is not None:
-                                c[ck] = body[ck]
+                                c[ck] = bool(body[ck]) if ck == "includeDecimals" else body[ck]
                         break
 
             if body.get("setActive"):
@@ -3929,7 +3978,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
 
             save_payroll_records()
             enriched_p = enrich_payroll_period(target_period)
-            self.send_json({"success": True, "employee": compute_employee_payroll(target_emp, target_period.get("exchangeRate", 440.0), enriched_p.get("currencyMode", "dual")), "period": enriched_p})
+            self.send_json({"success": True, "employee": compute_employee_payroll(target_emp, target_period.get("exchangeRate", 440.0), enriched_p.get("currencyMode", "dual"), include_decimals=enriched_p.get("includeDecimals", False)), "period": enriched_p})
             return
 
         # 7. Payroll: Update Company
@@ -3950,9 +3999,9 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Company not found"}, 404)
                 return
 
-            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate", "parentGroup", "parentAddress", "epfRegNo", "etfRegNo", "phone", "email", "swiftCode", "letterheadUrl"]:
+            for k in ["name", "code", "registrationNo", "address", "bankName", "bankBranch", "bankAddress", "debitAccountNo", "debitAccountName", "authorizedSignatory", "authorizedTitle", "authorizedCompany", "checkedBy", "checkedTitle", "payrollYearPeriod", "currencyMode", "baseCurrency", "foreignCurrency", "defaultExchangeRate", "includeDecimals", "parentGroup", "parentAddress", "epfRegNo", "etfRegNo", "phone", "email", "swiftCode", "letterheadUrl"]:
                 if k in body:
-                    target_comp[k] = body[k]
+                    target_comp[k] = bool(body[k]) if k == "includeDecimals" else body[k]
 
             # Propagate updated company EPF/ETF registration numbers to its periods when explicitly edited on the company profile
             if "epfRegNo" in body or "etfRegNo" in body:
