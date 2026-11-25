@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-25T05:14:54Z",
+  "exportTimestamp": "2026-11-25T05:15:07Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -8494,7 +8494,7 @@
             "earnedLkr": 0.0,
             "workDays": "",
             "earnedGbp": 1084.23,
-            "bankAccountNo": "8100098565",
+            "bankAccountNo": "8100098565 (COM)",
             "bankCode": "",
             "bankBranch": "Commercial Bank -Wellawatte",
             "tinNo": "131082584",
