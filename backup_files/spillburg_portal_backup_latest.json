@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-25T05:47:00Z",
+  "exportTimestamp": "2026-11-25T05:47:28Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6908,6 +6908,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Need to design a slide for display\nCheckered board\n16:9"
+    },
+    {
+      "id": "ops_e369d7",
+      "no": 92,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Create a sponsor display banner for SLFBC Event",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Office Operations",
+      "type": "Operational Task",
+      "taskedDate": "25-Nov-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Need to design a slide for display\n16:9"
     }
   ],
   "payroll": {
