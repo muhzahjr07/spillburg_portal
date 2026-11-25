@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-25T05:40:48Z",
+  "exportTimestamp": "2026-11-25T05:41:04Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6891,6 +6891,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Create job vacancy posts for Spillburg Vacation and share them across recruitment channels, travel executive and assistant manager - business development"
+    },
+    {
+      "id": "ops_9863c8",
+      "no": 91,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Create a silde display banner for SLFBC Event",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Designing & Editing",
+      "type": "Operational Task",
+      "taskedDate": "24-Nov-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Need to design a slide for display\nCheckered board\n16:9"
     }
   ],
   "payroll": {
