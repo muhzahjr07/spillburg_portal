@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-25T05:41:47Z",
+  "exportTimestamp": "2026-11-25T05:44:19Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -8598,7 +8598,7 @@
             "lkrSalary": 0.0,
             "earnedLkr": 0.0,
             "workDays": "Oct 5 Days + 30 Days (Nov)",
-            "earnedGbp": 918.08,
+            "earnedGbp": 918.09,
             "bankAccountNo": "100790141631 (NSB)",
             "bankCode": "",
             "bankBranch": "National Savings Bank- Mirigama",
