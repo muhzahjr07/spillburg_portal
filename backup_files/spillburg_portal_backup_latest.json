@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-25T05:12:51Z",
+  "exportTimestamp": "2026-11-25T05:13:11Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -8386,22 +8386,23 @@
             "shortName": "Apna Geethmi",
             "position": "QA ANALYST",
             "gbpSalary": 786.93,
-            "lkrSalary": 0,
-            "earnedLkr": 0,
-            "workDays": "13 DAYS",
-            "earnedGbp": 330,
+            "lkrSalary": 0.0,
+            "earnedLkr": 0.0,
+            "workDays": "",
+            "earnedGbp": 786.93,
             "bankAccountNo": "202020086518",
             "bankCode": "",
             "bankBranch": "HATTON NATIONAL BANK PLC -HIKKADUWA",
             "tinNo": "170145712",
             "idNo": "986680390V",
             "dateJoined": "19/10/2026",
-            "specialAllowance": 0,
+            "specialAllowance": 0.0,
             "noPayLate": 0,
             "advance": 0,
             "loan": 0,
-            "apit": null,
-            "otherDeductions": 0.0
+            "apit": 0.0,
+            "otherDeductions": 0.0,
+            "fixedAllowance": 0.0
           },
           {
             "id": "emp_0c4080",
@@ -8472,7 +8473,7 @@
             "bankBranch": "DFCC Bank-Colombo 03",
             "tinNo": "176721855",
             "idNo": "200085300241",
-            "dateJoined": "26.10.2026",
+            "dateJoined": "",
             "fixedAllowance": 0.0,
             "specialAllowance": 0.0,
             "noPayLate": 0.0,
