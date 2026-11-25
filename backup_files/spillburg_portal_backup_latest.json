@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-25T05:11:15Z",
+  "exportTimestamp": "2026-11-25T05:11:54Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -8420,7 +8420,7 @@
             "bankBranch": "Sampath Bank -Colombo02",
             "tinNo": "217956447",
             "idNo": "926080857V",
-            "dateJoined": "",
+            "dateJoined": "26.10.2026",
             "fixedAllowance": 0.0,
             "specialAllowance": 0.0,
             "noPayLate": 0.0,
