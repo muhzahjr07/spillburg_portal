@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-25T05:33:53Z",
+  "exportTimestamp": "2026-11-25T05:37:13Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6874,6 +6874,23 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "After cleaning 3 Remote controls handed over to Mr.Shameel among top up new batteries for one."
+    },
+    {
+      "id": "ops_93e969",
+      "no": 90,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "Vacanices for Spillburg Vacation",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Office Operations",
+      "type": "Operational Task",
+      "taskedDate": "24-Nov-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Create job vacancy posts for Spillburg Vacation and share them across recruitment channels, travel executive and assistant manager - business development"
     }
   ],
   "payroll": {
