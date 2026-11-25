@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-25T05:15:07Z",
+  "exportTimestamp": "2026-11-25T05:18:17Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -8414,8 +8414,8 @@
             "gbpSalary": 1160.05,
             "lkrSalary": 0.0,
             "earnedLkr": 0.0,
-            "workDays": "",
-            "earnedGbp": 1160.05,
+            "workDays": "Oct 6 Days + 30 Days (Nov)",
+            "earnedGbp": 1384.57,
             "bankAccountNo": "105052907001 (Sampath)",
             "bankCode": "",
             "bankBranch": "Sampath Bank -Colombo02",
