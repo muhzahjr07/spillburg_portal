@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-25T05:11:54Z",
+  "exportTimestamp": "2026-11-25T05:12:05Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -8446,7 +8446,7 @@
             "bankBranch": "National Savings Bank- Mirigama",
             "tinNo": "111130442",
             "idNo": "958190387V",
-            "dateJoined": "",
+            "dateJoined": "26.10.2026",
             "fixedAllowance": 0.0,
             "specialAllowance": 0.0,
             "noPayLate": 0.0,
