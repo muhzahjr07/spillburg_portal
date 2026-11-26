@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-26T05:07:19Z",
+  "exportTimestamp": "2026-11-26T05:08:58Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6959,6 +6959,23 @@
       "priority": "High",
       "estimatedCost": "",
       "notes": "Called to Shehans office Rajagiriya ask me to come today morning to get signing audit reports"
+    },
+    {
+      "id": "ops_23b255",
+      "no": 93,
+      "userId": "usr_admin_zaharan",
+      "ownerUsername": "zaharan",
+      "title": "SLFBC QR Code for LinkedIn and Whatsapp Membership Application",
+      "requestedBy": "Mr. Shameel",
+      "assignedTo": "Muhammad Zaharan",
+      "workstream": "Digital Marketing",
+      "type": "Operational Task",
+      "taskedDate": "26-Nov-2026",
+      "completedDate": "",
+      "status": "Pending",
+      "priority": "Medium",
+      "estimatedCost": "",
+      "notes": "Create QR codes for SLFBC LinkedIn and WhatsApp membership application forms"
     }
   ],
   "payroll": {
