@@ -1,7 +1,7 @@
 {
   "portal": "Spillburg Holdings Corporate Portal",
   "version": "3.0",
-  "exportTimestamp": "2026-11-25T11:24:47Z",
+  "exportTimestamp": "2026-11-26T05:07:19Z",
   "storageLocation": "/opt/render/project/src/data",
   "users": [
     {
@@ -6925,6 +6925,40 @@
       "priority": "Medium",
       "estimatedCost": "",
       "notes": "Need to design a slide for display\n16:9"
+    },
+    {
+      "id": "ops_8e9b02",
+      "no": 256,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "ROC with Bilal pending PV s of 3 got approved 2 to Cc level among Apadmi was re submitted...",
+      "requestedBy": "Mr. Shaameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Corporate Secretarial & ROC",
+      "type": "ROC / Statutory Filing",
+      "taskedDate": "25-Nov-2025",
+      "completedDate": "",
+      "status": "In Progress",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Went to ROC with Bilal pending PV s of 3 got approved 2 to Cc level among Apadmi was re submitted due to entering passport code instead of passport no. Among Royalty MSB Investments form 6 & Coconut Hut BO 2 & Form 6 were registered on subject clerks record book.To be follow up Went to meet subject clerk who handling Secatary Registrations she was on leave. To be follow up Went to meet Ayesha got the informations for register the society in ROC as (Portcity Business Club Socity) got the format related to be filled & submitted on, on line Handed over to Mr Shameel"
+    },
+    {
+      "id": "ops_d46497",
+      "no": 257,
+      "userId": "usr_6b04a953",
+      "ownerUsername": "ravi",
+      "title": "Called to Shehans office Rajagiriya ask me to come today morning to get signing audit reports",
+      "requestedBy": "Mr. Shaameel",
+      "assignedTo": "Ravindralal Mahinda Wijeweera",
+      "workstream": "Accounting & Audit",
+      "type": "Accounting & Tax Compliance",
+      "taskedDate": "25-Nov-2025",
+      "completedDate": "25-Nov-2025",
+      "status": "Completed",
+      "priority": "High",
+      "estimatedCost": "",
+      "notes": "Called to Shehans office Rajagiriya ask me to come today morning to get signing audit reports"
     }
   ],
   "payroll": {
